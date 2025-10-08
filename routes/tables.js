@@ -32,7 +32,7 @@ router.post(
 			res.status(201).json(table);
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur" });
+			res.status(500).json({ message: "Erreur server" });
 		}
 	}
 );
@@ -42,7 +42,7 @@ router.get(
 	"/restaurant/:restaurantId",
 	auth,
 	validateObjectIds(["restaurantId"]),
-	checkRoles(["admin", "serveur"]),
+	checkRoles(["admin", "server"]),
 	checkUserRestaurant("restaurantId"),
 	async (req, res) => {
 		try {
@@ -55,7 +55,7 @@ router.get(
 			res.json(tables);
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur" });
+			res.status(500).json({ message: "Erreur server" });
 		}
 	}
 );
@@ -89,7 +89,7 @@ router.put(
 			res.json(updated);
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur" });
+			res.status(500).json({ message: "Erreur server" });
 		}
 	}
 );
@@ -109,7 +109,7 @@ router.delete(
 			res.json({ message: "Table supprimée." });
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur" });
+			res.status(500).json({ message: "Erreur server" });
 		}
 	}
 );

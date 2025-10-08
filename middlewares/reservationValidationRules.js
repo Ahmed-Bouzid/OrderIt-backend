@@ -56,7 +56,7 @@ const reservationValidationRules = [
 		.optional()
 		.isString()
 		.isLength({ max: 50 })
-		.withMessage("Nom du serveur trop long"),
+		.withMessage("Nom du server trop long"),
 
 	body("orderSummary")
 		.optional()
@@ -77,6 +77,10 @@ const reservationValidationRules = [
 		.optional()
 		.isFloat({ min: 0 })
 		.withMessage("Montant total invalide"),
+	body("status")
+		.optional()
+		.isIn(["ouverte", "fermee", "annulee", "en attente"])
+		.withMessage("Statut invalide"),
 ];
 
 module.exports = reservationValidationRules;

@@ -1,11 +1,6 @@
 module.exports = function checkRoles(allowedRoles) {
 	return (req, res, next) => {
 		try {
-			if (process.env.NODE_ENV !== "production") {
-				console.log(`[checkRoles] Rôle utilisateur: ${req.user?.role}`);
-				console.log(`[checkRoles] Rôles autorisés: ${allowedRoles.join(", ")}`);
-			}
-
 			if (!req.user) {
 				if (process.env.NODE_ENV !== "production")
 					console.warn(
@@ -20,7 +15,11 @@ module.exports = function checkRoles(allowedRoles) {
 				return res.status(403).json({ message: "Rôle utilisateur manquant." });
 			}
 
-			if (!allowedRoles.includes(req.user.role)) {
+			// ✅ Harmonisation rôle "server" <-> "server"
+			let userRole = req.user.role;
+			if (userRole === "server") userRole = "server";
+
+			if (!allowedRoles.includes(userRole)) {
 				if (process.env.NODE_ENV !== "production")
 					console.warn(
 						`[checkRoles] Accès refusé pour le rôle: ${req.user.role}`
@@ -35,7 +34,7 @@ module.exports = function checkRoles(allowedRoles) {
 			next();
 		} catch (error) {
 			console.error("Erreur dans checkRoles:", error);
-			res.status(500).json({ message: "Erreur serveur interne." });
+			res.status(500).json({ message: "Erreur server interne." });
 		}
 	};
 };

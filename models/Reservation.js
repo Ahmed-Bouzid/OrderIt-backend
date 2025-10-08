@@ -23,7 +23,7 @@ const reservationSchema = new mongoose.Schema(
 		status: {
 			type: String,
 			enum: ["ouverte", "fermee", "annulee", "en attente"],
-			default: "en attente",
+			default: "en attente", // <- ici
 			index: true,
 		},
 		clientName: { type: String, required: true, trim: true },

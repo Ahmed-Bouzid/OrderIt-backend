@@ -55,17 +55,17 @@ router.post("/login", async (req, res) => {
 			sameSite: "strict",
 			maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
 		});
-
 		return res.json({
 			accessToken,
 			userId: user._id,
 			email: user.email,
 			role: user.role,
 			userType,
+			restaurantId: user.restaurantId || null, // <-- ajoute cette ligne
 		});
 	} catch (err) {
 		console.error("Erreur login:", err);
-		return res.status(500).json({ message: "Erreur serveur." });
+		return res.status(500).json({ message: "Erreur server." });
 	}
 });
 
@@ -125,7 +125,7 @@ router.post("/refresh", async (req, res) => {
 		);
 	} catch (err) {
 		console.error("Erreur refresh token:", err);
-		return res.status(500).json({ message: "Erreur serveur." });
+		return res.status(500).json({ message: "Erreur server." });
 	}
 });
 
@@ -168,7 +168,7 @@ router.post("/logout", async (req, res) => {
 		res.status(200).json({ message: "Déconnexion réussie." });
 	} catch (err) {
 		console.error("Erreur logout :", err);
-		res.status(500).json({ message: "Erreur serveur lors de la déconnexion." });
+		res.status(500).json({ message: "Erreur server lors de la déconnexion." });
 	}
 });
 

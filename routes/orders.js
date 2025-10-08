@@ -1,165 +1,39 @@
+const validateObjectIds = require("../middlewares/validateObjectId");
+const mongoose = require("mongoose");
+const auth = require("../middlewares/auth");
 const express = require("express");
 const router = express.Router();
-const Order = require("../models/Order");
+const checkRoles = require("../middlewares/checkRoles");
+const checkUserRestaurantBody = require("../middlewares/checkUserRestaurant");
+const orderValidationRules = require("../middlewares/orderValidationRules");
 const Table = require("../models/Table");
 const Product = require("../models/Product");
-const validateObjectIds = require("../middlewares/validateObjectId");
-const checkUserRestaurant = require("../middlewares/checkUserRestaurant");
+const Order = require("../models/Order");
+const { validationResult } = require("express-validator");
 
-const checkRoles = require("../middlewares/checkRoles");
-const mongoose = require("mongoose");
-
-const auth = require("../middlewares/auth");
-
-// POST /orders — Création d'une commande (serveur ou admin)
 router.post(
 	"/",
 	auth,
-	checkRoles(["serveur", "admin"]),
-	checkUserRestaurant("restaurantId"),
+	checkRoles(["server", "admin", "server"]),
+	checkUserRestaurantBody("restaurantId"),
+	orderValidationRules,
 	async (req, res) => {
-		try {
-			const { tableId, items, total, status, restaurantId } = req.body;
-
-			if (!tableId) {
-				return res.status(400).json({ message: "tableId est requis." });
-			}
-			if (!items || items.length === 0) {
-				return res.status(400).json({ message: "Produit(s) requis." });
-			}
-			if (typeof total !== "number" || total <= 0) {
-				return res
-					.status(400)
-					.json({ message: "total doit être un nombre positif." });
-			}
-
-			const table = await Table.findOne({
-				_id: new mongoose.Types.ObjectId(tableId),
-				restaurantId: new mongoose.Types.ObjectId(restaurantId),
-			});
-
-			if (!table) {
-				return res
-					.status(400)
-					.json({ message: "Table invalide ou non trouvée." });
-			}
-
-			let computedTotal = 0;
-			for (const item of items) {
-				if (
-					!item.productId ||
-					typeof item.quantity !== "number" ||
-					item.quantity <= 0
-				) {
-					return res.status(400).json({
-						message:
-							"Chaque produit doit avoir un productId valide et une quantité positive.",
-					});
-				}
-
-				const product = await Product.findOne({
-					_id: new mongoose.Types.ObjectId(item.productId),
-					restaurantId: new mongoose.Types.ObjectId(restaurantId),
-				});
-
-				if (!product) {
-					return res.status(400).json({
-						message: `Produit invalide : ${item.productId}`,
-					});
-				}
-
-				computedTotal += product.price * item.quantity;
-			}
-
-			if (Math.abs(computedTotal - total) > 0.01) {
-				return res.status(400).json({
-					message: `Total incorrect. Montant attendu : ${computedTotal.toFixed(
-						2
-					)}.`,
-				});
-			}
-
-			const validStatuses = [
-				"pending",
-				"in_progress",
-				"completed",
-				"cancelled",
-			];
-			let orderStatus = "in_progress";
-			if (status && validStatuses.includes(status)) {
-				orderStatus = status;
-			} else if (status) {
-				return res.status(400).json({
-					message: `Status invalide. Valeurs autorisées : ${validStatuses.join(
-						", "
-					)}`,
-				});
-			}
-			console.log("Requête reçue:", req.body);
-
-			const newOrder = new Order({
-				tableId,
-				items,
-				total,
-				status: orderStatus,
-				restaurantId,
-				serverId: req.user.id,
-			});
-
-			await newOrder.save();
-
-			res.status(201).json({
-				message: "Commande créée avec succès.",
-				order: newOrder,
-			});
-		} catch (err) {
-			console.error("💥 Erreur serveur:", err);
-			res.status(500).json({ message: "Erreur serveur." });
+		const errors = validationResult(req);
+		if (!errors.isEmpty()) {
+			return res.status(400).json({ errors: errors.array() });
 		}
-	}
-);
 
-// GET /orders/:restaurantId - Liste commandes d’un restaurant
-router.get(
-	"/:restaurantId",
-	auth,
-	validateObjectIds(["orderId"]),
-	checkUserRestaurant("restaurantId"),
-	checkRoles(["serveur", "admin"]),
-	async (req, res) => {
 		try {
-			const orders = await Order.find({ restaurantId: req.params.restaurantId })
-				.populate("tableId", "number")
-				.populate("serverId", "name serverId");
-			res.json(orders);
+			const { items } = req.body;
+
+			// Afficher chaque item dans la console
+
+			const order = new Order(req.body);
+			await order.save();
+			res.status(201).json(order);
 		} catch (err) {
 			console.error(err);
-			res
-				.status(500)
-				.json({ message: "Erreur lors du chargement des commandes." });
-		}
-	}
-);
-
-// GET /orders/details/:orderId - Détail d’une commande
-router.get(
-	"/details/:orderId",
-	auth,
-	validateObjectIds(["orderId"]),
-	checkRoles(["serveur", "admin"]),
-	async (req, res) => {
-		try {
-			const order = await Order.findById(req.params.orderId)
-				.populate("tableId", "number")
-				.populate("serverId", "name serverId");
-			if (!order)
-				return res.status(404).json({ message: "Commande non trouvée." });
-			res.json(order);
-		} catch (err) {
-			console.error(err);
-			res
-				.status(500)
-				.json({ message: "Erreur lors du chargement de la commande." });
+			res.status(500).json({ message: "Erreur server" });
 		}
 	}
 );
@@ -167,13 +41,13 @@ router.get(
 router.get(
 	"/table/:tableId",
 	auth,
-	validateObjectIds(["orderId"]),
-	checkRoles(["serveur", "admin"]),
+	validateObjectIds(["tableId"]),
+	checkRoles(["server", "admin", "server"]),
 	async (req, res) => {
 		try {
 			const orders = await Order.find({ tableId: req.params.tableId })
 				.populate("tableId", "number")
-				.populate("serverId", "name serverId");
+				.populate("serverId", "name");
 			res.json(orders);
 		} catch (err) {
 			console.error(err);
@@ -188,7 +62,7 @@ router.get(
 	"/server/:serverId",
 	auth,
 	validateObjectIds(["orderId"]),
-	checkRoles(["serveur", "admin"]),
+	checkRoles(["server", "admin"]),
 	async (req, res) => {
 		try {
 			const orders = await Order.find({ serverId: req.params.serverId })
@@ -212,7 +86,7 @@ router.put(
 	"/:id",
 	auth,
 	validateObjectIds(["orderId"]),
-	checkRoles(["serveur", "admin"]),
+	checkRoles(["server", "admin"]),
 	async (req, res) => {
 		try {
 			const orderId = req.params.id;

@@ -45,11 +45,11 @@ router.post("/admin", adminValidation, async (req, res) => {
 		res.status(201).json({ message: "Premier admin créé avec succès." });
 	} catch (err) {
 		console.error("Erreur création admin :", err);
-		res.status(500).json({ message: "Erreur serveur." });
+		res.status(500).json({ message: "Erreur server." });
 	}
 });
 
-// === Route login pour admin et serveur ===
+// === Route login pour admin et server ===
 router.post("/login", async (req, res) => {
 	try {
 		const { email, password } = req.body;
@@ -108,14 +108,14 @@ router.post("/login", async (req, res) => {
 		});
 	} catch (err) {
 		console.error(err);
-		res.status(500).json({ message: "Erreur serveur." });
+		res.status(500).json({ message: "Erreur server." });
 	}
 });
 
 // === Middleware global d’authentification pour les routes suivantes ===
 router.use(auth);
 
-// === Création d’un serveur (admin uniquement) ===
+// === Création d’un server (admin uniquement) ===
 router.post(
 	"/",
 	auth,
@@ -152,7 +152,7 @@ router.post(
 				name,
 				email,
 				passwordHash,
-				role: role || "serveur",
+				role: role || "server",
 				restaurantId,
 				serverId,
 			});
@@ -163,19 +163,19 @@ router.post(
 				$push: { servers: newServer._id },
 			});
 
-			res.status(201).json({ message: "Serveur créé.", serveur: newServer });
+			res.status(201).json({ message: "server créé.", server: newServer });
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur." });
+			res.status(500).json({ message: "Erreur server." });
 		}
 	}
 );
 
-// === Liste des serveurs d’un restaurant (admin uniquement) ===
+// === Liste des servers d’un restaurant (admin uniquement) ===
 router.get(
 	"/:restaurantId",
 	validateObjectIds(["restaurantId"]),
-	checkRoles(["admin"]),
+	checkRoles(["admin", "server"]),
 	checkUserRestaurant("restaurantId"),
 	async (req, res) => {
 		try {
@@ -185,12 +185,12 @@ router.get(
 			res.json(servers);
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur." });
+			res.status(500).json({ message: "Erreur server." });
 		}
 	}
 );
 
-// === Modification d’un serveur (admin uniquement) ===
+// === Modification d’un server (admin uniquement) ===
 router.put(
 	"/:serverId",
 	validateObjectIds(["serverId"]),
@@ -226,18 +226,18 @@ router.put(
 			).select("-passwordHash");
 
 			if (!updatedServer) {
-				return res.status(404).json({ message: "Serveur non trouvé." });
+				return res.status(404).json({ message: "server non trouvé." });
 			}
 
-			res.json({ message: "Serveur modifié.", server: updatedServer });
+			res.json({ message: "server modifié.", server: updatedServer });
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur." });
+			res.status(500).json({ message: "Erreur server." });
 		}
 	}
 );
 
-// === Suppression d’un serveur (admin uniquement) ===
+// === Suppression d’un server (admin uniquement) ===
 router.delete(
 	"/:serverId",
 	validateObjectIds(["serverId"]),
@@ -247,12 +247,12 @@ router.delete(
 		try {
 			const deleted = await Server.findByIdAndDelete(req.params.serverId);
 			if (!deleted) {
-				return res.status(404).json({ message: "Serveur non trouvé." });
+				return res.status(404).json({ message: "server non trouvé." });
 			}
-			res.json({ message: "Serveur supprimé." });
+			res.json({ message: "server supprimé." });
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur." });
+			res.status(500).json({ message: "Erreur server." });
 		}
 	}
 );

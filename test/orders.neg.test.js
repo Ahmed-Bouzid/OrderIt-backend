@@ -8,7 +8,7 @@ const Table = require("../models/Table");
 
 describe("Orders négatifs", () => {
 	let tokenAdmin;
-	let tokenServeur;
+	let tokenserver;
 	let restaurantId;
 	let tableId;
 	let productId;
@@ -45,10 +45,10 @@ describe("Orders négatifs", () => {
 			{ expiresIn: "1h" }
 		);
 
-		tokenServeur = jwt.sign(
+		tokenserver = jwt.sign(
 			{
 				email: "bob@chezahmed.fr",
-				role: "serveur",
+				role: "server",
 				id: new mongoose.Types.ObjectId(),
 			},
 			process.env.JWT_SECRET,
@@ -65,7 +65,7 @@ describe("Orders négatifs", () => {
 		// Test d’un rôle sans accès admin
 		const res = await request(app)
 			.delete("/orders/686af692bb4cba684ff3b757")
-			.set("Authorization", `Bearer ${tokenServeur}`);
+			.set("Authorization", `Bearer ${tokenserver}`);
 		expect(res.statusCode).toBe(403);
 	});
 

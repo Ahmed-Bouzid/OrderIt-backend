@@ -12,7 +12,7 @@ const Table = require("../models/Table");
 
 describe("Tables négatifs", () => {
 	let tokenAdmin;
-	let tokenServeur;
+	let tokenserver;
 
 	beforeAll(() => {
 		tokenAdmin = jwt.sign(
@@ -21,7 +21,7 @@ describe("Tables négatifs", () => {
 			{ expiresIn: "1h" }
 		);
 
-		tokenServeur = jwt.sign(
+		tokenserver = jwt.sign(
 			{ email: "user@chezpapa.com", role: "client" }, // rôle NON autorisé
 			process.env.JWT_SECRET,
 			{ expiresIn: "1h" }
@@ -38,7 +38,7 @@ describe("Tables négatifs", () => {
 	it("❌ Doit retourner 403 si rôle insuffisant", async () => {
 		const res = await request(app)
 			.get("/tables/restaurant/68663954eafb319d3a42591a")
-			.set("Authorization", `Bearer ${tokenServeur}`);
+			.set("Authorization", `Bearer ${tokenserver}`);
 		expect(res.statusCode).toBe(403);
 	}, 10000); // tu peux laisser 10s ici
 });

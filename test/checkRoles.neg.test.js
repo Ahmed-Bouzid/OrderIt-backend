@@ -8,9 +8,9 @@ describe("checkRoles négatifs", () => {
 	let tokenUser;
 
 	beforeAll(() => {
-		// Token avec rôle non autorisé "serveur"
+		// Token avec rôle non autorisé "server"
 		tokenUser = jwt.sign(
-			{ email: "user@chezpapa.com", role: "serveur" },
+			{ email: "user@chezpapa.com", role: "server" },
 			process.env.JWT_SECRET,
 			{ expiresIn: "1h" }
 		);
@@ -25,7 +25,7 @@ describe("checkRoles négatifs", () => {
 
 		expect(res.statusCode).toBe(403);
 		expect(res.body.message).toMatch(/accès refusé/i);
-		expect(res.body.role).toBe("serveur");
+		expect(res.body.role).toBe("server");
 	});
 	afterAll(async () => {
 		await mongoose.connection.close();

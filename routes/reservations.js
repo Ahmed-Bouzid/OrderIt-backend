@@ -13,11 +13,11 @@ const checkUserRestaurantBody = require("../middlewares/checkUserRestaurantBody"
 // Validation simple pour réservation
 const reservationValidationRules = require("../middlewares/reservationValidationRules");
 
-// POST / - création réservation (admin / serveur)
+// POST / - création réservation (admin / server)
 router.post(
 	"/",
 	auth,
-	checkRoles(["admin", "serveur", "server"]),
+	checkRoles(["admin", "server"]),
 	checkUserRestaurantBody("restaurantId"),
 	reservationValidationRules, // <- tes règles de validation
 	async (req, res) => {
@@ -37,7 +37,7 @@ router.post(
 			res.status(201).json(reservation);
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur" });
+			res.status(500).json({ message: "Erreur server" });
 		}
 	}
 );
@@ -47,7 +47,7 @@ router.get(
 	"/:id",
 	auth,
 	validateObjectIds(["id"]),
-	checkRoles(["admin", "serveur"]),
+	checkRoles(["admin", "server"]),
 	async (req, res) => {
 		try {
 			const reservation = await Reservation.findById(req.params.id);
@@ -56,18 +56,19 @@ router.get(
 			res.json(reservation);
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur" });
+			res.status(500).json({ message: "Erreur server" });
 		}
 	}
 );
 
-router.get("/", auth, checkRoles(["admin", "serveur"]), async (req, res) => {
+// GET /:id - récupérer toutes les réservations
+router.get("/", auth, checkRoles(["admin", "server"]), async (req, res) => {
 	try {
 		const reservations = await Reservation.find();
 		res.json(reservations);
 	} catch (err) {
 		console.error(err);
-		res.status(500).json({ message: "Erreur serveur" });
+		res.status(500).json({ message: "Erreur server" });
 	}
 });
 
@@ -76,7 +77,7 @@ router.put(
 	"/:id",
 	auth,
 	validateObjectIds(["id"]),
-	checkRoles(["admin", "serveur"]),
+	checkRoles(["admin", "server"]),
 	reservationValidationRules,
 	async (req, res) => {
 		// <- vérification des erreurs
@@ -103,6 +104,7 @@ router.put(
 			"dishStatus",
 			"paymentMethod",
 			"totalAmount",
+			"status",
 		];
 
 		const updates = Object.fromEntries(
@@ -120,39 +122,76 @@ router.put(
 			res.json(updated);
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur" });
+			res.status(500).json({ message: "Erreur server" });
 		}
 	}
 );
-//PUT status annulé
-// PUT /reservations/:id/toggle
+
+// Toggle Présent / Absent
 router.put(
-	"/:id/toggle",
+	"/:id/togglePresent",
 	auth,
-	checkRoles(["admin", "serveur"]),
+	checkRoles(["admin", "server"]),
 	async (req, res) => {
-		console.log("Tentative toggle, ID :", req.params.id);
 		try {
 			const reservation = await Reservation.findById(req.params.id);
+			if (!reservation)
+				return res.status(404).json({ message: "Réservation non trouvée" });
+
+			// Ne rien faire si terminé/fermé
+			if (reservation.status === "fermee") {
+				return res
+					.status(400)
+					.json({ message: "Impossible de modifier une réservation terminée" });
+			}
+
+			reservation.isPresent = !reservation.isPresent;
+			await reservation.save();
+
+			res.json(reservation);
+		} catch (err) {
+			console.error(err);
+			res.status(500).json({ message: "Erreur server" });
+		}
+	}
+);
+
+// Mettre à jour le statut d’une réservation (en attente, annulé, fermee, ouverte, etc.)
+router.put(
+	"/:id/status",
+	auth,
+	checkRoles(["admin", "server"]),
+	async (req, res) => {
+		try {
+			const { status } = req.body; // le nouveau statut envoyé par le front
+			const allowedStatuses = ["en attente", "annulee", "fermee", "ouverte"];
+
+			// Vérification que le statut demandé est valide
+			if (!allowedStatuses.includes(status)) {
+				return res.status(400).json({ message: "Statut invalide" });
+			}
+
+			const reservation = await Reservation.findById(req.params.id);
 			if (!reservation) {
-				console.log("Réservation introuvable dans la DB");
 				return res.status(404).json({ message: "Réservation non trouvée" });
 			}
 
-			const newStatus =
-				reservation.dishStatus === "Annulé" ? "En attente" : "Annulé";
+			// Si la résa est déjà fermée, on interdit de la modifier
+			if (reservation.status === "fermee" && status !== "fermee") {
+				return res
+					.status(400)
+					.json({ message: "Impossible de modifier une réservation terminée" });
+			}
 
-			const updated = await Reservation.findByIdAndUpdate(
-				req.params.id,
-				{ dishStatus: newStatus },
-				{ new: true }
-			);
+			// Mise à jour
+			reservation.status = status;
+			reservation.isPresent = false; // reset quand on change de statut
+			await reservation.save();
 
-			console.log("Réservation mise à jour :", updated);
-			res.json(updated);
+			res.json(reservation);
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur" });
+			res.status(500).json({ message: "Erreur server" });
 		}
 	}
 );
@@ -162,7 +201,7 @@ router.delete(
 	"/:id",
 	auth,
 	validateObjectIds(["id"]),
-	checkRoles(["admin", "serveur"]),
+	checkRoles(["admin", "server"]),
 	async (req, res) => {
 		try {
 			const deleted = await Reservation.findByIdAndDelete(req.params.id);
@@ -171,7 +210,7 @@ router.delete(
 			res.json({ message: "Réservation supprimée" });
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur" });
+			res.status(500).json({ message: "Erreur server" });
 		}
 	}
 );
@@ -181,7 +220,7 @@ router.get(
 	"/restaurant/:restaurantId",
 	auth,
 	validateObjectIds(["restaurantId"]),
-	checkRoles(["admin", "serveur"]),
+	checkRoles(["admin", "server"]),
 	checkUserRestaurant("restaurantId"),
 	async (req, res) => {
 		try {
@@ -223,7 +262,7 @@ router.get(
 			});
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur" });
+			res.status(500).json({ message: "Erreur server" });
 		}
 	}
 );

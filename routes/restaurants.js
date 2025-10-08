@@ -45,12 +45,12 @@ router.post(
 			res.status(201).json({ message: "Restaurant créé avec succès." });
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur." });
+			res.status(500).json({ message: "Erreur server." });
 		}
 	}
 );
 
-// Ajout d’un serveur
+// Ajout d’un server
 router.post(
 	"/:id/server",
 	auth,
@@ -98,10 +98,10 @@ router.post(
 
 			res
 				.status(201)
-				.json({ message: "Serveur ajouté avec succès.", server: newServer });
+				.json({ message: "server ajouté avec succès.", server: newServer });
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur lors de l'ajout du serveur." });
+			res.status(500).json({ message: "Erreur lors de l'ajout du server." });
 		}
 	}
 );
@@ -113,11 +113,11 @@ router.get("/", auth, checkRoles(["admin"]), async (req, res) => {
 		res.json(restaurants);
 	} catch (err) {
 		console.error(err);
-		res.status(500).json({ message: "Erreur serveur." });
+		res.status(500).json({ message: "Erreur server." });
 	}
 });
 
-// Liste des serveurs d’un restaurant
+// Liste des servers d’un restaurant
 router.get(
 	"/:id/servers",
 	auth,
@@ -134,7 +134,7 @@ router.get(
 		} catch (err) {
 			console.error(err);
 			res.status(500).json({
-				message: "Erreur serveur lors de la récupération des serveurs.",
+				message: "Erreur server lors de la récupération des servers.",
 			});
 		}
 	}
@@ -157,7 +157,7 @@ router.get(
 			res.json(restaurant);
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur." });
+			res.status(500).json({ message: "Erreur server." });
 		}
 	}
 );
@@ -201,7 +201,7 @@ router.put(
 			res.json({ message: "Restaurant modifié.", restaurant: updated });
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur." });
+			res.status(500).json({ message: "Erreur server." });
 		}
 	}
 );
@@ -221,7 +221,7 @@ router.delete(
 			res.json({ message: "Restaurant supprimé." });
 		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur serveur." });
+			res.status(500).json({ message: "Erreur server." });
 		}
 	}
 );
@@ -274,7 +274,7 @@ router.get(
 	"/:restaurantId/products",
 	auth,
 	validateObjectIds(["restaurantId"]),
-	checkRoles(["admin", "restaurant", "serveur"]),
+	checkRoles(["admin", "restaurant", "server"]),
 	checkUserRestaurant("restaurantId"),
 	async (req, res) => {
 		try {

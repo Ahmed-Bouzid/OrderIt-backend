@@ -12,7 +12,7 @@ mongoose
 	.then(() => {
 		console.log("✅ MongoDB connecté");
 		app.listen(port, "0.0.0.0", () => {
-			console.log(`🚀 Serveur EasyQR démarré sur http://0.0.0.0:${port}`);
+			console.log(`🚀 server EasyQR démarré sur http://0.0.0.0:${port}`);
 		});
 	})
 	.catch((err) => {

@@ -1,6 +1,6 @@
 const { body } = require("express-validator");
 
-// Validation création/maj serveur
+// Validation création/maj server
 const serverValidationRules = [
 	body("name").notEmpty().withMessage("Le nom est obligatoire."),
 	body("email").isEmail().withMessage("Email invalide."),

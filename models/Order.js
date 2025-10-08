@@ -92,7 +92,7 @@ orderSchema.index({
 	createdAt: -1,
 });
 
-// Index pour les recherches par serveur et date
+// Index pour les recherches par server et date
 orderSchema.index({
 	serverId: 1,
 	createdAt: -1,

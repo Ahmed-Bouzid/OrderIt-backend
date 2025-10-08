@@ -28,6 +28,7 @@ app.use("/orders", auth, require("./routes/orders"));
 app.use("/tables", auth, require("./routes/tables"));
 app.use("/servers", require("./routes/servers"));
 app.use("/reservations", require("./routes/reservations"));
+app.use("/products", auth, require("./routes/products"));
 
 // ⚠ N'écoute pas ici, on exporte seulement l'app
 module.exports = app;

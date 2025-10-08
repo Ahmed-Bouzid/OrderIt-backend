@@ -6,7 +6,7 @@ const mongoose = require("mongoose");
 
 describe("Products négatifs", () => {
 	let tokenAdmin;
-	let tokenServeur;
+	let tokenserver;
 
 	beforeAll(() => {
 		tokenAdmin = jwt.sign(
@@ -15,8 +15,8 @@ describe("Products négatifs", () => {
 			{ expiresIn: "1h" }
 		);
 
-		tokenServeur = jwt.sign(
-			{ email: "user@chezpapa.com", role: "serveur" },
+		tokenserver = jwt.sign(
+			{ email: "user@chezpapa.com", role: "server" },
 			process.env.JWT_SECRET,
 			{ expiresIn: "1h" }
 		);
@@ -33,7 +33,7 @@ describe("Products négatifs", () => {
 		// Supposons que seuls admin et gestionnaire peuvent créer un produit
 		const res = await request(app)
 			.post("/restaurants/6866a3528244aada5105a832/products")
-			.set("Authorization", `Bearer ${tokenServeur}`)
+			.set("Authorization", `Bearer ${tokenserver}`)
 			.send({
 				name: "Produit test",
 				price: 10,

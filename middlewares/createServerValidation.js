@@ -1,4 +1,4 @@
-//Validation complète pour création serveur, incluant restaurantId dans le body
+//Validation complète pour création server, incluant restaurantId dans le body
 const serverValidationRules = require("../middlewares/serverValidationRules");
 
 const { body } = require("express-validator");
