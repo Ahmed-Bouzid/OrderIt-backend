@@ -172,4 +172,35 @@ router.post("/logout", async (req, res) => {
 	}
 });
 
+// Dans routes/auth.js ou un nouveau fichier
+const jwt = require("jsonwebtoken");
+
+router.post("/client-token", (req, res) => {
+	try {
+		const { restaurantId } = req.body;
+
+		if (!restaurantId) {
+			return res.status(400).json({ message: "Restaurant ID requis" });
+		}
+
+		const clientToken = jwt.sign(
+			{
+				type: "client",
+				restaurantId: restaurantId,
+				access: "public",
+			},
+			process.env.JWT_SECRET,
+			{ expiresIn: "7d" } // Token valide 7 jours
+		);
+
+		res.json({
+			token: clientToken,
+			expiresIn: "7d",
+		});
+	} catch (error) {
+		console.error("❌ Erreur génération client token:", error);
+		res.status(500).json({ message: "Erreur serveur" });
+	}
+});
+
 module.exports = router;
