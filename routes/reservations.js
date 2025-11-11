@@ -196,6 +196,82 @@ router.put(
 	}
 );
 
+// PUT /:id/assignTable - assigner une table à une réservation
+
+// PATCH /assignTable/:id
+// backend/routes/reservations.js
+// backend/routes/reservations.js
+router.patch("/assignTable/:id", auth, async (req, res) => {
+	try {
+		const { tableId, oldTableId } = req.body;
+		const reservationId = req.params.id;
+
+		console.log("🔄 Assignation table:");
+
+		// 1. Libérer l'ancienne table SI elle existe
+		if (oldTableId) {
+			const oldTable = await Table.findById(oldTableId);
+			if (oldTable) {
+				oldTable.isAvailable = true;
+				await oldTable.save(); // ⭐ UTILISER save()
+				console.log(
+					"🔓 Ancienne table libérée:",
+					oldTable.number,
+					"isAvailable:",
+					oldTable.isAvailable
+				);
+			}
+		}
+
+		// 2. Occuper la nouvelle table
+		const newTable = await Table.findById(tableId);
+		if (newTable) {
+			newTable.isAvailable = false;
+			await newTable.save(); // ⭐ UTILISER save()
+			console.log(
+				"🔒 Nouvelle table occupée:",
+				newTable.number,
+				"isAvailable:",
+				newTable.isAvailable
+			);
+		}
+
+		// 3. Mettre à jour la réservation
+		const updatedReservation = await Reservation.findByIdAndUpdate(
+			reservationId,
+			{ tableId: tableId },
+			{ new: true }
+		).populate("tableId");
+
+		console.log("✅ Réservation mise à jour");
+
+		res.json(updatedReservation);
+	} catch (err) {
+		console.error("🚨 Erreur assignation table:", err);
+		res.status(500).json({ message: "Erreur serveur" });
+	}
+});
+
+router.patch(
+	"/releaseTable/:tableId",
+	auth,
+	checkRoles(["admin", "server"]),
+	async (req, res) => {
+		try {
+			const table = await Table.findById(req.params.tableId);
+			if (!table) return res.status(404).json({ message: "Table non trouvée" });
+
+			table.isAvailable = true;
+			await table.save();
+
+			res.json({ message: "Table libérée", table });
+		} catch (err) {
+			console.error(err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	}
+);
+
 // DELETE /:id - supprimer réservation
 router.delete(
 	"/:id",

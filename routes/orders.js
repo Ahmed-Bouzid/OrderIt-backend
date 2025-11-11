@@ -13,27 +13,63 @@ const { validationResult } = require("express-validator");
 
 router.post(
 	"/",
-	auth,
-	checkRoles(["server", "admin", "server"]),
-	checkUserRestaurantBody("restaurantId"),
-	orderValidationRules,
+	auth, // middleware qui décode le JWT et met req.user
 	async (req, res) => {
+		const { role, tableId: clientTableId } = req.user; // token limité pour client ou token serveur/admin
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
 			return res.status(400).json({ errors: errors.array() });
 		}
 
 		try {
-			const { items } = req.body;
+			let { tableId, items, total, status, restaurantId, serverId } = req.body;
 
-			// Afficher chaque item dans la console
+			// 🌟 Si c'est un client, on lui impose la table du token
+			if (role === "client") {
+				tableId = clientTableId;
+				serverId = null; // pas de serveur pour les commandes clients
+				status = "in_progress"; // statut initial pour les clients
+			} else if (!["server", "admin"].includes(role)) {
+				return res.status(403).json({ message: "Rôle non autorisé" });
+			}
 
-			const order = new Order(req.body);
+			// Vérification items
+			if (!items || !Array.isArray(items) || items.length === 0) {
+				return res.status(400).json({ message: "Aucun produit sélectionné" });
+			}
+
+			// Vérification du total
+			const calculatedTotal = items.reduce(
+				(sum, i) => sum + i.price * i.quantity,
+				0
+			);
+			if (total !== calculatedTotal) {
+				return res
+					.status(400)
+					.json({ message: "Le total ne correspond pas aux articles" });
+			}
+
+			// Création de la commande
+			const order = new Order({
+				tableId,
+				items,
+				total,
+				status,
+				restaurantId,
+				serverId,
+				origin: role === "client" ? "client" : "server",
+			});
+
 			await order.save();
+
+			// 🔔 Réponse
 			res.status(201).json(order);
 		} catch (err) {
-			console.error(err);
-			res.status(500).json({ message: "Erreur server" });
+			console.error("Erreur création commande :", err); // log complet côté serveur
+			res.status(500).json({
+				message: err.message, // renvoie le vrai message d'erreur
+				stack: err.stack, // optionnel : détail complet pour le dev
+			});
 		}
 	}
 );
@@ -42,12 +78,20 @@ router.get(
 	"/table/:tableId",
 	auth,
 	validateObjectIds(["tableId"]),
-	checkRoles(["server", "admin", "server"]),
 	async (req, res) => {
 		try {
-			const orders = await Order.find({ tableId: req.params.tableId })
+			let query = { tableId: req.params.tableId };
+
+			// Si c'est un client, on limite à ses commandes seulement
+			if (req.user.role === "client") {
+				query.origin = "client";
+				query.userId = req.user._id; // si tu as ajouté userId dans l'Order
+			}
+
+			const orders = await Order.find(query)
 				.populate("tableId", "number")
 				.populate("serverId", "name");
+
 			res.json(orders);
 		} catch (err) {
 			console.error(err);

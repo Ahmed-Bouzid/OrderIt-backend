@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const Product = require("../models/Product");
 const { body, validationResult } = require("express-validator");
-
 const auth = require("../middlewares/auth");
 const checkRoles = require("../middlewares/checkRoles");
 const validateObjectIds = require("../middlewares/validateObjectId");
@@ -67,7 +66,7 @@ router.get(
 	"/restaurant/:restaurantId",
 	auth,
 	validateObjectIds(["restaurantId"]),
-	checkRoles(["admin", "server", "server"]),
+	checkRoles(["admin", "server", "server", "client"]),
 	checkUserRestaurant("restaurantId"),
 	async (req, res) => {
 		try {

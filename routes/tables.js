@@ -10,6 +10,7 @@ const checkUserRestaurant = require("../middlewares/checkUserRestaurant");
 const tableValidationRules = require("../middlewares/tableValidationRules");
 const tableUpdateValidationRules = require("../middlewares/tableUpdateValidationRules");
 const checkUserRestaurantBody = require("../middlewares/checkUserRestaurantBody");
+const Order = require("../models/Order");
 
 // POST / - création table (admin)
 
@@ -46,16 +47,48 @@ router.get(
 	checkUserRestaurant("restaurantId"),
 	async (req, res) => {
 		try {
-			const tables = await Table.find({
-				restaurantId: req.params.restaurantId,
-			}).maxTimeMS(10000);
-			if (!tables.length) {
-				return res.status(404).json({ message: "Aucune table trouvée." });
-			}
+			const restaurantId = req.params.restaurantId;
+
+			console.log("🔄 Fetch tables pour restaurantId:", restaurantId);
+
+			// Mongoose convertit automatiquement les strings en ObjectId
+			const tables = await Table.find({ restaurantId }).maxTimeMS(10000);
+
+			console.log(`📊 Tables trouvées: ${tables.length}`);
 			res.json(tables);
 		} catch (err) {
+			console.error("🚨 Erreur fetch tables:", err);
+			res
+				.status(500)
+				.json({ message: "Erreur serveur lors du fetch des tables" });
+		}
+	}
+);
+
+router.get(
+	"/table/:tableId",
+	auth,
+	validateObjectIds(["tableId"]),
+	async (req, res) => {
+		try {
+			let query = { tableId: req.params.tableId };
+
+			// 🌟 Limitation pour les clients
+			if (req.user.role === "client") {
+				query.origin = "client"; // seulement les commandes clients
+				query.tableId = req.user.tableId; // s’assure qu’ils voient uniquement leur table
+			}
+
+			const orders = await Order.find(query)
+				.populate("tableId", "number")
+				.populate("serverId", "name");
+
+			res.json(orders);
+		} catch (err) {
 			console.error(err);
-			res.status(500).json({ message: "Erreur server" });
+			res
+				.status(500)
+				.json({ message: "Erreur lors du chargement des commandes." });
 		}
 	}
 );

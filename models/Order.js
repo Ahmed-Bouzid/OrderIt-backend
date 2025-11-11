@@ -6,7 +6,7 @@ const orderSchema = new mongoose.Schema(
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Restaurant",
 			required: true,
-			index: true, // Index direct dans la définition du champ
+			index: true,
 		},
 		tableId: {
 			type: mongoose.Schema.Types.ObjectId,
@@ -42,6 +42,10 @@ const orderSchema = new mongoose.Schema(
 					required: true,
 					min: 0,
 				},
+				notes: {
+					type: String,
+					default: "",
+				},
 			},
 		],
 		total: {
@@ -62,7 +66,7 @@ const orderSchema = new mongoose.Schema(
 			type: String,
 			enum: ["pending", "in_progress", "completed", "cancelled"],
 			default: "pending",
-			index: true, // Important pour les filtres par statut
+			index: true,
 		},
 		paymentMethod: {
 			type: String,
@@ -73,6 +77,13 @@ const orderSchema = new mongoose.Schema(
 			type: String,
 			default: "",
 		},
+
+		// 👇 Nouveau champ pour indiquer l'origine de la commande
+		origin: {
+			type: String,
+			enum: ["client", "server", "admin"],
+			default: "server",
+		},
 	},
 	{
 		timestamps: true,
@@ -81,24 +92,12 @@ const orderSchema = new mongoose.Schema(
 	}
 );
 
-// Index composés pour les requêtes fréquentes
-orderSchema.index({
-	restaurantId: 1,
-	status: 1,
-});
+// Index composés
+orderSchema.index({ restaurantId: 1, status: 1 });
+orderSchema.index({ tableId: 1, createdAt: -1 });
+orderSchema.index({ serverId: 1, createdAt: -1 });
 
-orderSchema.index({
-	tableId: 1,
-	createdAt: -1,
-});
-
-// Index pour les recherches par server et date
-orderSchema.index({
-	serverId: 1,
-	createdAt: -1,
-});
-
-// Validation du total avant sauvegarde
+// Validation automatique du total
 orderSchema.pre("save", function (next) {
 	if (this.isModified("items")) {
 		const calculatedTotal = this.items.reduce(
@@ -115,7 +114,7 @@ orderSchema.pre("save", function (next) {
 	next();
 });
 
-// Méthode utilitaire pour trouver les commandes par statut
+// Méthode utilitaire
 orderSchema.statics.findByStatus = function (status) {
 	return this.find({ status }).maxTimeMS(10000);
 };
