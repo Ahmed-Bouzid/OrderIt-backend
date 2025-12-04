@@ -62,6 +62,15 @@ const orderSchema = new mongoose.Schema(
 			default: 0,
 			min: 0,
 		},
+		paidBy: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "User", // ou "Client" selon votre modèle
+			required: false,
+		},
+		paidAt: {
+			type: Date,
+			required: false,
+		},
 		status: {
 			type: String,
 			enum: ["pending", "in_progress", "completed", "cancelled"],

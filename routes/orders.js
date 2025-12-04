@@ -167,6 +167,86 @@ router.put(
 	}
 );
 
+// routes/orders.js
+router.get("/active", auth, async (req, res) => {
+	console.log("OKOKOKOKOKOK");
+
+	try {
+		console.log("📡 Route /active appelée");
+		console.log("👤 User:", req.user);
+		console.log("📨 Headers:", req.headers);
+
+		const { role, tableId } = req.user;
+
+		console.log(`🔍 Recherche pour: role=${role}, tableId=${tableId}`);
+
+		let query = { paid: false };
+
+		if (role === "client") {
+			query.tableId = tableId;
+			query.origin = "client";
+		}
+
+		console.log("🔍 Query MongoDB:", JSON.stringify(query));
+
+		const activeOrders = await Order.find(query)
+			.sort({ createdAt: -1 })
+			.limit(10);
+
+		console.log("✅ Nombre de commandes trouvées:", activeOrders.length);
+
+		// Log détaillé de chaque commande
+		activeOrders.forEach((order, i) => {
+			console.log(
+				`   ${i + 1}. ID: ${order._id}, paid: ${order.paid}, table: ${
+					order.tableId
+				}`
+			);
+		});
+
+		res.json(activeOrders);
+	} catch (error) {
+		console.error("❌ Erreur /active:", error);
+		console.error("❌ Stack:", error.stack);
+		res.status(500).json({
+			message: "Erreur serveur",
+			error: error.message,
+		});
+	}
+});
+
+// routes/orders.js
+router.post("/:id/mark-as-paid", async (req, res) => {
+	try {
+		const orderId = req.params.id;
+
+		// Trouver la commande
+		const order = await Order.findById(orderId);
+		if (!order) {
+			return res.status(404).json({ message: "Commande non trouvée." });
+		}
+
+		// Mettre à jour simplement
+		order.paid = true;
+		order.status = "completed";
+		order.paidAt = new Date();
+
+		await order.save();
+
+		res.json({
+			success: true,
+			message: "Commande marquée comme payée",
+			order,
+		});
+	} catch (err) {
+		console.error("Erreur:", err);
+		res.status(500).json({
+			success: false,
+			message: "Erreur serveur",
+		});
+	}
+});
+
 // DELETE /orders/:orderId - Supprimer une commande (optionnel)
 router.delete(
 	"/:orderId",
