@@ -2,6 +2,14 @@ const mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema(
 	{
+		// ⭐⭐ RELATION ESSENTIELLE : Une commande appartient à une réservation
+		reservationId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "Reservation",
+			required: true,
+			index: true,
+		},
+
 		restaurantId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Restaurant",
@@ -20,6 +28,20 @@ const orderSchema = new mongoose.Schema(
 			required: false,
 			index: true,
 		},
+
+		// ⭐⭐ CLIENT qui a créé la commande (pour les commandes client)
+		clientId: {
+			type: String,
+			ref: "Client",
+			required: false,
+			index: true,
+		},
+		clientName: {
+			type: String,
+			required: false,
+			trim: true,
+		},
+
 		items: [
 			{
 				productId: {
@@ -46,53 +68,115 @@ const orderSchema = new mongoose.Schema(
 					type: String,
 					default: "",
 				},
+				// ⭐⭐ Statut de l'article pour la cuisine
+				itemStatus: {
+					type: String,
+					enum: ["pending", "preparing", "ready", "served", "cancelled"],
+					default: "pending",
+				},
 			},
 		],
-		total: {
+
+		// ⭐⭐ RENOMMÉ : totalAmount au lieu de total pour cohérence
+		totalAmount: {
 			type: Number,
 			required: true,
 			min: 0,
+			default: 0,
 		},
+
+		// ⭐⭐ AMÉLIORÉ : Gestion du paiement avec plus de détails
+		paymentStatus: {
+			type: String,
+			enum: ["unpaid", "partially_paid", "paid", "refunded"],
+			default: "unpaid",
+			index: true,
+		},
+
+		paidAmount: {
+			type: Number,
+			default: 0,
+			min: 0,
+		},
+
 		paid: {
 			type: Boolean,
 			default: false,
+			index: true,
 		},
+
 		tip: {
 			type: Number,
 			default: 0,
 			min: 0,
 		},
+
 		paidBy: {
 			type: mongoose.Schema.Types.ObjectId,
-			ref: "User", // ou "Client" selon votre modèle
+			ref: "User",
 			required: false,
 		},
+
 		paidAt: {
 			type: Date,
 			required: false,
 		},
-		status: {
+
+		// ⭐⭐ Statut de la commande (cuisine/service)
+		orderStatus: {
 			type: String,
-			enum: ["pending", "in_progress", "completed", "cancelled"],
+			enum: [
+				"pending",
+				"confirmed",
+				"in_progress",
+				"ready",
+				"completed",
+				"cancelled",
+			],
 			default: "pending",
 			index: true,
 		},
+
 		paymentMethod: {
 			type: String,
-			enum: ["cash", "card", "app"],
+			enum: ["cash", "card", "app", "split"],
 			default: "cash",
 		},
+
 		notes: {
 			type: String,
 			default: "",
 		},
 
-		// 👇 Nouveau champ pour indiquer l'origine de la commande
+		// ⭐⭐ Origine de la commande
 		origin: {
 			type: String,
 			enum: ["client", "server", "admin"],
 			default: "server",
+			index: true,
 		},
+
+		// ⭐⭐ Pour le split payment
+		splitDetails: [
+			{
+				clientId: { type: mongoose.Schema.Types.ObjectId, ref: "Client" },
+				clientName: { type: String },
+				amount: { type: Number, min: 0 },
+				paid: { type: Boolean, default: false },
+			},
+		],
+
+		// ⭐⭐ Pour tracking
+		createdBy: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "User",
+			required: false,
+		},
+
+		// ⭐⭐ Dates importantes
+		confirmedAt: { type: Date },
+		completedAt: { type: Date },
+		cancelledAt: { type: Date },
 	},
 	{
 		timestamps: true,
@@ -101,31 +185,136 @@ const orderSchema = new mongoose.Schema(
 	}
 );
 
-// Index composés
-orderSchema.index({ restaurantId: 1, status: 1 });
-orderSchema.index({ tableId: 1, createdAt: -1 });
-orderSchema.index({ serverId: 1, createdAt: -1 });
+// ⭐⭐ VIRTUEL : Récupérer la réservation associée
+orderSchema.virtual("reservation", {
+	ref: "Reservation",
+	localField: "reservationId",
+	foreignField: "_id",
+	justOne: true,
+});
 
-// Validation automatique du total
+// ⭐⭐ VIRTUEL : Récupérer le client associé
+orderSchema.virtual("client", {
+	ref: "Client",
+	localField: "clientId",
+	foreignField: "_id",
+	justOne: true,
+});
+
+// ⭐⭐ Index composés
+orderSchema.index({ restaurantId: 1, orderStatus: 1 });
+orderSchema.index({ tableId: 1, createdAt: -1 });
+orderSchema.index({ reservationId: 1, createdAt: -1 }); // ⭐ NOUVEAU
+orderSchema.index({ clientId: 1, createdAt: -1 }); // ⭐ NOUVEAU
+orderSchema.index({ paymentStatus: 1, createdAt: -1 }); // ⭐ NOUVEAU
+
+// ⭐⭐ VALIDATION : Calcul automatique du total
 orderSchema.pre("save", function (next) {
-	if (this.isModified("items")) {
+	if (this.isModified("items") && this.items.length > 0) {
 		const calculatedTotal = this.items.reduce(
 			(sum, item) => sum + item.price * item.quantity,
 			0
 		);
 
-		if (this.total !== calculatedTotal) {
-			throw new Error(
-				`Le total ${this.total} ne correspond pas à la somme des articles ${calculatedTotal}`
-			);
+		// Mettre à jour le totalAmount
+		this.totalAmount = calculatedTotal;
+
+		// Mettre à jour le statut de paiement
+		if (this.paidAmount >= this.totalAmount && this.totalAmount > 0) {
+			this.paymentStatus = "paid";
+			this.paid = true;
+		} else if (this.paidAmount > 0 && this.paidAmount < this.totalAmount) {
+			this.paymentStatus = "partially_paid";
+			this.paid = false;
+		} else {
+			this.paymentStatus = "unpaid";
+			this.paid = false;
 		}
 	}
+
+	// Mettre à jour la date de confirmation
+	if (
+		this.isModified("orderStatus") &&
+		this.orderStatus === "confirmed" &&
+		!this.confirmedAt
+	) {
+		this.confirmedAt = new Date();
+	}
+
+	// Mettre à jour la date de complétion
+	if (
+		this.isModified("orderStatus") &&
+		this.orderStatus === "completed" &&
+		!this.completedAt
+	) {
+		this.completedAt = new Date();
+	}
+
+	// Mettre à jour la date d'annulation
+	if (
+		this.isModified("orderStatus") &&
+		this.orderStatus === "cancelled" &&
+		!this.cancelledAt
+	) {
+		this.cancelledAt = new Date();
+	}
+
 	next();
 });
 
-// Méthode utilitaire
+// ⭐⭐ MÉTHODE : Ajouter un paiement
+orderSchema.methods.addPayment = function (
+	amount,
+	method = "cash",
+	paidBy = null
+) {
+	this.paidAmount += amount;
+
+	if (this.paidAmount >= this.totalAmount) {
+		this.paymentStatus = "paid";
+		this.paid = true;
+		this.paidAt = new Date();
+		this.paymentMethod = method;
+		if (paidBy) this.paidBy = paidBy;
+	} else if (this.paidAmount > 0) {
+		this.paymentStatus = "partially_paid";
+		this.paid = false;
+	}
+
+	return this.save();
+};
+
+// ⭐⭐ MÉTHODE : Vérifier si la commande est complètement payée
+orderSchema.methods.isFullyPaid = function () {
+	return this.paymentStatus === "paid" && this.paid === true;
+};
+
+// ⭐⭐ MÉTHODE : Récupérer le montant restant à payer
+orderSchema.methods.getRemainingAmount = function () {
+	return Math.max(0, this.totalAmount - this.paidAmount);
+};
+
+// ⭐⭐ MÉTHODE STATIQUE : Trouver les commandes d'une réservation
+orderSchema.statics.findByReservation = function (reservationId) {
+	return this.find({ reservationId })
+		.populate("reservation")
+		.sort({ createdAt: -1 })
+		.maxTimeMS(10000);
+};
+
+// ⭐⭐ MÉTHODE STATIQUE : Trouver les commandes non payées d'une réservation
+orderSchema.statics.findUnpaidByReservation = function (reservationId) {
+	return this.find({
+		reservationId,
+		paymentStatus: { $in: ["unpaid", "partially_paid"] },
+	}).maxTimeMS(10000);
+};
+
+// ⭐⭐ MÉTHODE STATIQUE : Trouver les commandes par statut
 orderSchema.statics.findByStatus = function (status) {
-	return this.find({ status }).maxTimeMS(10000);
+	return this.find({ orderStatus: status })
+		.populate("reservation", "clientName tableId")
+		.maxTimeMS(10000);
 };
 
 module.exports = mongoose.model("Order", orderSchema);

@@ -15,6 +15,11 @@ router.post(
 	"/",
 	auth, // middleware qui décode le JWT et met req.user
 	async (req, res) => {
+		console.log(
+			"📥 POST /orders - Body reçu:",
+			JSON.stringify(req.body, null, 2)
+		);
+		console.log("📥 POST /orders - User:", req.user);
 		const { role, tableId: clientTableId } = req.user; // token limité pour client ou token serveur/admin
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
@@ -22,7 +27,17 @@ router.post(
 		}
 
 		try {
-			let { tableId, items, total, status, restaurantId, serverId } = req.body;
+			let {
+				tableId,
+				items,
+				total,
+				status,
+				restaurantId,
+				serverId,
+				reservationId, // ⭐ AJOUTER
+				clientId, // ⭐ AJOUTER
+				clientName, // ⭐ AJOUTER
+			} = req.body;
 
 			// 🌟 Si c'est un client, on lui impose la table du token
 			if (role === "client") {
@@ -57,6 +72,9 @@ router.post(
 				status,
 				restaurantId,
 				serverId,
+				reservationId, // ⭐ AJOUTÉ
+				clientId, // ⭐ AJOUTÉ
+				clientName, // ⭐ AJOUTÉ
 				origin: role === "client" ? "client" : "server",
 			});
 

@@ -42,6 +42,75 @@ router.post(
 	}
 );
 
+// POST /client/reservations
+router.post(
+	"/client/reservations",
+	reservationValidationRules,
+	async (req, res) => {
+		const errors = validationResult(req);
+		if (!errors.isEmpty()) {
+			const formattedErrors = errors.array().map((err) => ({
+				field: err.param,
+				message: err.msg,
+			}));
+			return res.status(400).json({ errors: formattedErrors });
+		}
+
+		try {
+			const { tableId, clientName, restaurantId } = req.body;
+			const tableIdFinal = tableId || "1";
+
+			// Cherche s’il existe une réservation pour cette table qui n'est pas fermée
+			const existingReservation = await Reservation.findOne({
+				tableId: tableIdFinal,
+				status: { $ne: "fermee" }, // pas fermée
+			});
+
+			if (existingReservation) {
+				// Si le client est déjà dans cette réservation
+				if (existingReservation.clientName === clientName.trim()) {
+					return res.status(200).json({
+						reservation: existingReservation,
+						message: "Vous êtes déjà inscrit à cette table.",
+					});
+				}
+
+				// Sinon, indique au front que la table existe et propose de rejoindre
+				return res.status(200).json({
+					reservation: existingReservation,
+					message: `Table déjà réservée par ${existingReservation.clientName}. Voulez-vous rejoindre ?`,
+					joinable: true, // front peut afficher le pop-up
+				});
+			}
+
+			// Si aucune réservation existante non fermée, création d’une nouvelle réservation
+			const reservation = new Reservation({
+				...req.body,
+				tableId: tableIdFinal,
+				status: "en attente",
+				isPresent: true,
+				nbPersonnes: req.body.nbPersonnes || 1,
+			});
+
+			await reservation.save();
+
+			res.status(201).json({ reservation });
+		} catch (err) {
+			console.error("Erreur serveur /client/reservations:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	}
+);
+
+router.post("/client/reservations/join/:id", async (req, res) => {
+	const reservation = await Reservation.findById(req.params.id);
+	if (!reservation)
+		return res.status(404).json({ message: "Réservation introuvable" });
+	reservation.nbPersonnes = (reservation.nbPersonnes || 1) + 1;
+	await reservation.save();
+	res.json({ reservation, message: "Vous avez rejoint la table !" });
+});
+
 // GET /:id - récupérer une réservation
 router.get(
 	"/:id",
@@ -162,44 +231,103 @@ router.put(
 	auth,
 	checkRoles(["admin", "server"]),
 	async (req, res) => {
+		console.log("🔍 [DEBUG] /:id/status - Début de la requête");
+		console.log("🔍 [DEBUG] Méthode:", req.method);
+		console.log("🔍 [DEBUG] URL:", req.originalUrl);
+		console.log("🔍 [DEBUG] Paramètres:", req.params);
+		console.log("🔍 [DEBUG] Body:", req.body);
+		console.log(
+			"🔍 [DEBUG] Headers - Authorization:",
+			req.headers.authorization ? "PRÉSENT" : "ABSENT"
+		);
+
+		if (req.headers.authorization) {
+			console.log(
+				"🔍 [DEBUG] Token (début):",
+				req.headers.authorization.substring(0, 30) + "..."
+			);
+		}
+
 		try {
 			const { status } = req.body; // le nouveau statut envoyé par le front
+			console.log("🔍 [DEBUG] Statut demandé:", status);
+
 			const allowedStatuses = ["en attente", "annulee", "fermee", "ouverte"];
+			console.log("🔍 [DEBUG] Statuts autorisés:", allowedStatuses);
 
 			// Vérification que le statut demandé est valide
 			if (!allowedStatuses.includes(status)) {
+				console.log("❌ [DEBUG] Statut invalide rejeté:", status);
 				return res.status(400).json({ message: "Statut invalide" });
 			}
 
+			console.log("🔍 [DEBUG] Recherche réservation ID:", req.params.id);
 			const reservation = await Reservation.findById(req.params.id);
+
 			if (!reservation) {
+				console.log("❌ [DEBUG] Réservation non trouvée:", req.params.id);
 				return res.status(404).json({ message: "Réservation non trouvée" });
 			}
 
+			console.log("🔍 [DEBUG] Réservation trouvée:", {
+				id: reservation._id,
+				statusActuel: reservation.status,
+				client: reservation.clientName,
+				table: reservation.tableId,
+			});
+
 			// Si la résa est déjà fermée, on interdit de la modifier
 			if (reservation.status === "fermee" && status !== "fermee") {
+				console.log(
+					"❌ [DEBUG] Tentative de modification réservation déjà fermée"
+				);
 				return res
 					.status(400)
 					.json({ message: "Impossible de modifier une réservation terminée" });
 			}
 
+			console.log(
+				"🔍 [DEBUG] Ancien statut:",
+				reservation.status,
+				"→ Nouveau statut:",
+				status
+			);
+
 			// Mise à jour
 			reservation.status = status;
 			reservation.isPresent = false; // reset quand on change de statut
+
+			console.log("🔍 [DEBUG] Avant save() - Réservation:", {
+				status: reservation.status,
+				isPresent: reservation.isPresent,
+			});
+
 			await reservation.save();
+
+			console.log("✅ [DEBUG] Réservation mise à jour avec succès");
+			console.log("🔍 [DEBUG] Après save() - Réservation:", {
+				id: reservation._id,
+				status: reservation.status,
+				isPresent: reservation.isPresent,
+				updatedAt: reservation.updatedAt,
+			});
 
 			res.json(reservation);
 		} catch (err) {
-			console.error(err);
+			console.error("❌ [DEBUG] Erreur dans /:id/status:", err);
+			console.error("❌ [DEBUG] Stack:", err.stack);
+			console.error("❌ [DEBUG] Erreur complète:", {
+				message: err.message,
+				name: err.name,
+				code: err.code,
+			});
 			res.status(500).json({ message: "Erreur server" });
 		}
 	}
 );
 
-// PUT /:id/assignTable - assigner une table à une réservation
+// 🔓 Route simplifiée pour le client (sans auth JWT)
 
-// PATCH /assignTable/:id
-// backend/routes/reservations.js
 // backend/routes/reservations.js
 router.patch("/assignTable/:id", auth, async (req, res) => {
 	try {
@@ -342,5 +470,68 @@ router.get(
 		}
 	}
 );
+
+// ⭐⭐ PLACEZ VOTRE ROUTE ICI - À LA FIN DU FICHIER
+router.put("/client/:id/close", async (req, res) => {
+	console.log("🔥🔥🔥🔥🔥🔥 Route PUT /client/:id/close APPELÉE !!!");
+	console.log("🔥 id:", req.params.id);
+	console.log("🔥 method:", req.method);
+	console.log("🔥 originalUrl:", req.originalUrl);
+	console.log("🔥 path:", req.path);
+	console.log("🔥 baseUrl:", req.baseUrl);
+
+	try {
+		const { id } = req.params;
+
+		// 1. Trouver la réservation
+		const reservation = await Reservation.findById(id);
+		if (!reservation) {
+			console.log("❌ Réservation non trouvée:", id);
+			return res.status(404).json({ message: "Réservation non trouvée" });
+		}
+
+		console.log("✅ Réservation trouvée:", {
+			id: reservation._id,
+			status: reservation.status,
+			client: reservation.clientName,
+			table: reservation.tableId,
+		});
+
+		// 2. Vérifier que la réservation peut être fermée
+		if (reservation.status === "fermee") {
+			console.log("⚠️ Réservation déjà fermée");
+			return res.status(400).json({ message: "Réservation déjà fermée" });
+		}
+
+		// 3. Mise à jour
+		reservation.status = "fermee";
+		reservation.isPresent = false;
+		await reservation.save();
+
+		console.log("✅ Réservation mise à jour:", reservation.status);
+
+		// 4. Libérer la table si nécessaire
+		if (reservation.tableId) {
+			console.log("🔓 Libération table:", reservation.tableId);
+			await Table.findByIdAndUpdate(reservation.tableId, {
+				isAvailable: true,
+			});
+		}
+
+		console.log("✅ Fermeture réussie");
+		res.json({
+			success: true,
+			message: "Réservation fermée avec succès",
+			reservation,
+		});
+	} catch (err) {
+		console.error("❌ Erreur fermeture réservation client:", err);
+		console.error("❌ Stack:", err.stack);
+		res.status(500).json({
+			message: "Erreur serveur",
+			error: err.message,
+		});
+	}
+});
 
 module.exports = router;
