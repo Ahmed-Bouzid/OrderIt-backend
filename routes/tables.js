@@ -12,6 +12,26 @@ const tableUpdateValidationRules = require("../middlewares/tableUpdateValidation
 const checkUserRestaurantBody = require("../middlewares/checkUserRestaurantBody");
 const Order = require("../models/Order");
 
+// ⭐ Import socket emitter
+const { emitTableEvent } = require("../utils/socketEmitter");
+
+// ⭐ Helper pour accéder à io via req.app
+const getIO = (req) => req.app.locals.io;
+
+// GET /:tableId - récupérer une table par ID (public pour les clients)
+router.get("/:tableId", validateObjectIds(["tableId"]), async (req, res) => {
+	try {
+		const table = await Table.findById(req.params.tableId);
+		if (!table) {
+			return res.status(404).json({ message: "Table non trouvée" });
+		}
+		res.json(table);
+	} catch (err) {
+		console.error("Erreur récupération table:", err);
+		res.status(500).json({ message: "Erreur serveur" });
+	}
+});
+
 // POST / - création table (admin)
 
 router.post(
@@ -30,6 +50,13 @@ router.post(
 
 			const table = new Table({ restaurantId, number, qrCodeUrl });
 			await table.save();
+
+			// ⭐ Émettre l'événement WebSocket
+			const io = getIO(req);
+			if (io && restaurantId) {
+				emitTableEvent(io, restaurantId, "created", table.toObject());
+			}
+
 			res.status(201).json(table);
 		} catch (err) {
 			console.error(err);
@@ -119,6 +146,13 @@ router.put(
 			if (!updated) {
 				return res.status(404).json({ message: "Table non trouvée." });
 			}
+
+			// ⭐ Émettre l'événement WebSocket
+			const io = getIO(req);
+			if (io && updated.restaurantId) {
+				emitTableEvent(io, updated.restaurantId, "updated", updated.toObject());
+			}
+
 			res.json(updated);
 		} catch (err) {
 			console.error(err);

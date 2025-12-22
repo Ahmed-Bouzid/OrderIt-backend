@@ -29,6 +29,11 @@ const adminSchema = new mongoose.Schema({
 		default: "admin",
 		immutable: true, // empêche toute modification du rôle
 	},
+	restaurantId: {
+		type: mongoose.Schema.Types.ObjectId,
+		ref: "Restaurant",
+		default: null,
+	},
 	createdAt: {
 		type: Date,
 		default: Date.now,

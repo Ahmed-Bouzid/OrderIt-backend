@@ -1,8 +1,77 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
+const http = require("http");
+const { Server } = require("socket.io");
 const app = require("./server");
+const jwt = require("jsonwebtoken");
 
 const port = process.env.PORT || 3000;
+
+// ⭐ Créer le serveur HTTP avec Socket.io
+const server = http.createServer(app);
+const io = new Server(server, {
+	cors: {
+		origin: "*", // À restreindre en production
+		methods: ["GET", "POST"],
+		credentials: true,
+	},
+	transports: ["websocket", "polling"],
+});
+
+// ⭐ Middleware d'authentification Socket.io
+io.use((socket, next) => {
+	const token = socket.handshake.auth.token;
+	if (!token) {
+		return next(new Error("Token manquant"));
+	}
+
+	try {
+		const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
+		socket.userId = decoded.id;
+		socket.restaurantId = decoded.restaurantId;
+		socket.userType = decoded.userType;
+		next();
+	} catch (err) {
+		next(new Error("Token invalide"));
+	}
+});
+
+// ⭐ Stockage global des sockets connectées par restaurant
+const restaurantConnections = new Map();
+
+// ⭐ Gestion des connexions
+io.on("connection", (socket) => {
+	console.log(
+		`🔌 Client connecté: ${socket.id} (User: ${socket.userId}, Restaurant: ${socket.restaurantId})`
+	);
+
+	// Joindre la room du restaurant
+	socket.join(`restaurant-${socket.restaurantId}`);
+
+	if (!restaurantConnections.has(socket.restaurantId)) {
+		restaurantConnections.set(socket.restaurantId, []);
+	}
+	restaurantConnections.get(socket.restaurantId).push(socket.id);
+
+	// Déconnexion
+	socket.on("disconnect", () => {
+		console.log(`🔌 Client déconnecté: ${socket.id}`);
+		const connections = restaurantConnections.get(socket.restaurantId);
+		if (connections) {
+			const index = connections.indexOf(socket.id);
+			if (index > -1) {
+				connections.splice(index, 1);
+			}
+		}
+	});
+});
+
+// ⭐ Exposer io globalement pour les routes
+app.locals.io = io;
+app.locals.restaurantConnections = restaurantConnections;
+
+// ⭐ Exporter io pour l'utiliser dans les modèles
+module.exports.io = io;
 
 mongoose
 	.connect(process.env.MONGO_URI, {
@@ -11,8 +80,9 @@ mongoose
 	})
 	.then(() => {
 		console.log("✅ MongoDB connecté");
-		app.listen(port, "0.0.0.0", () => {
-			console.log(`🚀 server EasyQR démarré sur http://0.0.0.0:${port}`);
+		server.listen(port, "0.0.0.0", () => {
+			console.log(`🚀 Server EasyQR démarré sur http://0.0.0.0:${port}`);
+			console.log(`🔌 WebSocket prêt sur ws://0.0.0.0:${port}`);
 		});
 	})
 	.catch((err) => {

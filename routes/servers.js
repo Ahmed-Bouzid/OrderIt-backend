@@ -71,7 +71,7 @@ router.post("/login", async (req, res) => {
 			return res.status(401).json({ message: "Identifiants invalides." });
 		}
 
-		// Access token (court)
+		// Access token (aligné avec /auth/login pour cohérence)
 		const accessToken = jwt.sign(
 			{
 				id: user._id,
@@ -81,10 +81,8 @@ router.post("/login", async (req, res) => {
 				restaurantId: user.restaurantId || null,
 			},
 			process.env.JWT_SECRET,
-			{ expiresIn: "15m" }
-		);
-
-		// Refresh token (long)
+			{ expiresIn: "2h" } // ⭐ Augmenté de 15m à 2h pour cohérence avec /auth/login
+		); // Refresh token (long)
 		const refreshToken = jwt.sign(
 			{ id: user._id },
 			process.env.REFRESH_TOKEN_SECRET,

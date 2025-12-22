@@ -11,7 +11,16 @@ const checkUserRestaurant = require("../middlewares/checkUserRestaurant");
 const checkUserRestaurantBody = require("../middlewares/checkUserRestaurantBody");
 
 // Validation simple pour réservation
-const reservationValidationRules = require("../middlewares/reservationValidationRules");
+const {
+	reservationValidationRules,
+	reservationUpdateRules,
+} = require("../middlewares/reservationValidationRules");
+
+// ⭐ Import socket emitter
+const { emitReservationEvent } = require("../utils/socketEmitter");
+
+// ⭐ Helper pour accéder à io via req.app
+const getIO = (req) => req.app.locals.io;
 
 // POST / - création réservation (admin / server)
 router.post(
@@ -34,6 +43,18 @@ router.post(
 		try {
 			const reservation = new Reservation(req.body);
 			await reservation.save();
+
+			// ⭐ Émettre l'événement WebSocket
+			const io = getIO(req);
+			if (io) {
+				emitReservationEvent(
+					io,
+					req.body.restaurantId,
+					"created",
+					reservation.toObject()
+				);
+			}
+
 			res.status(201).json(reservation);
 		} catch (err) {
 			console.error(err);
@@ -119,7 +140,9 @@ router.get(
 	checkRoles(["admin", "server"]),
 	async (req, res) => {
 		try {
-			const reservation = await Reservation.findById(req.params.id);
+			const reservation = await Reservation.findById(req.params.id)
+				.populate("serverId", "firstName lastName")
+				.populate("tableId", "number");
 			if (!reservation)
 				return res.status(404).json({ message: "Réservation non trouvée" });
 			res.json(reservation);
@@ -133,7 +156,9 @@ router.get(
 // GET /:id - récupérer toutes les réservations
 router.get("/", auth, checkRoles(["admin", "server"]), async (req, res) => {
 	try {
-		const reservations = await Reservation.find();
+		const reservations = await Reservation.find()
+			.populate("serverId", "firstName lastName")
+			.populate("tableId", "number");
 		res.json(reservations);
 	} catch (err) {
 		console.error(err);
@@ -147,7 +172,7 @@ router.put(
 	auth,
 	validateObjectIds(["id"]),
 	checkRoles(["admin", "server"]),
-	reservationValidationRules,
+	reservationUpdateRules,
 	async (req, res) => {
 		// <- vérification des erreurs
 		const errors = validationResult(req);
@@ -168,7 +193,7 @@ router.put(
 			"allergies",
 			"restrictions",
 			"notes",
-			"server",
+			"serverId",
 			"orderSummary",
 			"dishStatus",
 			"paymentMethod",
@@ -185,7 +210,7 @@ router.put(
 				req.params.id,
 				updates,
 				{ new: true }
-			);
+			).populate("serverId", "firstName lastName");
 			if (!updated)
 				return res.status(404).json({ message: "Réservation non trouvée" });
 			res.json(updated);
@@ -215,7 +240,22 @@ router.put(
 			}
 
 			reservation.isPresent = !reservation.isPresent;
+			// ⭐ NOUVEAU: Mettre à jour arrivalTime quand on passe à "présent"
+			if (reservation.isPresent && !reservation.arrivalTime) {
+				reservation.arrivalTime = new Date();
+			}
 			await reservation.save();
+
+			// ⭐ Émettre l'événement WebSocket
+			const io = getIO(req);
+			if (io && reservation.restaurantId) {
+				emitReservationEvent(
+					io,
+					reservation.restaurantId,
+					"presentToggled",
+					reservation.toObject()
+				);
+			}
 
 			res.json(reservation);
 		} catch (err) {
@@ -252,7 +292,13 @@ router.put(
 			const { status } = req.body; // le nouveau statut envoyé par le front
 			console.log("🔍 [DEBUG] Statut demandé:", status);
 
-			const allowedStatuses = ["en attente", "annulee", "fermee", "ouverte"];
+			const allowedStatuses = [
+				"en attente",
+				"present",
+				"ouverte",
+				"fermee",
+				"annulee",
+			];
 			console.log("🔍 [DEBUG] Statuts autorisés:", allowedStatuses);
 
 			// Vérification que le statut demandé est valide
@@ -312,6 +358,17 @@ router.put(
 				updatedAt: reservation.updatedAt,
 			});
 
+			// ⭐ Émettre l'événement WebSocket
+			const io = getIO(req);
+			if (io && reservation.restaurantId) {
+				emitReservationEvent(
+					io,
+					reservation.restaurantId,
+					"statusUpdated",
+					reservation.toObject()
+				);
+			}
+
 			res.json(reservation);
 		} catch (err) {
 			console.error("❌ [DEBUG] Erreur dans /:id/status:", err);
@@ -322,6 +379,56 @@ router.put(
 				code: err.code,
 			});
 			res.status(500).json({ message: "Erreur server" });
+		}
+	}
+);
+
+// ⭐ Route spécifique pour mettre à jour le paiement
+router.put(
+	"/:id/payment",
+	auth,
+	checkRoles(["admin", "server"]),
+	async (req, res) => {
+		try {
+			const { paidAmount, remainingAmount, paymentMethod, status } = req.body;
+
+			const reservation = await Reservation.findById(req.params.id);
+			if (!reservation) {
+				return res.status(404).json({ message: "Réservation non trouvée" });
+			}
+
+			// Mettre à jour les champs de paiement
+			if (paidAmount !== undefined) reservation.paidAmount = paidAmount;
+			if (remainingAmount !== undefined)
+				reservation.remainingAmount = remainingAmount;
+			if (paymentMethod) reservation.paymentMethod = paymentMethod;
+			if (status) reservation.status = status;
+
+			reservation.updatedAt = new Date();
+			await reservation.save();
+
+			// Émettre événement WebSocket
+			const io = getIO(req);
+			if (io && reservation.restaurantId) {
+				emitReservationEvent(
+					io,
+					reservation.restaurantId,
+					"statusUpdated",
+					reservation.toObject()
+				);
+			}
+
+			console.log("✅ Paiement mis à jour:", {
+				id: reservation._id,
+				paidAmount: reservation.paidAmount,
+				remainingAmount: reservation.remainingAmount,
+				status: reservation.status,
+			});
+
+			res.json(reservation);
+		} catch (err) {
+			console.error("❌ Erreur mise à jour paiement:", err);
+			res.status(500).json({ message: "Erreur serveur" });
 		}
 	}
 );
@@ -372,6 +479,17 @@ router.patch("/assignTable/:id", auth, async (req, res) => {
 		).populate("tableId");
 
 		console.log("✅ Réservation mise à jour");
+
+		// ⭐ Émettre l'événement WebSocket
+		const io = getIO(req);
+		if (io && updatedReservation.restaurantId) {
+			emitReservationEvent(
+				io,
+				updatedReservation.restaurantId,
+				"tableAssigned",
+				updatedReservation.toObject()
+			);
+		}
 
 		res.json(updatedReservation);
 	} catch (err) {
@@ -452,10 +570,11 @@ router.get(
 			const sortOrder = order === "asc" ? 1 : -1;
 
 			const reservations = await Reservation.find(filter)
+				.populate("serverId", "firstName lastName")
+				.populate("tableId", "number")
 				.sort({ [sortBy]: sortOrder })
 				.skip((page - 1) * limit)
 				.limit(Number(limit));
-
 			const total = await Reservation.countDocuments(filter);
 
 			res.json({

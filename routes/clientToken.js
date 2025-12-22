@@ -3,7 +3,6 @@ const router = express.Router();
 const jwt = require("jsonwebtoken");
 const generateClientToken = require("../utils/generateClientToken"); // notre utilitaire
 
-// POST /client/token
 // Cette route permet à un client de générer un token limité
 router.post("/", async (req, res) => {
 	console.log("bonjour");

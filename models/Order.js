@@ -262,6 +262,43 @@ orderSchema.pre("save", function (next) {
 	next();
 });
 
+// ⭐⭐ MIDDLEWARE POST-SAVE : Mettre à jour la réservation après création/modification d'une commande
+orderSchema.post("save", async function (doc) {
+	try {
+		if (doc.reservationId) {
+			const Reservation = mongoose.model("Reservation");
+			const reservation = await Reservation.findById(doc.reservationId);
+
+			if (reservation) {
+				// Ajouter l'order à la réservation si pas déjà présent
+				if (!reservation.orderIds.includes(doc._id)) {
+					reservation.orderIds.push(doc._id);
+				}
+
+				// Sauvegarder la réservation (le middleware pre('save') de Reservation calculera automatiquement totalAmount)
+				await reservation.save();
+				console.log(
+					`✅ Réservation ${reservation._id} mise à jour avec commande ${doc._id}, totalAmount: ${reservation.totalAmount}€`
+				);
+
+				// ⭐ Émettre événement WebSocket pour notifier les clients
+				const { emitReservationEvent } = require("../utils/socketEmitter");
+				const io = require("../start").io;
+				if (io && reservation.restaurantId) {
+					emitReservationEvent(
+						io,
+						reservation.restaurantId.toString(),
+						"updated",
+						reservation
+					);
+				}
+			}
+		}
+	} catch (error) {
+		console.error("❌ Erreur mise à jour réservation après commande:", error);
+	}
+});
+
 // ⭐⭐ MÉTHODE : Ajouter un paiement
 orderSchema.methods.addPayment = function (
 	amount,

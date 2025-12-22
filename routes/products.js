@@ -8,6 +8,12 @@ const validateObjectIds = require("../middlewares/validateObjectId");
 const checkUserRestaurant = require("../middlewares/checkUserRestaurant");
 const checkUserRestaurantBody = require("../middlewares/checkUserRestaurantBody");
 
+// ⭐ Import socket emitter
+const { emitProductEvent } = require("../utils/socketEmitter");
+
+// ⭐ Helper pour accéder à io via req.app
+const getIO = (req) => req.app.locals.io;
+
 // Validation rules pour créer un produit
 const productValidationRules = [
 	body("restaurantId").notEmpty().withMessage("restaurantId requis"),
@@ -53,6 +59,13 @@ router.post(
 				image,
 			});
 			await product.save();
+
+			// ⭐ Émettre l'événement WebSocket
+			const io = getIO(req);
+			if (io && restaurantId) {
+				emitProductEvent(io, restaurantId, "created", product.toObject());
+			}
+
 			res.status(201).json(product);
 		} catch (err) {
 			console.error(err);
@@ -116,6 +129,18 @@ router.put(
 			if (!updated) {
 				return res.status(404).json({ message: "Produit non trouvé." });
 			}
+
+			// ⭐ Émettre l'événement WebSocket
+			const io = getIO(req);
+			if (io && updated.restaurantId) {
+				emitProductEvent(
+					io,
+					updated.restaurantId,
+					"updated",
+					updated.toObject()
+				);
+			}
+
 			res.json(updated);
 		} catch (err) {
 			console.error(err);

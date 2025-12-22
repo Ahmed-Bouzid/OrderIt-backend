@@ -26,17 +26,17 @@ const reservationSchema = new mongoose.Schema(
 			{
 				type: mongoose.Schema.Types.ObjectId,
 				ref: "Order",
-				index: true,
 			},
 		],
 
 		status: {
 			type: String,
-			enum: ["ouverte", "fermee", "annulee", "en attente"],
+			enum: ["en attente", "present", "ouverte", "fermee", "annulee"],
 			default: "en attente",
 			index: true,
 		},
 		clientName: { type: String, required: true, trim: true },
+		phone: { type: String, default: "" },
 		nbPersonnes: { type: Number, default: 1 },
 		reservationDate: { type: Date, required: true },
 		reservationTime: { type: String, default: "" },

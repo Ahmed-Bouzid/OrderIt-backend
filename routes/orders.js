@@ -98,7 +98,10 @@ router.get(
 	validateObjectIds(["tableId"]),
 	async (req, res) => {
 		try {
-			let query = { tableId: req.params.tableId };
+			let query = {
+				tableId: req.params.tableId,
+				paid: { $ne: true }, // ⭐ EXCLURE les commandes déjà payées
+			};
 
 			// Si c'est un client, on limite à ses commandes seulement
 			if (req.user.role === "client") {
@@ -113,6 +116,34 @@ router.get(
 			res.json(orders);
 		} catch (err) {
 			console.error(err);
+			res
+				.status(500)
+				.json({ message: "Erreur lors du chargement des commandes." });
+		}
+	}
+);
+
+// ⭐ NOUVELLE ROUTE : Récupérer les commandes d'une réservation spécifique
+router.get(
+	"/reservation/:reservationId",
+	auth,
+	validateObjectIds(["reservationId"]),
+	async (req, res) => {
+		try {
+			const orders = await Order.find({
+				reservationId: req.params.reservationId,
+				paid: { $ne: true }, // ⭐ EXCLURE les commandes déjà payées
+			})
+				.populate("tableId", "number")
+				.populate("serverId", "firstName lastName");
+
+			console.log(
+				`📦 Commandes pour réservation ${req.params.reservationId}:`,
+				orders.length
+			);
+			res.json(orders);
+		} catch (err) {
+			console.error("❌ Erreur récupération commandes par réservation:", err);
 			res
 				.status(500)
 				.json({ message: "Erreur lors du chargement des commandes." });
