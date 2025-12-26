@@ -73,6 +73,20 @@ app.locals.restaurantConnections = restaurantConnections;
 // ⭐ Exporter io pour l'utiliser dans les modèles
 module.exports.io = io;
 
+const os = require("os");
+
+function getLocalIp() {
+	const interfaces = os.networkInterfaces();
+	for (const name of Object.keys(interfaces)) {
+		for (const iface of interfaces[name]) {
+			if (iface.family === "IPv4" && !iface.internal) {
+				return iface.address;
+			}
+		}
+	}
+	return "localhost";
+}
+
 mongoose
 	.connect(process.env.MONGO_URI, {
 		serverSelectionTimeoutMS: 10000,
@@ -81,7 +95,9 @@ mongoose
 	.then(() => {
 		console.log("✅ MongoDB connecté");
 		server.listen(port, "0.0.0.0", () => {
+			const localIp = getLocalIp();
 			console.log(`🚀 Server EasyQR démarré sur http://0.0.0.0:${port}`);
+			console.log(`🌐 Accès local: http://${localIp}:${port}`);
 			console.log(`🔌 WebSocket prêt sur ws://0.0.0.0:${port}`);
 		});
 	})

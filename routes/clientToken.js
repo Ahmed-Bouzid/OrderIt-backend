@@ -5,8 +5,6 @@ const generateClientToken = require("../utils/generateClientToken"); // notre ut
 
 // Cette route permet à un client de générer un token limité
 router.post("/", async (req, res) => {
-	console.log("bonjour");
-
 	try {
 		const { pseudo, tableId, restaurantId } = req.body;
 

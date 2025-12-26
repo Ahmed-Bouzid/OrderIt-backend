@@ -31,7 +31,7 @@ const reservationSchema = new mongoose.Schema(
 
 		status: {
 			type: String,
-			enum: ["en attente", "present", "ouverte", "fermee", "annulee"],
+			enum: ["en attente", "ouverte", "fermee", "annulee"],
 			default: "en attente",
 			index: true,
 		},
@@ -126,8 +126,8 @@ reservationSchema.pre("save", async function (next) {
 			orders.forEach((order) => {
 				const orderTotal = order.totalAmount || 0;
 				total += orderTotal;
-
-				if (order.status === "paid") {
+				// Correction : on vérifie paymentStatus (Order n'a pas de champ 'status')
+				if (order.paymentStatus === "paid") {
 					paid += orderTotal;
 				}
 			});
@@ -177,7 +177,7 @@ reservationSchema.methods.areAllOrdersPaid = async function () {
 
 		if (orders.length === 0) return false;
 
-		return orders.every((order) => order.status === "paid");
+		return orders.every((order) => order.paymentStatus === "paid");
 	} catch (error) {
 		console.error("Erreur vérification paiement:", error);
 		return false;

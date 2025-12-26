@@ -19,6 +19,9 @@ const tableSchema = new mongoose.Schema(
 		// Statut de disponibilité de la table
 		isAvailable: { type: Boolean, default: true },
 
+		// Liste des invités (ordre d'arrivée)
+		guests: [{ type: String }],
+
 		// Réservation assignée à la table (si besoin)
 		tableReservationId: {
 			type: mongoose.Schema.Types.ObjectId,

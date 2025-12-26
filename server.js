@@ -23,11 +23,17 @@ app.get("/", (req, res) => {
 	res.send("API EasyQR fonctionne !");
 });
 
-// Routes
+// Route GET /tables/:tableId publique (avant le bloc auth)
+const tablesRouter = require("./routes/tables");
+app.get("/tables/:tableId", tablesRouter);
+
+// Routes protégées
 app.use("/auth", require("./routes/auth"));
 app.use("/restaurants", require("./routes/restaurants"));
 app.use("/orders", auth, require("./routes/orders"));
-app.use("/tables", auth, require("./routes/tables"));
+app.use("/tables", auth, tablesRouter);
+app.use("/client-tables", require("./routes/clientTables")); // ⭐ Route publique guests
+app.use("/client-orders", require("./routes/clientOrders")); // ⭐ Route publique commandes par réservation
 app.use("/servers", require("./routes/servers"));
 app.use("/reservations", require("./routes/reservations"));
 app.use("/products", auth, require("./routes/products"));

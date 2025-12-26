@@ -64,6 +64,7 @@ router.post(
 );
 
 // POST /client/reservations
+
 router.post(
 	"/client/reservations",
 	reservationValidationRules,
@@ -78,47 +79,160 @@ router.post(
 		}
 
 		try {
-			const { tableId, clientName, restaurantId } = req.body;
+			const { tableId, clientName, allergies, restrictions } = req.body;
 			const tableIdFinal = tableId || "1";
 
-			// Cherche s’il existe une réservation pour cette table qui n'est pas fermée
-			const existingReservation = await Reservation.findOne({
-				tableId: tableIdFinal,
-				status: { $ne: "fermee" }, // pas fermée
-			});
-
-			if (existingReservation) {
-				// Si le client est déjà dans cette réservation
-				if (existingReservation.clientName === clientName.trim()) {
-					return res.status(200).json({
-						reservation: existingReservation,
-						message: "Vous êtes déjà inscrit à cette table.",
-					});
-				}
-
-				// Sinon, indique au front que la table existe et propose de rejoindre
-				return res.status(200).json({
-					reservation: existingReservation,
-					message: `Table déjà réservée par ${existingReservation.clientName}. Voulez-vous rejoindre ?`,
-					joinable: true, // front peut afficher le pop-up
-				});
+			// Génère la note à partir des allergies/restrictions
+			let notes = "";
+			if (allergies && allergies.trim()) {
+				notes += `Allergie : ${allergies.trim()} (${clientName})\n`;
+			}
+			if (restrictions && restrictions.trim()) {
+				notes += `Restriction : ${restrictions.trim()} (${clientName})\n`;
 			}
 
-			// Si aucune réservation existante non fermée, création d’une nouvelle réservation
+			// Cherche la dernière réservation pour cette table (même fermée)
+			const lastReservation = await Reservation.findOne({
+				tableId: tableIdFinal,
+			}).sort({ createdAt: -1 });
+
+			// Vérifie l'état de la table
+			let table = null;
+			if (tableIdFinal) {
+				table = await Table.findById(tableIdFinal);
+			}
+
+			if (lastReservation) {
+				// Si la table est disponible (isAvailable:true), on autorise la création d'une nouvelle réservation et on vide les guests
+				if (table && table.isAvailable === true) {
+					table.guests = [];
+					await table.save();
+				} else if (lastReservation.status === "fermee") {
+					// Si la dernière réservation est fermée ET la table n'est pas dispo, on interdit
+					return res.status(400).json({
+						message:
+							"Impossible de rejoindre ou créer une réservation : la dernière réservation pour cette table est fermée.",
+					});
+				} else {
+					// Sinon, comportement existant : on ne crée pas de nouvelle resa si une ouverte existe
+					// Toujours populate la table pour la réponse
+					const populatedReservation = await lastReservation.populate(
+						"tableId"
+					);
+					// Ajout du client dans guests de la table si non déjà présent
+					if (
+						populatedReservation.tableId &&
+						populatedReservation.tableId._id
+					) {
+						const table = await Table.findById(
+							populatedReservation.tableId._id
+						);
+						if (
+							table &&
+							clientName &&
+							!table.guests.includes(clientName.trim())
+						) {
+							table.guests.push(clientName.trim());
+							await table.save();
+						}
+					}
+					if (lastReservation.clientName === clientName.trim()) {
+						return res.status(200).json({
+							reservation: populatedReservation,
+							creatorName: lastReservation.clientName,
+							guests:
+								populatedReservation.tableId &&
+								populatedReservation.tableId.guests
+									? populatedReservation.tableId.guests
+									: [],
+							message: "Vous êtes déjà inscrit à cette table.",
+						});
+					}
+					return res.status(200).json({
+						reservation: populatedReservation,
+						creatorName: lastReservation.clientName,
+						guests:
+							populatedReservation.tableId &&
+							populatedReservation.tableId.guests
+								? populatedReservation.tableId.guests
+								: [],
+						message: `Table déjà réservée par ${lastReservation.clientName}. Voulez-vous rejoindre ?`,
+						joinable: true,
+					});
+				}
+			}
+
+			// Création d’une nouvelle réservation
 			const reservation = new Reservation({
 				...req.body,
 				tableId: tableIdFinal,
 				status: "en attente",
 				isPresent: true,
 				nbPersonnes: req.body.nbPersonnes || 1,
+				notes: notes.trim(),
 			});
 
-			await reservation.save();
+			try {
+				await reservation.save();
+				// Populate la table pour la réponse
+				await reservation.populate("tableId");
+				// Ajout du client dans guests de la table (si non déjà présent) + MAJ isAvailable
+				if (reservation.tableId && reservation.tableId._id) {
+					const table = await Table.findById(reservation.tableId._id);
+					let shouldSave = false;
+					if (
+						table &&
+						clientName &&
+						!table.guests.includes(clientName.trim())
+					) {
+						table.guests.push(clientName.trim());
+						shouldSave = true;
+					}
+					// Passe la table en indisponible si elle ne l'est pas déjà
+					if (table && table.isAvailable !== false) {
+						table.isAvailable = false;
+						shouldSave = true;
+					}
+					if (shouldSave) {
+						await table.save();
+					}
+				}
+			} catch (saveErr) {
+				return res.status(500).json({
+					message: "Erreur lors de la sauvegarde de la réservation",
+					error: saveErr.message,
+				});
+			}
 
-			res.status(201).json({ reservation });
-		} catch (err) {
-			console.error("Erreur serveur /client/reservations:", err);
-			res.status(500).json({ message: "Erreur serveur" });
+			// Émission WebSocket si possible
+			const io = getIO(req);
+			if (io && reservation.restaurantId) {
+				emitReservationEvent(
+					io,
+					reservation.restaurantId,
+					"created",
+					reservation.toObject()
+				);
+			}
+
+			let reservationToSend = reservation.toObject();
+			if (reservationToSend.public_id) {
+				delete reservationToSend._id;
+				delete reservationToSend.__v;
+			}
+
+			// Ajoute guests à la réponse si possible
+			let guestsArr = [];
+			if (reservation.tableId && reservation.tableId.guests) {
+				guestsArr = reservation.tableId.guests;
+			}
+			res
+				.status(201)
+				.json({ reservation: reservationToSend, guests: guestsArr });
+		} catch (error) {
+			return res
+				.status(500)
+				.json({ message: "Erreur serveur", error: error.message });
 		}
 	}
 );
@@ -129,7 +243,30 @@ router.post("/client/reservations/join/:id", async (req, res) => {
 		return res.status(404).json({ message: "Réservation introuvable" });
 	reservation.nbPersonnes = (reservation.nbPersonnes || 1) + 1;
 	await reservation.save();
-	res.json({ reservation, message: "Vous avez rejoint la table !" });
+
+	// Ajout du client dans guests de la table (si non déjà présent)
+	const { clientName } = req.body;
+	if (reservation.tableId && clientName) {
+		const table = await Table.findById(reservation.tableId);
+		if (table && !table.guests.includes(clientName.trim())) {
+			table.guests.push(clientName.trim());
+			await table.save();
+		}
+	}
+
+	// Récupère la table pour exposer guests
+	let guestsArr = [];
+	if (reservation.tableId) {
+		const table = await Table.findById(reservation.tableId);
+		if (table && table.guests) {
+			guestsArr = table.guests;
+		}
+	}
+	res.json({
+		reservation,
+		guests: guestsArr,
+		message: "Vous avez rejoint la table !",
+	});
 });
 
 // GET /:id - récupérer une réservation
@@ -156,7 +293,7 @@ router.get(
 // GET /:id - récupérer toutes les réservations
 router.get("/", auth, checkRoles(["admin", "server"]), async (req, res) => {
 	try {
-		const reservations = await Reservation.find()
+		const rreservations = await Reservation.find()
 			.populate("serverId", "firstName lastName")
 			.populate("tableId", "number");
 		res.json(reservations);
@@ -227,7 +364,17 @@ router.put(
 	auth,
 	checkRoles(["admin", "server"]),
 	async (req, res) => {
+		console.log("[DEBUG] --- NOUVELLE REQUÊTE PUT /:id/status ---");
+		console.log("[DEBUG] Date:", new Date().toISOString());
+		console.log("[DEBUG] req.params:", req.params);
+		console.log("[DEBUG] req.body:", req.body);
+		console.log(
+			"[DEBUG] req.headers.authorization:",
+			req.headers.authorization
+		);
+		console.log("[DEBUG] req.user:", req.user);
 		try {
+			console.log("[DEBUG] Début try/catch PUT /:id/status");
 			const reservation = await Reservation.findById(req.params.id);
 			if (!reservation)
 				return res.status(404).json({ message: "Réservation non trouvée" });
@@ -290,16 +437,10 @@ router.put(
 
 		try {
 			const { status } = req.body; // le nouveau statut envoyé par le front
-			console.log("🔍 [DEBUG] Statut demandé:", status);
+			console.log("[DEBUG] Statut demandé:", status);
 
-			const allowedStatuses = [
-				"en attente",
-				"present",
-				"ouverte",
-				"fermee",
-				"annulee",
-			];
-			console.log("🔍 [DEBUG] Statuts autorisés:", allowedStatuses);
+			const allowedStatuses = ["en attente", "ouverte", "fermee", "annulee"];
+			console.log("[DEBUG] Statuts autorisés:", allowedStatuses);
 
 			// Vérification que le statut demandé est valide
 			if (!allowedStatuses.includes(status)) {
@@ -307,15 +448,16 @@ router.put(
 				return res.status(400).json({ message: "Statut invalide" });
 			}
 
-			console.log("🔍 [DEBUG] Recherche réservation ID:", req.params.id);
+			console.log("[DEBUG] Recherche réservation ID:", req.params.id);
 			const reservation = await Reservation.findById(req.params.id);
+			console.log("[DEBUG] Résultat Reservation.findById:", reservation);
 
 			if (!reservation) {
 				console.log("❌ [DEBUG] Réservation non trouvée:", req.params.id);
 				return res.status(404).json({ message: "Réservation non trouvée" });
 			}
 
-			console.log("🔍 [DEBUG] Réservation trouvée:", {
+			console.log("[DEBUG] Réservation trouvée:", {
 				id: reservation._id,
 				statusActuel: reservation.status,
 				client: reservation.clientName,
@@ -333,7 +475,7 @@ router.put(
 			}
 
 			console.log(
-				"🔍 [DEBUG] Ancien statut:",
+				"[DEBUG] Ancien statut:",
 				reservation.status,
 				"→ Nouveau statut:",
 				status
@@ -341,17 +483,18 @@ router.put(
 
 			// Mise à jour
 			reservation.status = status;
-			reservation.isPresent = false; // reset quand on change de statut
+			// NE PAS reset isPresent ici : on garde la présence
 
-			console.log("🔍 [DEBUG] Avant save() - Réservation:", {
+			console.log("[DEBUG] Avant save() - Réservation:", {
+				id: reservation._id,
 				status: reservation.status,
 				isPresent: reservation.isPresent,
+				updatedAt: reservation.updatedAt,
 			});
 
 			await reservation.save();
 
-			console.log("✅ [DEBUG] Réservation mise à jour avec succès");
-			console.log("🔍 [DEBUG] Après save() - Réservation:", {
+			console.log("[DEBUG] Après save() - Réservation:", {
 				id: reservation._id,
 				status: reservation.status,
 				isPresent: reservation.isPresent,
@@ -360,15 +503,27 @@ router.put(
 
 			// ⭐ Émettre l'événement WebSocket
 			const io = getIO(req);
+			console.log(
+				"[DEBUG] io:",
+				!!io,
+				"restaurantId:",
+				reservation.restaurantId
+			);
 			if (io && reservation.restaurantId) {
-				emitReservationEvent(
-					io,
-					reservation.restaurantId,
-					"statusUpdated",
-					reservation.toObject()
-				);
+				try {
+					emitReservationEvent(
+						io,
+						reservation.restaurantId,
+						"statusUpdated",
+						reservation.toObject()
+					);
+					console.log("[DEBUG] Événement WebSocket émis");
+				} catch (wsErr) {
+					console.error("[DEBUG] Erreur émission WebSocket:", wsErr);
+				}
 			}
 
+			console.log("[DEBUG] Fin try/catch, réponse envoyée au client");
 			res.json(reservation);
 		} catch (err) {
 			console.error("❌ [DEBUG] Erreur dans /:id/status:", err);
@@ -377,6 +532,10 @@ router.put(
 				message: err.message,
 				name: err.name,
 				code: err.code,
+				params: req.params,
+				body: req.body,
+				headers: req.headers,
+				user: req.user,
 			});
 			res.status(500).json({ message: "Erreur server" });
 		}
@@ -390,7 +549,7 @@ router.put(
 	checkRoles(["admin", "server"]),
 	async (req, res) => {
 		try {
-			const { paidAmount, remainingAmount, paymentMethod, status } = req.body;
+			const { paidAmount, remainingAmount, paymentMethod } = req.body;
 
 			const reservation = await Reservation.findById(req.params.id);
 			if (!reservation) {
@@ -402,10 +561,53 @@ router.put(
 			if (remainingAmount !== undefined)
 				reservation.remainingAmount = remainingAmount;
 			if (paymentMethod) reservation.paymentMethod = paymentMethod;
-			if (status) reservation.status = status;
 
+			// Forcer le statut à "fermee" après paiement
+			reservation.status = "fermee";
 			reservation.updatedAt = new Date();
 			await reservation.save();
+
+			// Vider les guests de la table associée (transactionnel et robuste)
+			if (reservation.tableId) {
+				const Table = require("../models/Table");
+				try {
+					const table = await Table.findById(reservation.tableId);
+					if (!table) {
+						const errMsg = `[PAIEMENT][ERREUR] Table introuvable pour reservation ${reservation._id} (tableId: ${reservation.tableId})`;
+						require("../utils/logger").error(errMsg, {
+							orderId: reservation._id,
+							tableId: reservation.tableId,
+						});
+						return res.status(500).json({
+							message: "Table associée introuvable",
+							orderId: reservation._id,
+							tableId: reservation.tableId,
+						});
+					}
+					table.guests = [];
+					await table.save();
+					console.log(
+						`[PAIEMENT] Guests vidés sur table ${
+							table.number || table._id
+						} (orderId: ${reservation._id})`
+					);
+				} catch (err) {
+					require("../utils/logger").error(
+						"[PAIEMENT][ERREUR] Impossible de vider les guests",
+						{
+							error: err,
+							orderId: reservation._id,
+							tableId: reservation.tableId,
+						}
+					);
+					return res.status(500).json({
+						message: "Erreur lors du vidage des guests",
+						error: err.message,
+						orderId: reservation._id,
+						tableId: reservation.tableId,
+					});
+				}
+			}
 
 			// Émettre événement WebSocket
 			const io = getIO(req);
@@ -417,13 +619,6 @@ router.put(
 					reservation.toObject()
 				);
 			}
-
-			console.log("✅ Paiement mis à jour:", {
-				id: reservation._id,
-				paidAmount: reservation.paidAmount,
-				remainingAmount: reservation.remainingAmount,
-				status: reservation.status,
-			});
 
 			res.json(reservation);
 		} catch (err) {
@@ -623,17 +818,70 @@ router.put("/client/:id/close", async (req, res) => {
 		}
 
 		// 3. Mise à jour
+		console.log("[DEBUG] Avant save() - status:", reservation.status);
 		reservation.status = "fermee";
 		reservation.isPresent = false;
+
+		// Si la réservation a des orderIds, on force toutes les commandes à paid (tous champs cohérents)
+
+		if (reservation.orderIds && reservation.orderIds.length > 0) {
+			const Order = require("../models/Order");
+			const orders = await Order.find({ _id: { $in: reservation.orderIds } });
+			const now = new Date();
+			// On sauvegarde chaque commande une par une AVANT la réservation
+			for (const order of orders) {
+				order.orderStatus = "completed";
+				order.paymentStatus = "paid";
+				order.paid = true;
+				order.paidAmount = order.totalAmount;
+				order.paidAt = now;
+				await order.save();
+			}
+			// Log détaillé pour debug
+			const debugOrders = await Order.find({
+				_id: { $in: reservation.orderIds },
+			});
+			console.log("[DEBUG] État des commandes juste avant save reservation:");
+			debugOrders.forEach((o) => {
+				console.log({
+					_id: o._id,
+					orderStatus: o.orderStatus,
+					paymentStatus: o.paymentStatus,
+					paid: o.paid,
+					paidAmount: o.paidAmount,
+					totalAmount: o.totalAmount,
+				});
+			});
+		}
+
+		// Forcer la sauvegarde et la propagation du statut
 		await reservation.save();
+		// Recharger la réservation après save pour obtenir le statut à jour
+		const updatedReservation = await Reservation.findById(id);
+		console.log("[DEBUG] Après save() - status:", updatedReservation.status);
 
-		console.log("✅ Réservation mise à jour:", reservation.status);
+		// Émettre explicitement l'événement WebSocket pour garantir la synchro front
+		try {
+			const { emitReservationEvent } = require("../utils/socketEmitter");
+			const io = require("../start").io;
+			if (io && updatedReservation.restaurantId) {
+				emitReservationEvent(
+					io,
+					updatedReservation.restaurantId.toString(),
+					"updated",
+					updatedReservation
+				);
+			}
+		} catch (e) {
+			console.error("[WebSocket] Erreur émission événement reservation: ", e);
+		}
 
-		// 4. Libérer la table si nécessaire
+		// 4. Libérer la table et vider les guests
 		if (reservation.tableId) {
-			console.log("🔓 Libération table:", reservation.tableId);
+			console.log("🔓 Libération table + vidage guests:", reservation.tableId);
 			await Table.findByIdAndUpdate(reservation.tableId, {
 				isAvailable: true,
+				guests: [],
 			});
 		}
 
