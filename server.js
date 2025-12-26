@@ -11,7 +11,22 @@ const clientProductsRoutes = require("./routes/clientProducts");
 // Création de l'app
 const app = express();
 
-// Middlewares généraux
+// CORS strict pour Expo, localhost, Render, Vercel
+app.use(
+	cors({
+		origin: [
+			"http://localhost:8081", // Expo web
+			"exp://192.168.*.*:8081", // Expo local
+			"http://localhost:3000", // React dev
+			"https://orderit-frontend.vercel.app", // Frontend prod (à adapter)
+			"https://orderit-backend-6y1m.onrender.com", // Render backend (pour tests)
+		],
+		credentials: true,
+		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+		allowedHeaders: ["Content-Type", "Authorization"],
+	})
+);
+
 app.use(express.json());
 app.use(rateLimiter);
 app.use(helmet());

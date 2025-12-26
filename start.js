@@ -11,7 +11,13 @@ const port = process.env.PORT || 3000;
 const server = http.createServer(app);
 const io = new Server(server, {
 	cors: {
-		origin: "*", // À restreindre en production
+		origin: [
+			"http://localhost:8081", // Expo web
+			"exp://192.168.*.*:8081", // Expo local
+			"http://localhost:3000", // React dev
+			"https://orderit-frontend.vercel.app", // Frontend prod (à adapter)
+			"https://orderit-backend-6y1m.onrender.com", // Render backend (pour tests)
+		],
 		methods: ["GET", "POST"],
 		credentials: true,
 	},
