@@ -1,45 +1,32 @@
-const redis = require("redis");
-const client = redis.createClient({
-	url: process.env.REDIS_URL || "redis://localhost:6379",
-});
-
-client.connect().catch(console.error);
-
-const BLACKLIST_PREFIX = "blacklist:";
+// utils/blacklist.js - VERSION SANS REDIS
+const blacklist = new Map();
 
 module.exports = {
 	add: async (token, ttlSeconds = 15 * 60) => {
-		// ttl par défaut 15 min (durée access token)
-		try {
-			await client.set(BLACKLIST_PREFIX + token, "1", {
-				EX: ttlSeconds,
-			});
-		} catch (err) {
-			console.error("Erreur ajout blacklist:", err);
-			throw err;
-		}
+		blacklist.set(token, Date.now() + ttlSeconds * 1000);
+
+		// Auto-nettoyage
+		setTimeout(() => {
+			blacklist.delete(token);
+		}, ttlSeconds * 1000);
 	},
 
 	has: async (token) => {
-		try {
-			const result = await client.get(BLACKLIST_PREFIX + token);
-			return result === "1";
-		} catch (err) {
-			console.error("Erreur lecture blacklist:", err);
-			throw err;
+		const expiry = blacklist.get(token);
+		if (!expiry) return false;
+
+		if (Date.now() > expiry) {
+			blacklist.delete(token);
+			return false;
 		}
+		return true;
 	},
 
 	remove: async (token) => {
-		try {
-			await client.del(BLACKLIST_PREFIX + token);
-		} catch (err) {
-			console.error("Erreur suppression blacklist:", err);
-			throw err;
-		}
+		blacklist.delete(token);
 	},
 
 	quit: async () => {
-		await client.quit();
+		// Rien à faire
 	},
 };
