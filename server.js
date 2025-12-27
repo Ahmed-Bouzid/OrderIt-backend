@@ -1,3 +1,5 @@
+console.log("=== [DEBUG] DEMARRAGE server.js ===");
+console.log("=== DEMARRAGE SERVER.JS ===");
 const express = require("express");
 const cors = require("cors");
 const rateLimiter = require("./middlewares/rateLimiter");

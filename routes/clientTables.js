@@ -8,6 +8,9 @@ router.get(
 	"/:tableId/guests",
 	validateObjectIds(["tableId"]),
 	async (req, res) => {
+		console.log(
+			`[CLIENT-END][API] GET /client-tables/${req.params.tableId}/guests appelée`
+		);
 		try {
 			const table = await Table.findById(req.params.tableId).select(
 				"guests number isAvailable"

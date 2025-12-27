@@ -1,3 +1,4 @@
+console.log("[DEBUG] clientToken.js chargé");
 const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
@@ -6,9 +7,15 @@ const generateClientToken = require("../utils/generateClientToken"); // notre ut
 // Cette route permet à un client de générer un token limité
 router.post("/", async (req, res) => {
 	try {
+		console.log("[DEBUG] Body reçu sur /client/token:", req.body);
 		const { pseudo, tableId, restaurantId } = req.body;
 
 		if (!pseudo || !tableId || !restaurantId) {
+			console.warn("[WARN] Champs manquants /client/token:", {
+				pseudo,
+				tableId,
+				restaurantId,
+			});
 			return res
 				.status(400)
 				.json({ message: "Pseudo, tableId et restaurantId sont requis." });

@@ -1,3 +1,4 @@
+console.log("=== [DEBUG] DEMARRAGE start.js ===");
 require("dotenv").config();
 const mongoose = require("mongoose");
 const http = require("http");
