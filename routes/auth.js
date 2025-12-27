@@ -38,13 +38,55 @@ router.post("/login", async (req, res) => {
 			restaurantId: user.restaurantId || null,
 		};
 
-		const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
-			expiresIn: "2h", // ⭐ Augmenté de 15m à 2h pour plus de confort
-		});
+		// === AUTH DEBUG ===
+		console.log("=== AUTH DEBUG ===");
+		console.log("JWT_SECRET exists?", !!process.env.JWT_SECRET);
+		console.log(
+			"JWT_SECRET value (first 5 chars):",
+			process.env.JWT_SECRET
+				? process.env.JWT_SECRET.substring(0, 5) + "..."
+				: "UNDEFINED"
+		);
+		console.log(
+			"All env vars starting with JWT:",
+			Object.keys(process.env).filter((key) => key.includes("JWT"))
+		);
 
-		const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET, {
-			expiresIn: "7d",
-		});
+		const jwtSecret = process.env.JWT_SECRET;
+		if (!jwtSecret || jwtSecret.trim() === "") {
+			console.error("❌ CRITICAL: JWT_SECRET is empty or undefined!");
+			return res
+				.status(500)
+				.json({ message: "Server configuration error (JWT_SECRET missing)" });
+		}
+
+		const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
+		if (!refreshSecret || refreshSecret.trim() === "") {
+			console.error("❌ CRITICAL: REFRESH_TOKEN_SECRET is empty or undefined!");
+			return res
+				.status(500)
+				.json({
+					message: "Server configuration error (REFRESH_TOKEN_SECRET missing)",
+				});
+		}
+
+		let accessToken, refreshToken;
+		try {
+			accessToken = jwt.sign(payload, jwtSecret, {
+				expiresIn: "2h",
+			});
+		} catch (error) {
+			console.error("JWT sign error details (accessToken):", error.message);
+			throw error;
+		}
+		try {
+			refreshToken = jwt.sign(payload, refreshSecret, {
+				expiresIn: "7d",
+			});
+		} catch (error) {
+			console.error("JWT sign error details (refreshToken):", error.message);
+			throw error;
+		}
 
 		// Stockage en base du refresh token avec expiration TTL gérée par MongoDB
 		await RefreshTokenStore.add(refreshToken, payload, 7 * 24 * 3600);

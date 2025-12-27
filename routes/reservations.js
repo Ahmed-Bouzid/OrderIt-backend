@@ -293,7 +293,7 @@ router.get(
 // GET /:id - récupérer toutes les réservations
 router.get("/", auth, checkRoles(["admin", "server"]), async (req, res) => {
 	try {
-		const rreservations = await Reservation.find()
+		const reservations = await Reservation.find()
 			.populate("serverId", "firstName lastName")
 			.populate("tableId", "number");
 		res.json(reservations);

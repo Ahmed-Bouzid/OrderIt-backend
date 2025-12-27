@@ -13,18 +13,27 @@ const app = express();
 
 // CORS strict pour Expo, localhost, Render, Vercel
 app.use(
-	cors({
-		origin: [
-			"http://localhost:8081", // Expo web
-			"exp://192.168.*.*:8081", // Expo local
-			"http://localhost:3000", // React dev
-			"https://orderit-frontend.vercel.app", // Frontend prod (à adapter)
-			"https://orderit-backend-6y1m.onrender.com", // Render backend (pour tests)
-		],
-		credentials: true,
-		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-		allowedHeaders: ["Content-Type", "Authorization"],
-	})
+	cors(
+		process.env.NODE_ENV !== "production"
+			? {
+					origin: true, // Autorise toutes les origines en dev
+					credentials: true,
+					methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+					allowedHeaders: ["Content-Type", "Authorization"],
+			  }
+			: {
+					origin: [
+						"http://localhost:8081",
+						"exp://192.168.*.*:8081",
+						"http://localhost:3000",
+						"https://orderit-frontend.vercel.app",
+						"https://orderit-backend-6y1m.onrender.com",
+					],
+					credentials: true,
+					methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+					allowedHeaders: ["Content-Type", "Authorization"],
+			  }
+	)
 );
 
 app.use(express.json());

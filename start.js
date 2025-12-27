@@ -11,19 +11,25 @@ const port = process.env.PORT || 3000;
 const server = http.createServer(app);
 const io = new Server(server, {
 	cors: {
-		origin: [
-			"http://localhost:8081", // Expo web
-			"exp://192.168.*.*:8081", // Expo local
-			"http://localhost:3000", // React dev
-			"https://orderit-frontend.vercel.app", // Frontend prod (à adapter)
-			"https://orderit-backend-6y1m.onrender.com", // Render backend (pour tests)
-		],
-		methods: ["GET", "POST"],
+		origin: "*", // Temporairement pour test
 		credentials: true,
+		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+		allowedHeaders: ["Content-Type", "Authorization"],
 	},
-	transports: ["websocket", "polling"],
+	transports: ["websocket", "polling"], // Important : polling en fallback
+	allowUpgrades: true,
+	pingTimeout: 60000, // Augmente pour Render
+	pingInterval: 25000,
+	path: "/socket.io/", // ESSENTIEL pour Render
+	serveClient: false,
+	connectTimeout: 45000,
+	perMessageDeflate: false,
 });
 
+// ⭐ AJOUTE CE LOG IMPORTANT
+io.engine.on("connection", (socket) => {
+	console.log("🔄 Socket.io engine connection");
+});
 // ⭐ Middleware d'authentification Socket.io
 io.use((socket, next) => {
 	const token = socket.handshake.auth.token;
@@ -48,8 +54,13 @@ const restaurantConnections = new Map();
 // ⭐ Gestion des connexions
 io.on("connection", (socket) => {
 	console.log(
-		`🔌 Client connecté: ${socket.id} (User: ${socket.userId}, Restaurant: ${socket.restaurantId})`
+		`✅ Client connecté via Socket.io: ${socket.id} (User: ${socket.userId}, Restaurant: ${socket.restaurantId})`
 	);
+
+	// Ping/pong keep-alive agressif pour Render
+	socket.on("ping", (cb) => {
+		if (typeof cb === "function") cb();
+	});
 
 	// Joindre la room du restaurant
 	socket.join(`restaurant-${socket.restaurantId}`);
@@ -60,8 +71,8 @@ io.on("connection", (socket) => {
 	restaurantConnections.get(socket.restaurantId).push(socket.id);
 
 	// Déconnexion
-	socket.on("disconnect", () => {
-		console.log(`🔌 Client déconnecté: ${socket.id}`);
+	socket.on("disconnect", (reason) => {
+		console.log(`❌ Client déconnecté: ${socket.id} Reason: ${reason}`);
 		const connections = restaurantConnections.get(socket.restaurantId);
 		if (connections) {
 			const index = connections.indexOf(socket.id);
