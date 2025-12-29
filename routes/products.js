@@ -85,7 +85,9 @@ router.get(
 		try {
 			const products = await Product.find({
 				restaurantId: req.params.restaurantId,
-			}).maxTimeMS(10000);
+			})
+				.populate("allergens")
+				.maxTimeMS(10000);
 			if (!products.length) {
 				return res.status(404).json({ message: "Aucun produit trouvé." });
 			}

@@ -21,7 +21,7 @@ router.get("/restaurant/:restaurantId", auth, async (req, res) => {
 
 		const products = await Product.find({
 			restaurantId: req.params.restaurantId,
-		});
+		}).populate("allergens");
 
 		res.json(products);
 	} catch (err) {

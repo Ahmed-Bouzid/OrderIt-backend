@@ -32,6 +32,12 @@ const productSchema = new mongoose.Schema(
 			default: true,
 			index: true, // Index pour filtrer les produits disponibles
 		},
+		allergens: [
+			{
+				type: mongoose.Schema.Types.ObjectId,
+				ref: "Allergen",
+			},
+		],
 		createdAt: {
 			type: Date,
 			default: Date.now,

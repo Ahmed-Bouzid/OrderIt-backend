@@ -64,6 +64,8 @@ app.use("/servers", require("./routes/servers"));
 app.use("/reservations", require("./routes/reservations"));
 app.use("/products", auth, require("./routes/products"));
 app.use("/products", auth, require("./routes/productOptions")); // ⭐ Routes options produits
+app.use("/products", auth, require("./routes/productAllergens")); // ⭐ Routes allergènes produits
+app.use("/allergens", require("./routes/allergens")); // ⭐ Routes allergènes
 app.use("/client/token", clientTokenRoutes);
 app.use("/client/products", clientProductsRoutes);
 
