@@ -63,6 +63,7 @@ app.use("/client-orders", require("./routes/clientOrders")); // ⭐ Route publiq
 app.use("/servers", require("./routes/servers"));
 app.use("/reservations", require("./routes/reservations"));
 app.use("/products", auth, require("./routes/products"));
+app.use("/products", auth, require("./routes/productOptions")); // ⭐ Routes options produits
 app.use("/client/token", clientTokenRoutes);
 app.use("/client/products", clientProductsRoutes);
 
