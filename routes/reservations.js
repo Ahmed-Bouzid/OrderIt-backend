@@ -335,8 +335,20 @@ router.put(
 			"dishStatus",
 			"paymentMethod",
 			"totalAmount",
-			"status",
+			// ⭐ STATUS RETIRÉ - utiliser la route /:id/status pour les changements de statut
+			// "status",
 		];
+
+		// ⭐ Si le frontend essaie de modifier le status via cette route, rediriger vers /:id/status
+		if (req.body.status) {
+			console.log(
+				"⚠️ [PUT /:id] Tentative de modification du status via la route générale. Utiliser /:id/status"
+			);
+			return res.status(400).json({
+				message: "Pour modifier le statut, utilisez la route PUT /:id/status",
+				hint: "Cette route ne permet pas de modifier le statut directement",
+			});
+		}
 
 		const updates = Object.fromEntries(
 			Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
@@ -498,6 +510,9 @@ router.put(
 					message: "Seules les réservations en attente peuvent être ouvertes",
 				});
 			}
+
+			// ⭐ RÈGLE MÉTIER: Une réservation "ouverte" peut revenir à "en attente" (garder isPresent=true)
+			// (pas de validation supplémentaire nécessaire)
 
 			// ⭐ RÈGLE MÉTIER: Si passage à terminée/annulée, isPresent passe à false
 			if (status === "terminée" || status === "annulée") {
