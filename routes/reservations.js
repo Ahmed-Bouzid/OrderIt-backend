@@ -105,13 +105,27 @@ router.post(
 					number: table?.number,
 					isAvailable: table?.isAvailable,
 				status: table?.status,
+				guests: table?.guests,
+			});
+		}
+
+		// Récupère la dernière réservation de cette table pour savoir si on crée ou rejoint
+		let lastReservation = null;
+		if (tableIdFinal) {
+			lastReservation = await Reservation.findOne({ tableId: tableIdFinal })
+				.sort({ createdAt: -1 })
+				.maxTimeMS(10000);
+			if (lastReservation) {
 				console.log("📋 [RESERVATION] Last reservation found:", {
 					reservationId: lastReservation._id,
 					status: lastReservation.status,
 					tableIsAvailable: table?.isAvailable,
 				});
-				// Si la table est disponible (isAvailable:true), on autorise la création d'une nouvelle réservation et on vide les guests
-				if (table && table.isAvailable === true) {
+			}
+		}
+
+		// Si la table est disponible (isAvailable:true), on autorise la création d'une nouvelle réservation et on vide les guests
+		if (table && table.isAvailable === true) {
 					console.log(
 						"✅ [RESERVATION] Table disponible - Création nouvelle réservation et vidage guests"
 					);
