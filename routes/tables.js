@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Table = require("../models/Table");
+const { TABLE_STATUS } = require("../models/Table");
 const { body, validationResult } = require("express-validator");
 
 const auth = require("../middlewares/auth");
@@ -46,9 +47,15 @@ router.post(
 			return res.status(400).json({ errors: errors.array() });
 
 		try {
-			const { restaurantId, number, qrCodeUrl } = req.body;
+			const { restaurantId, number, qrCodeUrl, capacity, status } = req.body;
 
-			const table = new Table({ restaurantId, number, qrCodeUrl });
+			const table = new Table({
+				restaurantId,
+				number,
+				qrCodeUrl,
+				capacity: capacity || 4,
+				status: status || TABLE_STATUS.AVAILABLE,
+			});
 			await table.save();
 
 			// ⭐ Émettre l'événement WebSocket
@@ -133,15 +140,39 @@ router.put(
 			return res.status(400).json({ errors: errors.array() });
 		}
 
-		// On filtre les champs autorisés
-		const allowedFields = ["number", "qrCodeUrl"];
+		// On filtre les champs autorisés (ajout de capacity et status)
+		const allowedFields = ["number", "qrCodeUrl", "capacity", "status"];
 		const updates = Object.fromEntries(
 			Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
 		);
 
+		// Validation du status si fourni
+		if (
+			updates.status &&
+			!Object.values(TABLE_STATUS).includes(updates.status)
+		) {
+			return res.status(400).json({
+				message: `Statut invalide. Valeurs autorisées: ${Object.values(
+					TABLE_STATUS
+				).join(", ")}`,
+			});
+		}
+
+		// Validation de la capacité si fournie
+		if (updates.capacity !== undefined) {
+			const cap = parseInt(updates.capacity);
+			if (isNaN(cap) || cap < 1 || cap > 50) {
+				return res.status(400).json({
+					message: "Capacité invalide. Doit être entre 1 et 50.",
+				});
+			}
+			updates.capacity = cap;
+		}
+
 		try {
 			const updated = await Table.findByIdAndUpdate(req.params.id, updates, {
 				new: true,
+				runValidators: true,
 			});
 			if (!updated) {
 				return res.status(404).json({ message: "Table non trouvée." });
@@ -169,10 +200,42 @@ router.delete(
 	checkRoles(["admin"]),
 	async (req, res) => {
 		try {
-			const deleted = await Table.findByIdAndDelete(req.params.id);
-			if (!deleted) {
+			// Vérifier si la table existe et son statut
+			const table = await Table.findById(req.params.id);
+			if (!table) {
 				return res.status(404).json({ message: "Table non trouvée." });
 			}
+
+			// Interdire la suppression si la table est occupée
+			if (table.status === TABLE_STATUS.OCCUPIED) {
+				return res.status(400).json({
+					message:
+						"Impossible de supprimer une table occupée. Veuillez d'abord libérer la table.",
+				});
+			}
+
+			// Vérifier s'il y a des commandes en cours sur cette table
+			const activeOrders = await Order.countDocuments({
+				tableId: req.params.id,
+				status: { $in: ["pending", "preparing", "ready"] },
+			});
+
+			if (activeOrders > 0) {
+				return res.status(400).json({
+					message: `Impossible de supprimer cette table. ${activeOrders} commande(s) en cours.`,
+				});
+			}
+
+			const deleted = await Table.findByIdAndDelete(req.params.id);
+
+			// ⭐ Émettre l'événement WebSocket
+			const io = getIO(req);
+			if (io && table.restaurantId) {
+				emitTableEvent(io, table.restaurantId, "deleted", {
+					_id: req.params.id,
+				});
+			}
+
 			res.json({ message: "Table supprimée." });
 		} catch (err) {
 			console.error(err);
