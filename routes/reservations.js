@@ -96,47 +96,39 @@ router.post(
 				tableId: tableIdFinal,
 			}).sort({ createdAt: -1 });
 
-			// Vérifie l'état de la table
-			let table = null;
-			if (tableIdFinal) {
-				table = await Table.findById(tableIdFinal);
-				console.log("📋 [RESERVATION] Table found:", {
-					tableId: tableIdFinal,
-					number: table?.number,
-					isAvailable: table?.isAvailable,
+		if (lastReservation) {
+			console.log("📋 [RESERVATION] Last reservation found:", {
+				reservationId: lastReservation._id,
+				status: lastReservation.status,
+			});
+		}
+
+		// Vérifie l'état de la table
+		let table = null;
+		if (tableIdFinal) {
+			table = await Table.findById(tableIdFinal);
+			console.log("📋 [RESERVATION] Table found:", {
+				tableId: tableIdFinal,
+				number: table?.number,
+				isAvailable: table?.isAvailable,
 				status: table?.status,
 				guests: table?.guests,
 			});
 		}
 
-		// Récupère la dernière réservation de cette table pour savoir si on crée ou rejoint
-		let lastReservation = null;
-		if (tableIdFinal) {
-			lastReservation = await Reservation.findOne({ tableId: tableIdFinal })
-				.sort({ createdAt: -1 })
-				.maxTimeMS(10000);
-			if (lastReservation) {
-				console.log("📋 [RESERVATION] Last reservation found:", {
-					reservationId: lastReservation._id,
-					status: lastReservation.status,
-					tableIsAvailable: table?.isAvailable,
-				});
-			}
-		}
-
 		// Si la table est disponible (isAvailable:true), on autorise la création d'une nouvelle réservation et on vide les guests
 		if (table && table.isAvailable === true) {
-					console.log(
-						"✅ [RESERVATION] Table disponible - Création nouvelle réservation et vidage guests"
-					);
-					table.guests = [];
-					await table.save();
-				} else if (lastReservation.status === "terminée") {
-					console.log(
-						"❌ [RESERVATION] Dernière réservation terminée et table non dispo - Refus"
-					);
-					// Si la dernière réservation est terminée ET la table n'est pas dispo, on interdit
-					return res.status(400).json({
+			console.log(
+				"✅ [RESERVATION] Table disponible - Création nouvelle réservation et vidage guests"
+			);
+			table.guests = [];
+			await table.save();
+		} else if (lastReservation && lastReservation.status === "terminée") {
+			console.log(
+				"❌ [RESERVATION] Dernière réservation terminée et table non dispo - Refus"
+			);
+			// Si la dernière réservation est terminée ET la table n'est pas dispo, on interdit
+			return res.status(400).json({
 						message:
 							"Impossible de rejoindre ou créer une réservation : la dernière réservation pour cette table est fermée.",
 					});
