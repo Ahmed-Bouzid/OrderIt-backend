@@ -38,9 +38,9 @@ app.use(
 	)
 );
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: "10mb" }));
 // Pour les formulaires (si jamais utilisé)
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.use(rateLimiter);
 app.use(helmet());
 app.use(mongoSanitize());

@@ -107,8 +107,8 @@ router.post(
 				if (table && table.isAvailable === true) {
 					table.guests = [];
 					await table.save();
-				} else if (lastReservation.status === "fermee") {
-					// Si la dernière réservation est fermée ET la table n'est pas dispo, on interdit
+				} else if (lastReservation.status === "terminée") {
+					// Si la dernière réservation est terminée ET la table n'est pas dispo, on interdit
 					return res.status(400).json({
 						message:
 							"Impossible de rejoindre ou créer une réservation : la dernière réservation pour cette table est fermée.",
@@ -364,30 +364,39 @@ router.put(
 	auth,
 	checkRoles(["admin", "server"]),
 	async (req, res) => {
-		console.log("[DEBUG] --- NOUVELLE REQUÊTE PUT /:id/status ---");
+		console.log("[DEBUG] --- NOUVELLE REQUÊTE PUT /:id/togglePresent ---");
 		console.log("[DEBUG] Date:", new Date().toISOString());
 		console.log("[DEBUG] req.params:", req.params);
-		console.log("[DEBUG] req.body:", req.body);
-		console.log(
-			"[DEBUG] req.headers.authorization:",
-			req.headers.authorization
-		);
-		console.log("[DEBUG] req.user:", req.user);
 		try {
-			console.log("[DEBUG] Début try/catch PUT /:id/status");
 			const reservation = await Reservation.findById(req.params.id);
 			if (!reservation)
 				return res.status(404).json({ message: "Réservation non trouvée" });
 
-			// Ne rien faire si terminé/fermé
-			if (reservation.status === "fermee") {
-				return res
-					.status(400)
-					.json({ message: "Impossible de modifier une réservation terminée" });
+			// ⭐ RÈGLE MÉTIER: isPresent=true impossible si status terminée ou annulée
+			if (
+				(reservation.status === "terminée" ||
+					reservation.status === "annulée") &&
+				!reservation.isPresent
+			) {
+				return res.status(400).json({
+					message:
+						"Impossible de marquer présent une réservation terminée ou annulée",
+				});
+			}
+
+			// ⭐ RÈGLE MÉTIER: Ne pas modifier si terminée/annulée
+			if (
+				reservation.status === "terminée" ||
+				reservation.status === "annulée"
+			) {
+				return res.status(400).json({
+					message: "Impossible de modifier une réservation terminée ou annulée",
+				});
 			}
 
 			reservation.isPresent = !reservation.isPresent;
-			// ⭐ NOUVEAU: Mettre à jour arrivalTime quand on passe à "présent"
+
+			// ⭐ Mettre à jour arrivalTime quand on passe à "présent"
 			if (reservation.isPresent && !reservation.arrivalTime) {
 				reservation.arrivalTime = new Date();
 			}
@@ -412,7 +421,7 @@ router.put(
 	}
 );
 
-// Mettre à jour le statut d’une réservation (en attente, annulé, fermee, ouverte, etc.)
+// Mettre à jour le statut d'une réservation (en attente, ouverte, terminée, annulée)
 router.put(
 	"/:id/status",
 	auth,
@@ -439,8 +448,7 @@ router.put(
 			const { status } = req.body; // le nouveau statut envoyé par le front
 			console.log("[DEBUG] Statut demandé:", status);
 
-			const allowedStatuses = ["en attente", "ouverte", "fermee", "annulee"];
-			console.log("[DEBUG] Statuts autorisés:", allowedStatuses);
+			const allowedStatuses = ["en attente", "ouverte", "terminée", "annulée"];
 
 			// Vérification que le statut demandé est valide
 			if (!allowedStatuses.includes(status)) {
@@ -450,93 +458,69 @@ router.put(
 
 			console.log("[DEBUG] Recherche réservation ID:", req.params.id);
 			const reservation = await Reservation.findById(req.params.id);
-			console.log("[DEBUG] Résultat Reservation.findById:", reservation);
 
 			if (!reservation) {
 				console.log("❌ [DEBUG] Réservation non trouvée:", req.params.id);
 				return res.status(404).json({ message: "Réservation non trouvée" });
 			}
 
-			console.log("[DEBUG] Réservation trouvée:", {
-				id: reservation._id,
-				statusActuel: reservation.status,
-				client: reservation.clientName,
-				table: reservation.tableId,
-			});
-
-			// Si la résa est déjà fermée, on interdit de la modifier
-			if (reservation.status === "fermee" && status !== "fermee") {
-				console.log(
-					"❌ [DEBUG] Tentative de modification réservation déjà fermée"
-				);
-				return res
-					.status(400)
-					.json({ message: "Impossible de modifier une réservation terminée" });
-			}
-
 			console.log(
-				"[DEBUG] Ancien statut:",
+				"[DEBUG] Transition:",
 				reservation.status,
-				"→ Nouveau statut:",
-				status
+				"→",
+				status,
+				"isPresent:",
+				reservation.isPresent
 			);
 
-			// Mise à jour
+			// ⭐ RÈGLE MÉTIER: Réservation terminée/annulée ne peut plus être modifiée
+			if (
+				(reservation.status === "terminée" ||
+					reservation.status === "annulée") &&
+				status !== reservation.status
+			) {
+				return res.status(400).json({
+					message: "Impossible de modifier une réservation terminée ou annulée",
+				});
+			}
+
+			// ⭐ RÈGLE MÉTIER: Ouvrir une réservation SEULEMENT si isPresent=true
+			if (status === "ouverte" && !reservation.isPresent) {
+				return res.status(400).json({
+					message:
+						"Impossible d'ouvrir une réservation si le client n'est pas présent",
+				});
+			}
+
+			// ⭐ RÈGLE MÉTIER: Seules les réservations "en attente" peuvent être ouvertes
+			if (status === "ouverte" && reservation.status !== "en attente") {
+				return res.status(400).json({
+					message: "Seules les réservations en attente peuvent être ouvertes",
+				});
+			}
+
+			// ⭐ RÈGLE MÉTIER: Si passage à terminée/annulée, isPresent passe à false
+			if (status === "terminée" || status === "annulée") {
+				reservation.isPresent = false;
+			}
+
 			reservation.status = status;
-			// NE PAS reset isPresent ici : on garde la présence
-
-			console.log("[DEBUG] Avant save() - Réservation:", {
-				id: reservation._id,
-				status: reservation.status,
-				isPresent: reservation.isPresent,
-				updatedAt: reservation.updatedAt,
-			});
-
 			await reservation.save();
-
-			console.log("[DEBUG] Après save() - Réservation:", {
-				id: reservation._id,
-				status: reservation.status,
-				isPresent: reservation.isPresent,
-				updatedAt: reservation.updatedAt,
-			});
 
 			// ⭐ Émettre l'événement WebSocket
 			const io = getIO(req);
-			console.log(
-				"[DEBUG] io:",
-				!!io,
-				"restaurantId:",
-				reservation.restaurantId
-			);
 			if (io && reservation.restaurantId) {
-				try {
-					emitReservationEvent(
-						io,
-						reservation.restaurantId,
-						"statusUpdated",
-						reservation.toObject()
-					);
-					console.log("[DEBUG] Événement WebSocket émis");
-				} catch (wsErr) {
-					console.error("[DEBUG] Erreur émission WebSocket:", wsErr);
-				}
+				emitReservationEvent(
+					io,
+					reservation.restaurantId,
+					"statusUpdated",
+					reservation.toObject()
+				);
 			}
 
-			console.log("[DEBUG] Fin try/catch, réponse envoyée au client");
 			res.json(reservation);
 		} catch (err) {
-			console.error("❌ [DEBUG] Erreur dans /:id/status:", err);
-			console.error("❌ [DEBUG] Stack:", err.stack);
-			console.error("❌ [DEBUG] Erreur complète:", {
-				message: err.message,
-				name: err.name,
-				code: err.code,
-				params: req.params,
-				body: req.body,
-				headers: req.headers,
-				user: req.user,
-			});
+			console.error("❌ Erreur /:id/status:", err);
 			res.status(500).json({ message: "Erreur server" });
 		}
 	}
@@ -562,8 +546,9 @@ router.put(
 				reservation.remainingAmount = remainingAmount;
 			if (paymentMethod) reservation.paymentMethod = paymentMethod;
 
-			// Forcer le statut à "fermee" après paiement
-			reservation.status = "fermee";
+			// Forcer le statut à "terminée" après paiement
+			reservation.status = "terminée";
+			reservation.isPresent = false; // ⭐ RÈGLE MÉTIER
 			reservation.updatedAt = new Date();
 			await reservation.save();
 
@@ -756,7 +741,17 @@ router.get(
 				order = "asc",
 			} = req.query;
 
-			const filter = { tableId: { $in: tableIds } };
+			// ⭐ Filtrer par tableId OU par restaurantId directement (pour réservations sans table)
+			const filter = {
+				$or: [
+					{ tableId: { $in: tableIds } },
+					{
+						restaurantId: req.params.restaurantId,
+						tableId: { $exists: false },
+					},
+					{ restaurantId: req.params.restaurantId, tableId: null },
+				],
+			};
 
 			if (date) filter.reservationDate = date;
 			if (clientName) filter.clientName = { $regex: clientName, $options: "i" };
@@ -811,15 +806,15 @@ router.put("/client/:id/close", async (req, res) => {
 			table: reservation.tableId,
 		});
 
-		// 2. Vérifier que la réservation peut être fermée
-		if (reservation.status === "fermee") {
-			console.log("⚠️ Réservation déjà fermée");
-			return res.status(400).json({ message: "Réservation déjà fermée" });
+		// 2. Vérifier que la réservation peut être terminée
+		if (reservation.status === "terminée") {
+			console.log("⚠️ Réservation déjà terminée");
+			return res.status(400).json({ message: "Réservation déjà terminée" });
 		}
 
 		// 3. Mise à jour
 		console.log("[DEBUG] Avant save() - status:", reservation.status);
-		reservation.status = "fermee";
+		reservation.status = "terminée";
 		reservation.isPresent = false;
 
 		// Si la réservation a des orderIds, on force toutes les commandes à paid (tous champs cohérents)

@@ -31,7 +31,7 @@ const reservationSchema = new mongoose.Schema(
 
 		status: {
 			type: String,
-			enum: ["en attente", "ouverte", "fermee", "annulee"],
+			enum: ["en attente", "ouverte", "terminée", "annulée"],
 			default: "en attente",
 			index: true,
 		},
@@ -138,8 +138,9 @@ reservationSchema.pre("save", async function (next) {
 
 			// Mettre à jour le statut automatiquement
 			if (this.remainingAmount <= 0 && this.totalAmount > 0) {
-				this.status = "fermee"; // Tout payé = fermée
-			} else if (this.status === "fermee" && this.remainingAmount > 0) {
+				this.status = "terminée"; // Tout payé = terminée
+				this.isPresent = false; // ⭐ RÈGLE MÉTIER: isPresent=false si terminée
+			} else if (this.status === "terminée" && this.remainingAmount > 0) {
 				this.status = "ouverte"; // Ré-ouvrir si encore des impayés
 			}
 		} catch (error) {
