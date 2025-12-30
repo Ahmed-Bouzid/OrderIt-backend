@@ -18,6 +18,12 @@ router.get(
 			if (!table) {
 				return res.status(404).json({ message: "Table non trouvée" });
 			}
+			console.log("📋 [CLIENT-TABLES] Guests récupérés:", {
+				tableId: req.params.tableId,
+				number: table.number,
+				guests: table.guests,
+				isAvailable: table.isAvailable,
+			});
 			res.json({
 				guests: table.guests,
 				number: table.number,

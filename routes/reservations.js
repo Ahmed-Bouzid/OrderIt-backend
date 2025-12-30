@@ -100,20 +100,41 @@ router.post(
 			let table = null;
 			if (tableIdFinal) {
 				table = await Table.findById(tableIdFinal);
+				console.log("📋 [RESERVATION] Table found:", {
+					tableId: tableIdFinal,
+					number: table?.number,
+					isAvailable: table?.isAvailable,
+					guests: table?.guests,
+				});
 			}
 
 			if (lastReservation) {
+				console.log("📋 [RESERVATION] Last reservation found:", {
+					reservationId: lastReservation._id,
+					status: lastReservation.status,
+					tableIsAvailable: table?.isAvailable,
+				});
 				// Si la table est disponible (isAvailable:true), on autorise la création d'une nouvelle réservation et on vide les guests
 				if (table && table.isAvailable === true) {
+					console.log(
+						"✅ [RESERVATION] Table disponible - Création nouvelle réservation et vidage guests"
+					);
 					table.guests = [];
 					await table.save();
 				} else if (lastReservation.status === "terminée") {
+					console.log(
+						"❌ [RESERVATION] Dernière réservation terminée et table non dispo - Refus"
+					);
 					// Si la dernière réservation est terminée ET la table n'est pas dispo, on interdit
 					return res.status(400).json({
 						message:
 							"Impossible de rejoindre ou créer une réservation : la dernière réservation pour cette table est fermée.",
 					});
 				} else {
+					console.log(
+						"👥 [RESERVATION] Ajout du guest à la réservation existante:",
+						clientName
+					);
 					// Sinon, comportement existant : on ne crée pas de nouvelle resa si une ouverte existe
 					// Toujours populate la table pour la réponse
 					const populatedReservation = await lastReservation.populate(
@@ -127,13 +148,41 @@ router.post(
 						const table = await Table.findById(
 							populatedReservation.tableId._id
 						);
+						let shouldSave = false;
+						console.log(
+							"📋 [RESERVATION] Avant ajout guest (resa existante):",
+							{
+								clientName,
+								currentGuests: table?.guests,
+								isAvailable: table?.isAvailable,
+							}
+						);
 						if (
 							table &&
 							clientName &&
 							!table.guests.includes(clientName.trim())
 						) {
 							table.guests.push(clientName.trim());
+							shouldSave = true;
+							console.log("✅ [RESERVATION] Guest ajouté:", clientName.trim());
+						}
+						// Passe la table en indisponible si elle ne l'est pas déjà
+						if (table && table.isAvailable !== false) {
+							table.isAvailable = false;
+							shouldSave = true;
+							console.log(
+								"✅ [RESERVATION] Table passée en isAvailable = false"
+							);
+						}
+						if (shouldSave) {
 							await table.save();
+							console.log(
+								"💾 [RESERVATION] Table sauvegardée (resa existante):",
+								{
+									guests: table.guests,
+									isAvailable: table.isAvailable,
+								}
+							);
 						}
 					}
 					if (lastReservation.clientName === clientName.trim()) {
@@ -180,6 +229,11 @@ router.post(
 				if (reservation.tableId && reservation.tableId._id) {
 					const table = await Table.findById(reservation.tableId._id);
 					let shouldSave = false;
+					console.log("📋 [RESERVATION] Avant ajout guest:", {
+						clientName,
+						currentGuests: table?.guests,
+						isAvailable: table?.isAvailable,
+					});
 					if (
 						table &&
 						clientName &&
@@ -187,14 +241,20 @@ router.post(
 					) {
 						table.guests.push(clientName.trim());
 						shouldSave = true;
+						console.log("✅ [RESERVATION] Guest ajouté:", clientName.trim());
 					}
 					// Passe la table en indisponible si elle ne l'est pas déjà
 					if (table && table.isAvailable !== false) {
 						table.isAvailable = false;
 						shouldSave = true;
+						console.log("✅ [RESERVATION] Table passée en isAvailable = false");
 					}
 					if (shouldSave) {
 						await table.save();
+						console.log("💾 [RESERVATION] Table sauvegardée:", {
+							guests: table.guests,
+							isAvailable: table.isAvailable,
+						});
 					}
 				}
 			} catch (saveErr) {
