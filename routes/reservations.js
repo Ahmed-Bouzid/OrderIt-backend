@@ -163,12 +163,14 @@ router.post(
 							!table.guests.includes(clientName.trim())
 						) {
 							table.guests.push(clientName.trim());
+							table.markModified("guests");
 							shouldSave = true;
 							console.log("✅ [RESERVATION] Guest ajouté:", clientName.trim());
 						}
 						// Passe la table en indisponible si elle ne l'est pas déjà
 						if (table && table.isAvailable !== false) {
 							table.isAvailable = false;
+							table.markModified("isAvailable");
 							shouldSave = true;
 							console.log(
 								"✅ [RESERVATION] Table passée en isAvailable = false"
@@ -240,12 +242,14 @@ router.post(
 						!table.guests.includes(clientName.trim())
 					) {
 						table.guests.push(clientName.trim());
+						table.markModified("guests");
 						shouldSave = true;
 						console.log("✅ [RESERVATION] Guest ajouté:", clientName.trim());
 					}
 					// Passe la table en indisponible si elle ne l'est pas déjà
 					if (table && table.isAvailable !== false) {
 						table.isAvailable = false;
+						table.markModified("isAvailable");
 						shouldSave = true;
 						console.log("✅ [RESERVATION] Table passée en isAvailable = false");
 					}
