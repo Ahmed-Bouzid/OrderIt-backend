@@ -104,11 +104,7 @@ router.post(
 					tableId: tableIdFinal,
 					number: table?.number,
 					isAvailable: table?.isAvailable,
-					guests: table?.guests,
-				});
-			}
-
-			if (lastReservation) {
+				status: table?.status,
 				console.log("📋 [RESERVATION] Last reservation found:", {
 					reservationId: lastReservation._id,
 					status: lastReservation.status,
@@ -183,6 +179,7 @@ router.post(
 								{
 									guests: table.guests,
 									isAvailable: table.isAvailable,
+									status: table.status,
 								}
 							);
 						}
@@ -258,6 +255,7 @@ router.post(
 						console.log("💾 [RESERVATION] Table sauvegardée:", {
 							guests: table.guests,
 							isAvailable: table.isAvailable,
+							status: table.status,
 						});
 					}
 				}
