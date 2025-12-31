@@ -172,6 +172,7 @@ router.post(
 // === Liste des servers d’un restaurant (admin uniquement) ===
 router.get(
 	"/:restaurantId",
+	auth,
 	validateObjectIds(["restaurantId"]),
 	checkRoles(["admin", "server"]),
 	checkUserRestaurant("restaurantId"),
