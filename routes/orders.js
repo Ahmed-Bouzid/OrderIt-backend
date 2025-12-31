@@ -53,8 +53,25 @@ router.post(
 				return res.status(400).json({ message: "Aucun produit sélectionné" });
 			}
 
+			// 🔍 Enrichir les items avec les données produit (catégorie)
+			const enrichedItems = await Promise.all(
+				items.map(async (item) => {
+					if (item.productId) {
+						const product = await Product.findById(item.productId).select(
+							"category"
+						);
+						if (product && product.category) {
+							return { ...item, category: product.category };
+						}
+					}
+					return item; // Si pas de productId ou produit introuvable, on garde l'item tel quel
+				})
+			);
+
+			console.log("🔍 Items enrichis avec catégories:", enrichedItems);
+
 			// Vérification du total
-			const calculatedTotal = items.reduce(
+			const calculatedTotal = enrichedItems.reduce(
 				(sum, i) => sum + i.price * i.quantity,
 				0
 			);
@@ -67,12 +84,7 @@ router.post(
 			// Création de la commande
 			const order = new Order({
 				tableId,
-				items,
-				total,
-				status,
-				restaurantId,
-				serverId,
-				reservationId, // ⭐ AJOUTÉ
+				items: enrichedItems,
 				clientId, // ⭐ AJOUTÉ
 				clientName, // ⭐ AJOUTÉ
 				origin: role === "client" ? "client" : "server",
@@ -120,7 +132,9 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 		res.json({ orders });
 	} catch (err) {
 		console.error("❌ Erreur GET /orders:", err);
-		res.status(500).json({ message: "Erreur lors du chargement des commandes." });
+		res
+			.status(500)
+			.json({ message: "Erreur lors du chargement des commandes." });
 	}
 });
 
@@ -340,10 +354,18 @@ router.put(
 			const { status } = req.body;
 
 			// Validation du statut
-			const validStatuses = ["confirmed", "preparing", "ready", "served", "cancelled"];
+			const validStatuses = [
+				"confirmed",
+				"preparing",
+				"ready",
+				"served",
+				"cancelled",
+			];
 			if (!status || !validStatuses.includes(status)) {
 				return res.status(400).json({
-					message: `Statut invalide. Valeurs acceptées: ${validStatuses.join(", ")}`,
+					message: `Statut invalide. Valeurs acceptées: ${validStatuses.join(
+						", "
+					)}`,
 				});
 			}
 
@@ -356,7 +378,9 @@ router.put(
 			// Trouver l'item dans la commande
 			const item = order.items.id(itemId);
 			if (!item) {
-				return res.status(404).json({ message: "Item non trouvé dans la commande." });
+				return res
+					.status(404)
+					.json({ message: "Item non trouvé dans la commande." });
 			}
 
 			// Mettre à jour le statut et les timestamps
