@@ -68,11 +68,26 @@ const orderSchema = new mongoose.Schema(
 					type: String,
 					default: "",
 				},
-				// ⭐⭐ Statut de l'article pour la cuisine
+				// ⭐⭐ Catégorie de l'item pour le plan de salle
+				category: {
+					type: String,
+					enum: ["plat", "boisson", "dessert", "autre"],
+					default: "plat",
+				},
+				// ⭐⭐ Statut de l'article pour la cuisine (ajout de "confirmed")
 				itemStatus: {
 					type: String,
-					enum: ["pending", "preparing", "ready", "served", "cancelled"],
-					default: "pending",
+					enum: ["confirmed", "preparing", "ready", "served", "cancelled"],
+					default: "confirmed",
+				},
+				// ⭐⭐ Timer pour le plan de salle
+				startTime: {
+					type: Date,
+					required: false,
+				},
+				endTime: {
+					type: Date,
+					required: false,
 				},
 			},
 		],

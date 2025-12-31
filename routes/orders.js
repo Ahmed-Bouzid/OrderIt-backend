@@ -92,6 +92,38 @@ router.post(
 	}
 );
 
+// GET /api/orders - Récupérer les commandes avec filtres (restaurantId, status)
+router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
+	try {
+		const { restaurantId, status } = req.query;
+		const query = {};
+
+		if (restaurantId) {
+			query.restaurantId = restaurantId;
+		}
+
+		if (status) {
+			// status peut être "confirmed,in_progress,ready"
+			const statusArray = status.split(",");
+			query.status = { $in: statusArray };
+		}
+
+		console.log(`📦 GET /orders - Query:`, query);
+
+		const orders = await Order.find(query)
+			.populate("tableId", "number")
+			.populate("serverId", "name serverId")
+			.populate("restaurantId", "name")
+			.sort({ createdAt: 1 }); // Du plus ancien au plus récent
+
+		console.log(`✅ Commandes trouvées: ${orders.length}`);
+		res.json({ orders });
+	} catch (err) {
+		console.error("❌ Erreur GET /orders:", err);
+		res.status(500).json({ message: "Erreur lors du chargement des commandes." });
+	}
+});
+
 router.get(
 	"/table/:tableId",
 	auth,
@@ -295,6 +327,81 @@ router.post("/:id/mark-as-paid", async (req, res) => {
 		});
 	}
 });
+
+// PUT /orders/:orderId/items/:itemId/status - Mettre à jour le statut d'un item
+router.put(
+	"/:orderId/items/:itemId/status",
+	auth,
+	checkRoles(["server", "admin"]),
+	validateObjectIds(["orderId"]),
+	async (req, res) => {
+		try {
+			const { orderId, itemId } = req.params;
+			const { status } = req.body;
+
+			// Validation du statut
+			const validStatuses = ["confirmed", "preparing", "ready", "served", "cancelled"];
+			if (!status || !validStatuses.includes(status)) {
+				return res.status(400).json({
+					message: `Statut invalide. Valeurs acceptées: ${validStatuses.join(", ")}`,
+				});
+			}
+
+			// Trouver la commande
+			const order = await Order.findById(orderId);
+			if (!order) {
+				return res.status(404).json({ message: "Commande non trouvée." });
+			}
+
+			// Trouver l'item dans la commande
+			const item = order.items.id(itemId);
+			if (!item) {
+				return res.status(404).json({ message: "Item non trouvé dans la commande." });
+			}
+
+			// Mettre à jour le statut et les timestamps
+			const oldStatus = item.itemStatus;
+			item.itemStatus = status;
+
+			// Démarrer le timer si passage en préparation
+			if (status === "preparing" && !item.startTime) {
+				item.startTime = new Date();
+				console.log(`⏱️  Timer démarré pour item ${itemId}: ${item.name}`);
+			}
+
+			// Arrêter le timer si passage en servi
+			if (status === "served" && item.startTime && !item.endTime) {
+				item.endTime = new Date();
+				const duration = Math.floor((item.endTime - item.startTime) / 1000);
+				console.log(`✅ Item ${itemId} servi après ${duration}s`);
+			}
+
+			// Sauvegarder la commande
+			await order.save();
+
+			console.log(`🔄 Item ${itemId} mis à jour: ${oldStatus} → ${status}`);
+
+			res.json({
+				success: true,
+				message: "Statut de l'item mis à jour.",
+				order,
+				item: {
+					_id: item._id,
+					name: item.name,
+					itemStatus: item.itemStatus,
+					startTime: item.startTime,
+					endTime: item.endTime,
+				},
+			});
+		} catch (err) {
+			console.error("❌ Erreur mise à jour statut item:", err);
+			res.status(500).json({
+				message: "Erreur lors de la mise à jour du statut de l'item.",
+				error: err.message,
+			});
+		}
+	}
+);
 
 // DELETE /orders/:orderId - Supprimer une commande (optionnel)
 router.delete(
