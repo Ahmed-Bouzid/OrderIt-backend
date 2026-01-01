@@ -187,6 +187,11 @@ router.get(
 	checkUserRestaurant("restaurantId"),
 	async (req, res) => {
 		try {
+			console.log(
+				"📦 [BACKEND] Requête low-stock pour restaurantId:",
+				req.params.restaurantId
+			);
+
 			const products = await Product.find({
 				restaurantId: req.params.restaurantId,
 				quantifiable: true,
@@ -195,6 +200,15 @@ router.get(
 				.select("name category quantity lowStockThreshold quantifiable")
 				.sort({ quantity: 1 })
 				.maxTimeMS(10000);
+
+			console.log("📦 [BACKEND] Produits trouvés:", products.length);
+			products.forEach((p, idx) => {
+				console.log(
+					`  ${idx + 1}. ${p.name} - catégorie: "${p.category}" - qty: ${
+						p.quantity
+					}/${p.lowStockThreshold}`
+				);
+			});
 
 			// Grouper par catégorie
 			const grouped = {
@@ -207,11 +221,20 @@ router.get(
 
 			products.forEach((p) => {
 				const cat = p.category?.toLowerCase() || "autre";
+				console.log(`📦 [BACKEND] Groupement: "${p.category}" -> "${cat}"`);
 				if (grouped[cat]) {
 					grouped[cat].push(p);
 				} else {
 					grouped.autre.push(p);
 				}
+			});
+
+			console.log("📦 [BACKEND] Résultat groupé:", {
+				boisson: grouped.boisson.length,
+				plat: grouped.plat.length,
+				dessert: grouped.dessert.length,
+				entree: grouped.entree.length,
+				autre: grouped.autre.length,
 			});
 
 			res.json({ lowStockProducts: grouped, total: products.length });
