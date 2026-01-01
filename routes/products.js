@@ -211,10 +211,13 @@ router.get(
 				);
 			});
 
+			// Utiliser $ifNull pour gérer le cas où lowStockThreshold n'existe pas (valeur par défaut: 5)
 			const products = await Product.find({
 				restaurantId: req.params.restaurantId,
 				quantifiable: true,
-				$expr: { $lte: ["$quantity", "$lowStockThreshold"] },
+				$expr: {
+					$lte: ["$quantity", { $ifNull: ["$lowStockThreshold", 5] }],
+				},
 			})
 				.select("name category quantity lowStockThreshold quantifiable")
 				.sort({ quantity: 1 })
