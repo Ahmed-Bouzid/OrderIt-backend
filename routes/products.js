@@ -192,6 +192,25 @@ router.get(
 				req.params.restaurantId
 			);
 
+			// Vérifier d'abord tous les produits quantifiables
+			const allQuantifiable = await Product.find({
+				restaurantId: req.params.restaurantId,
+				quantifiable: true,
+			})
+				.select("name category quantity lowStockThreshold quantifiable")
+				.maxTimeMS(10000);
+
+			console.log(
+				"📦 [BACKEND] Tous produits quantifiables:",
+				allQuantifiable.length
+			);
+			allQuantifiable.forEach((p) => {
+				const isLow = p.quantity <= p.lowStockThreshold;
+				console.log(
+					`  - ${p.name}: qty=${p.quantity}, threshold=${p.lowStockThreshold}, isLow=${isLow} (${p.quantity} <= ${p.lowStockThreshold})`
+				);
+			});
+
 			const products = await Product.find({
 				restaurantId: req.params.restaurantId,
 				quantifiable: true,
