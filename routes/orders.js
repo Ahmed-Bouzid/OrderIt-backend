@@ -64,34 +64,34 @@ router.post(
 						// Convertir en minuscule pour correspondre à l'enum Order
 						const category = product.category.toLowerCase();
 						return { ...item, category };
-			// Vérification du total
-			const calculatedTotal = enrichedItems.reduce(
-				(sum, i) => sum + i.price * i.quantity,
-				0
-			);
-			if (total !== calculatedTotal) {
-				return res
-					.status(400)
-					.json({ message: "Le total ne correspond pas aux articles" });
-			}
+					}
+				}
+				return item; // Si pas de productId ou produit introuvable, on garde l'item tel quel
+			})
+		);
 
-			// Création de la commande
-			const order = new Order({
-				tableId,
-				items: enrichedItems,
-				clientId, // ⭐ AJOUTÉ
-				clientName, // ⭐ AJOUTÉ
-				origin: role === "client" ? "client" : "server",
-			});
+		console.log("🔍 Items enrichis avec catégories:", enrichedItems);
 
-			await order.save();
+		// Vérification du total
+		const calculatedTotal = enrichedItems.reduce(
+			(sum, i) => sum + i.price * i.quantity,
+			0
+		);
+		if (total !== calculatedTotal) {
+			return res
+				.status(400)
+				.json({ message: "Le total ne correspond pas aux articles" });
+		}
 
-			// 🔔 Réponse
-			res.status(201).json(order);
-		} catch (err) {
-			console.error("Erreur création commande :", err); // log complet côté serveur
-			res.status(500).json({
-				message: err.message, // renvoie le vrai message d'erreur
+		// Création de la commande
+		const order = new Order({
+			tableId,
+			items: enrichedItems,
+			total,
+			status,
+			restaurantId,
+			serverId,
+			reservationId, // ⭐ AJOUTÉ
 				stack: err.stack, // optionnel : détail complet pour le dev
 			});
 		}
