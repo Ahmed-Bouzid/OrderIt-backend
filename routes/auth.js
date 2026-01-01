@@ -63,11 +63,9 @@ router.post("/login", async (req, res) => {
 		const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
 		if (!refreshSecret || refreshSecret.trim() === "") {
 			console.error("❌ CRITICAL: REFRESH_TOKEN_SECRET is empty or undefined!");
-			return res
-				.status(500)
-				.json({
-					message: "Server configuration error (REFRESH_TOKEN_SECRET missing)",
-				});
+			return res.status(500).json({
+				message: "Server configuration error (REFRESH_TOKEN_SECRET missing)",
+			});
 		}
 
 		let accessToken, refreshToken;
@@ -98,7 +96,7 @@ router.post("/login", async (req, res) => {
 			sameSite: "strict",
 			maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
 		});
-		
+
 		// ⭐ Construire la réponse avec serverId si c'est un serveur
 		const response = {
 			accessToken,
@@ -109,7 +107,7 @@ router.post("/login", async (req, res) => {
 			userType,
 			restaurantId: user.restaurantId || null,
 		};
-		
+
 		// ⭐ Si c'est un serveur, ajouter serverId et tableId
 		if (userType === "server") {
 			response.serverId = user._id.toString();
@@ -117,7 +115,7 @@ router.post("/login", async (req, res) => {
 				response.tableId = user.tableId.toString();
 			}
 		}
-		
+
 		return res.json(response);
 	} catch (err) {
 		console.error("Erreur login:", err);
