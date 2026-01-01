@@ -149,6 +149,47 @@ router.post(
 );
 
 // ════════════════════════════════════════════════════════════════════════════
+// ROUTE: POST /payments/confirm-test
+// Confirme un PaymentIntent avec la carte test Stripe 4242 4242 4242 4242
+// 🧪 MODE TEST UNIQUEMENT - Pour simulateur Tap to Pay
+// ════════════════════════════════════════════════════════════════════════════
+
+router.post(
+	"/confirm-test",
+	auth,
+	[body("paymentIntentId").notEmpty().withMessage("paymentIntentId requis")],
+	async (req, res) => {
+		const errors = validationResult(req);
+		if (!errors.isEmpty()) {
+			return res.status(400).json({ errors: errors.array() });
+		}
+
+		try {
+			const { paymentIntentId } = req.body;
+
+			console.log(`🧪 Confirmation avec carte test 4242: ${paymentIntentId}`);
+
+			const paymentIntent = await stripeService.confirmWithTestCard(
+				paymentIntentId
+			);
+
+			res.json({
+				success: true,
+				status: paymentIntent.status,
+				paymentIntentId: paymentIntent.id,
+				testMode: true,
+			});
+		} catch (err) {
+			console.error("❌ Erreur confirmation test:", err);
+			res.status(500).json({
+				error: "Erreur serveur",
+				message: err.message,
+			});
+		}
+	}
+);
+
+// ════════════════════════════════════════════════════════════════════════════
 // ROUTE: POST /payments/cancel
 // Annule un PaymentIntent
 // ════════════════════════════════════════════════════════════════════════════

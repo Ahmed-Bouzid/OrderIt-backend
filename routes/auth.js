@@ -98,7 +98,9 @@ router.post("/login", async (req, res) => {
 			sameSite: "strict",
 			maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
 		});
-		return res.json({
+		
+		// ⭐ Construire la réponse avec serverId si c'est un serveur
+		const response = {
 			accessToken,
 			refreshToken, // ⭐ IMPORTANT: Envoyer le refreshToken aussi au frontend (AsyncStorage)
 			userId: user._id,
@@ -106,7 +108,17 @@ router.post("/login", async (req, res) => {
 			role: user.role,
 			userType,
 			restaurantId: user.restaurantId || null,
-		});
+		};
+		
+		// ⭐ Si c'est un serveur, ajouter serverId et tableId
+		if (userType === "server") {
+			response.serverId = user._id.toString();
+			if (user.tableId) {
+				response.tableId = user.tableId.toString();
+			}
+		}
+		
+		return res.json(response);
 	} catch (err) {
 		console.error("Erreur login:", err);
 		return res.status(500).json({ message: "Erreur server." });
