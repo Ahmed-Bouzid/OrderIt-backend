@@ -233,8 +233,10 @@ router.put(
 			const { quantity, quantifiable, lowStockThreshold } = req.body;
 
 			const updates = {};
-			if (typeof quantifiable === "boolean") updates.quantifiable = quantifiable;
-			if (typeof quantity === "number") updates.quantity = Math.max(0, quantity);
+			if (typeof quantifiable === "boolean")
+				updates.quantifiable = quantifiable;
+			if (typeof quantity === "number")
+				updates.quantity = Math.max(0, quantity);
 			if (typeof lowStockThreshold === "number")
 				updates.lowStockThreshold = Math.max(0, lowStockThreshold);
 
@@ -256,7 +258,9 @@ router.put(
 					quantity: updated.quantity,
 					quantifiable: updated.quantifiable,
 					lowStockThreshold: updated.lowStockThreshold,
-					isLowStock: updated.quantifiable && updated.quantity <= updated.lowStockThreshold,
+					isLowStock:
+						updated.quantifiable &&
+						updated.quantity <= updated.lowStockThreshold,
 					isOutOfStock: updated.quantifiable && updated.quantity === 0,
 				});
 			}
