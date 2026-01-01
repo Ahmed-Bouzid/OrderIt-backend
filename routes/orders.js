@@ -61,15 +61,9 @@ router.post(
 							"category"
 						);
 						if (product && product.category) {
-							return { ...item, category: product.category };
-						}
-					}
-					return item; // Si pas de productId ou produit introuvable, on garde l'item tel quel
-				})
-			);
-
-			console.log("🔍 Items enrichis avec catégories:", enrichedItems);
-
+						// Convertir en minuscule pour correspondre à l'enum Order
+						const category = product.category.toLowerCase();
+						return { ...item, category };
 			// Vérification du total
 			const calculatedTotal = enrichedItems.reduce(
 				(sum, i) => sum + i.price * i.quantity,
