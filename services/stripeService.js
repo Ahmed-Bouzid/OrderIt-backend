@@ -224,34 +224,27 @@ class StripeService {
 			throw new Error("Cette méthode est disponible uniquement en mode TEST");
 		}
 
-		console.log(`🧪 Confirmation avec carte test 4242: ${paymentIntentId}`);
+		console.log(`🧪 Confirmation avec token test Visa: ${paymentIntentId}`);
 
-		// 1. Créer un PaymentMethod avec la carte test 4242 4242 4242 4242
-		const paymentMethod = await this.stripe.paymentMethods.create({
-			type: "card",
-			card: {
-				number: "4242424242424242",
-				exp_month: 12,
-				exp_year: 2034,
-				cvc: "123",
-			},
-		});
+		// ✅ Utiliser le token de test prédéfini par Stripe (carte Visa 4242)
+		// Plus sécurisé que d'envoyer les détails bruts de la carte
+		const testPaymentMethodId = "pm_card_visa";
 
-		console.log(`✅ PaymentMethod test créé: ${paymentMethod.id}`);
+		console.log(`✅ Utilisation PaymentMethod test: ${testPaymentMethodId}`);
 
-		// 2. Confirmer le PaymentIntent avec ce PaymentMethod
+		// Confirmer le PaymentIntent avec le token de test Stripe
 		const confirmedPaymentIntent = await this.stripe.paymentIntents.confirm(
 			paymentIntentId,
 			{
-				payment_method: paymentMethod.id,
+				payment_method: testPaymentMethodId,
 			}
 		);
 
-		// 3. Mettre à jour la DB
+		// Mettre à jour la DB
 		const payment = await Payment.findByPaymentIntentId(paymentIntentId);
 		if (payment) {
 			payment.status = confirmedPaymentIntent.status;
-			payment.paymentMethod = "card_test_4242";
+			payment.paymentMethod = "card_test_visa";
 			await payment.save();
 
 			// Si succès, marquer la commande comme payée
@@ -260,7 +253,7 @@ class StripeService {
 				if (order && !order.paid) {
 					order.paid = true;
 					order.paidAt = new Date();
-					order.paymentMethod = "card_test_4242";
+					order.paymentMethod = "card_test_visa";
 					await order.save();
 					console.log(`✅ Commande ${order._id} marquée comme payée`);
 				}
