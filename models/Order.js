@@ -71,7 +71,7 @@ const orderSchema = new mongoose.Schema(
 				// ⭐⭐ Catégorie de l'item pour le plan de salle
 				category: {
 					type: String,
-					enum: ["boisson", "entree", "plat", "dessert", "autre"],
+					enum: ["boisson", "entree", "entrée", "plat", "dessert", "autre"],
 					default: "autre",
 				},
 				// ⭐⭐ Statut de l'article pour la cuisine (ajout de "confirmed")
