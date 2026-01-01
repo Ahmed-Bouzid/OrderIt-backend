@@ -188,6 +188,67 @@ router.post(
 );
 
 // ════════════════════════════════════════════════════════════════════════════
+// ROUTE: GET /payments/:paymentId/status
+// Récupère uniquement le statut d'un paiement (pour polling)
+// ════════════════════════════════════════════════════════════════════════════
+
+router.get("/:paymentId/status", auth, async (req, res) => {
+	try {
+		const payment = await Payment.findById(req.params.paymentId).select(
+			"status stripePaymentIntentId amount currency createdAt updatedAt"
+		);
+
+		if (!payment) {
+			return res.status(404).json({ error: "Paiement introuvable" });
+		}
+
+		// Si le paiement est en pending, vérifier le statut sur Stripe
+		if (payment.status === "pending" && payment.stripePaymentIntentId) {
+			try {
+				const stripePI = await stripeService.getPaymentIntent(
+					payment.stripePaymentIntentId
+				);
+
+				// Mettre à jour le statut local si changé
+				if (stripePI.status !== payment.status) {
+					payment.status =
+						stripePI.status === "succeeded" ? "succeeded" : stripePI.status;
+					await payment.save();
+
+					// Si succès, marquer la commande comme payée
+					if (stripePI.status === "succeeded") {
+						const order = await Order.findById(payment.orderId);
+						if (order && !order.paid) {
+							order.paid = true;
+							order.paidAt = new Date();
+							order.paymentMethod = payment.paymentMethod;
+							await order.save();
+
+							console.log(`✅ Commande ${order._id} marquée comme payée`);
+						}
+					}
+				}
+			} catch (stripeError) {
+				console.error("⚠️ Erreur vérification Stripe:", stripeError.message);
+				// Continuer avec le statut local
+			}
+		}
+
+		res.json({
+			status: payment.status,
+			amount: payment.amount,
+			currency: payment.currency,
+			paymentIntentId: payment.stripePaymentIntentId,
+			createdAt: payment.createdAt,
+			updatedAt: payment.updatedAt,
+		});
+	} catch (err) {
+		console.error("❌ Erreur récupération statut paiement:", err);
+		res.status(500).json({ error: "Erreur serveur" });
+	}
+});
+
+// ════════════════════════════════════════════════════════════════════════════
 // ROUTE: GET /payments/:paymentId
 // Récupère les détails d'un paiement
 // ════════════════════════════════════════════════════════════════════════════
