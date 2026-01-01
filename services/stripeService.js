@@ -244,7 +244,7 @@ class StripeService {
 		const payment = await Payment.findByPaymentIntentId(paymentIntentId);
 		if (payment) {
 			payment.status = confirmedPaymentIntent.status;
-			payment.paymentMethod = "card_test_visa";
+			payment.paymentMethod = "card";
 			await payment.save();
 
 			// Si succès, marquer la commande comme payée
@@ -253,7 +253,7 @@ class StripeService {
 				if (order && !order.paid) {
 					order.paid = true;
 					order.paidAt = new Date();
-					order.paymentMethod = "card_test_visa";
+					order.paymentMethod = "card";
 					await order.save();
 					console.log(`✅ Commande ${order._id} marquée comme payée`);
 				}
