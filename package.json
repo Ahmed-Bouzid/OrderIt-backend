@@ -12,8 +12,6 @@
 	"license": "ISC",
 	"description": "",
 	"dependencies": {
-		"@stripe/stripe-react-native": "^0.57.2",
-		"@stripe/stripe-terminal-react-native": "^0.0.1-beta.28",
 		"bcrypt": "^6.0.0",
 		"cors": "^2.8.5",
 		"dotenv": "^17.0.0",

@@ -4,7 +4,7 @@ const Order = require("../models/Order");
 
 /**
  * Service Stripe - Gestion centralisée de tous les paiements Stripe
- * 
+ *
  * Fonctionnalités:
  * - Création de PaymentIntent
  * - Confirmation de paiement
@@ -30,7 +30,9 @@ class StripeService {
 			// Détecter si mode test
 			this.isTestMode = stripeSecretKey.startsWith("sk_test_");
 			console.log(
-				`✅ Stripe initialisé en mode ${this.isTestMode ? "TEST" : "PRODUCTION"}`
+				`✅ Stripe initialisé en mode ${
+					this.isTestMode ? "TEST" : "PRODUCTION"
+				}`
 			);
 		}
 
@@ -46,7 +48,7 @@ class StripeService {
 
 	/**
 	 * Crée un PaymentIntent Stripe
-	 * 
+	 *
 	 * @param {Object} params - Paramètres du paiement
 	 * @param {string} params.orderId - ID de la commande MongoDB
 	 * @param {number} params.amount - Montant en centimes (ex: 2550 = 25.50€)
@@ -67,7 +69,9 @@ class StripeService {
 		metadata = {},
 	}) {
 		if (!this.isConfigured()) {
-			throw new Error("Stripe n'est pas configuré - vérifiez STRIPE_SECRET_KEY");
+			throw new Error(
+				"Stripe n'est pas configuré - vérifiez STRIPE_SECRET_KEY"
+			);
 		}
 
 		// 1. Récupérer la commande pour validation
@@ -112,7 +116,9 @@ class StripeService {
 		});
 
 		console.log(
-			`✅ PaymentIntent créé: ${paymentIntent.id} - Montant: ${totalAmount / 100}€`
+			`✅ PaymentIntent créé: ${paymentIntent.id} - Montant: ${
+				totalAmount / 100
+			}€`
 		);
 
 		// 4. Sauvegarder dans la DB
@@ -145,7 +151,7 @@ class StripeService {
 
 	/**
 	 * Récupère un PaymentIntent depuis Stripe
-	 * 
+	 *
 	 * @param {string} paymentIntentId - ID du PaymentIntent
 	 * @returns {Promise<Object>} PaymentIntent Stripe
 	 */
@@ -159,7 +165,7 @@ class StripeService {
 
 	/**
 	 * Confirme un PaymentIntent (si confirmation manuelle requise)
-	 * 
+	 *
 	 * @param {string} paymentIntentId - ID du PaymentIntent
 	 * @param {string} paymentMethodId - ID de la méthode de paiement (optionnel)
 	 * @returns {Promise<Object>} PaymentIntent confirmé
@@ -179,7 +185,7 @@ class StripeService {
 
 	/**
 	 * Annule un PaymentIntent
-	 * 
+	 *
 	 * @param {string} paymentIntentId - ID du PaymentIntent
 	 * @returns {Promise<Object>} PaymentIntent annulé
 	 */
@@ -204,7 +210,7 @@ class StripeService {
 
 	/**
 	 * Gère un événement webhook Stripe
-	 * 
+	 *
 	 * @param {Object} event - Événement Stripe
 	 * @returns {Promise<Object>} Résultat du traitement
 	 */
@@ -232,7 +238,7 @@ class StripeService {
 
 	/**
 	 * Gère un paiement réussi
-	 * 
+	 *
 	 * @param {Object} paymentIntent - PaymentIntent Stripe
 	 * @returns {Promise<Object>} Résultat
 	 */
@@ -300,7 +306,7 @@ class StripeService {
 
 	/**
 	 * Gère un paiement échoué
-	 * 
+	 *
 	 * @param {Object} paymentIntent - PaymentIntent Stripe
 	 * @returns {Promise<Object>} Résultat
 	 */
@@ -319,7 +325,10 @@ class StripeService {
 		const errorCode = paymentIntent.last_payment_error?.code || "unknown";
 
 		await payment.markAsFailed(errorMessage, errorCode);
-		await payment.addStripeEvent(paymentIntent.id, "payment_intent.payment_failed");
+		await payment.addStripeEvent(
+			paymentIntent.id,
+			"payment_intent.payment_failed"
+		);
 
 		return {
 			success: false,
@@ -330,7 +339,7 @@ class StripeService {
 
 	/**
 	 * Gère un paiement annulé
-	 * 
+	 *
 	 * @param {Object} paymentIntent - PaymentIntent Stripe
 	 * @returns {Promise<Object>} Résultat
 	 */
@@ -356,7 +365,7 @@ class StripeService {
 
 	/**
 	 * Gère un paiement nécessitant une action (3DS)
-	 * 
+	 *
 	 * @param {Object} paymentIntent - PaymentIntent Stripe
 	 * @returns {Promise<Object>} Résultat
 	 */
@@ -385,7 +394,7 @@ class StripeService {
 
 	/**
 	 * Vérifie la signature d'un webhook Stripe
-	 * 
+	 *
 	 * @param {string} payload - Corps brut de la requête
 	 * @param {string} signature - En-tête stripe-signature
 	 * @returns {Object} Événement vérifié
@@ -413,7 +422,7 @@ class StripeService {
 	/**
 	 * Crée un paiement FAKE (dev only)
 	 * Simule un paiement réussi sans passer par Stripe
-	 * 
+	 *
 	 * @param {string} orderId - ID de la commande
 	 * @param {number} amount - Montant en centimes
 	 * @param {number} tipAmount - Pourboire (optionnel)
@@ -436,7 +445,9 @@ class StripeService {
 		}
 
 		// 2. Créer un Payment fake
-		const fakePaymentIntentId = `pi_fake_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+		const fakePaymentIntentId = `pi_fake_${Date.now()}_${Math.random()
+			.toString(36)
+			.substring(7)}`;
 
 		const payment = new Payment({
 			orderId: order._id,

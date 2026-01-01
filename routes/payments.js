@@ -19,7 +19,9 @@ router.post(
 	auth,
 	[
 		body("orderId").notEmpty().withMessage("orderId requis"),
-		body("amount").isInt({ min: 50 }).withMessage("Montant minimum 50 centimes"),
+		body("amount")
+			.isInt({ min: 50 })
+			.withMessage("Montant minimum 50 centimes"),
 		body("currency").optional().isString(),
 		body("paymentMethodTypes").optional().isArray(),
 		body("tipAmount").optional().isInt({ min: 0 }),
@@ -46,7 +48,9 @@ router.post(
 			} = req.body;
 
 			console.log(
-				`💳 Création PaymentIntent - Order: ${orderId}, Amount: ${amount / 100}€, Tip: ${tipAmount / 100}€`
+				`💳 Création PaymentIntent - Order: ${orderId}, Amount: ${
+					amount / 100
+				}€, Tip: ${tipAmount / 100}€`
 			);
 
 			// Vérifier que Stripe est configuré
@@ -303,12 +307,17 @@ router.post(
 	auth,
 	[
 		body("orderId").notEmpty().withMessage("orderId requis"),
-		body("amount").isInt({ min: 50 }).withMessage("Montant minimum 50 centimes"),
+		body("amount")
+			.isInt({ min: 50 })
+			.withMessage("Montant minimum 50 centimes"),
 		body("tipAmount").optional().isInt({ min: 0 }),
 	],
 	async (req, res) => {
 		// ⚠️ Vérifier l'environnement
-		if (process.env.NODE_ENV === "production" && !process.env.ALLOW_FAKE_PAYMENTS) {
+		if (
+			process.env.NODE_ENV === "production" &&
+			!process.env.ALLOW_FAKE_PAYMENTS
+		) {
 			return res.status(403).json({
 				error: "Paiements fake désactivés en production",
 			});
@@ -323,7 +332,9 @@ router.post(
 			const { orderId, amount, tipAmount = 0 } = req.body;
 
 			console.log(
-				`🎭 Création paiement FAKE - Order: ${orderId}, Amount: ${amount / 100}€`
+				`🎭 Création paiement FAKE - Order: ${orderId}, Amount: ${
+					amount / 100
+				}€`
 			);
 
 			const result = await stripeService.createFakePayment(

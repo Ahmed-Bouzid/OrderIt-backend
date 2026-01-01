@@ -319,7 +319,9 @@ paymentSchema.statics.getTotalRevenue = async function (
 		},
 	]);
 
-	return result.length > 0 ? result[0] : { totalAmount: 0, totalTips: 0, count: 0 };
+	return result.length > 0
+		? result[0]
+		: { totalAmount: 0, totalTips: 0, count: 0 };
 };
 
 module.exports = mongoose.model("Payment", paymentSchema);
