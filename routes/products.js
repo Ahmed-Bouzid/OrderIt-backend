@@ -119,6 +119,9 @@ router.put(
 			"category",
 			"image",
 			"available",
+			"quantifiable",
+			"quantity",
+			"lowStockThreshold",
 		];
 		const updates = Object.fromEntries(
 			Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
@@ -167,6 +170,146 @@ router.delete(
 		} catch (err) {
 			console.error(err);
 			res.status(500).json({ message: "Erreur server" });
+		}
+	}
+);
+
+// ───────────────────────────────────────────────────────────────
+// 📦 ROUTES GESTION DES STOCKS
+// ───────────────────────────────────────────────────────────────
+
+// GET /low-stock/:restaurantId - produits à stock bas
+router.get(
+	"/low-stock/:restaurantId",
+	auth,
+	validateObjectIds(["restaurantId"]),
+	checkRoles(["admin", "server"]),
+	checkUserRestaurant("restaurantId"),
+	async (req, res) => {
+		try {
+			const products = await Product.find({
+				restaurantId: req.params.restaurantId,
+				quantifiable: true,
+				$expr: { $lte: ["$quantity", "$lowStockThreshold"] },
+			})
+				.select("name category quantity lowStockThreshold quantifiable")
+				.sort({ quantity: 1 })
+				.maxTimeMS(10000);
+
+			// Grouper par catégorie
+			const grouped = {
+				boisson: [],
+				plat: [],
+				dessert: [],
+				entree: [],
+				autre: [],
+			};
+
+			products.forEach((p) => {
+				const cat = p.category?.toLowerCase() || "autre";
+				if (grouped[cat]) {
+					grouped[cat].push(p);
+				} else {
+					grouped.autre.push(p);
+				}
+			});
+
+			res.json({ lowStockProducts: grouped, total: products.length });
+		} catch (err) {
+			console.error("❌ Erreur récupération stocks bas:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	}
+);
+
+// PUT /:id/stock - mettre à jour le stock d'un produit
+router.put(
+	"/:id/stock",
+	auth,
+	validateObjectIds(["id"]),
+	checkRoles(["admin", "server"]),
+	async (req, res) => {
+		try {
+			const { quantity, quantifiable, lowStockThreshold } = req.body;
+
+			const updates = {};
+			if (typeof quantifiable === "boolean") updates.quantifiable = quantifiable;
+			if (typeof quantity === "number") updates.quantity = Math.max(0, quantity);
+			if (typeof lowStockThreshold === "number")
+				updates.lowStockThreshold = Math.max(0, lowStockThreshold);
+
+			const updated = await Product.findByIdAndUpdate(req.params.id, updates, {
+				new: true,
+			});
+
+			if (!updated) {
+				return res.status(404).json({ message: "Produit non trouvé." });
+			}
+
+			// ⭐ Émettre l'événement WebSocket pour mise à jour temps réel
+			const io = getIO(req);
+			if (io && updated.restaurantId) {
+				emitProductEvent(io, updated.restaurantId, "stock:updated", {
+					productId: updated._id,
+					name: updated.name,
+					category: updated.category,
+					quantity: updated.quantity,
+					quantifiable: updated.quantifiable,
+					lowStockThreshold: updated.lowStockThreshold,
+					isLowStock: updated.quantifiable && updated.quantity <= updated.lowStockThreshold,
+					isOutOfStock: updated.quantifiable && updated.quantity === 0,
+				});
+			}
+
+			res.json(updated);
+		} catch (err) {
+			console.error("❌ Erreur mise à jour stock:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	}
+);
+
+// PUT /:id/decrement-stock - décrémenter le stock (après commande)
+router.put(
+	"/:id/decrement-stock",
+	auth,
+	validateObjectIds(["id"]),
+	async (req, res) => {
+		try {
+			const { quantity = 1 } = req.body;
+
+			const product = await Product.findById(req.params.id);
+			if (!product) {
+				return res.status(404).json({ message: "Produit non trouvé." });
+			}
+
+			// Seulement décrémenter si quantifiable
+			if (!product.quantifiable || product.quantity === null) {
+				return res.json({ message: "Produit non quantifiable", product });
+			}
+
+			product.quantity = Math.max(0, product.quantity - quantity);
+			await product.save();
+
+			// ⭐ Émettre l'événement WebSocket
+			const io = getIO(req);
+			if (io && product.restaurantId) {
+				emitProductEvent(io, product.restaurantId, "stock:updated", {
+					productId: product._id,
+					name: product.name,
+					category: product.category,
+					quantity: product.quantity,
+					quantifiable: product.quantifiable,
+					lowStockThreshold: product.lowStockThreshold,
+					isLowStock: product.quantity <= product.lowStockThreshold,
+					isOutOfStock: product.quantity === 0,
+				});
+			}
+
+			res.json(product);
+		} catch (err) {
+			console.error("❌ Erreur décrémentation stock:", err);
+			res.status(500).json({ message: "Erreur serveur" });
 		}
 	}
 );

@@ -1,0 +1,68 @@
+router.post(
+"/",
+auth,
+async (req, res) => {
+		console.log("📥 POST /orders - Body reçu:", JSON.stringify(req.body, null, 2));
+		console.log("📥 POST /orders - User:", req.user);
+		const { role, tableId: clientTableId } = req.user;
+		const errors = validationResult(req);
+		if (!errors.isEmpty()) {
+			return res.status(400).json({ errors: errors.array() });
+		}
+
+		try {
+			let { tableId, items, total, status, restaurantId, serverId, reservationId, clientId, clientName } = req.body;
+
+			if (role === "client") {
+				tableId = clientTableId;
+				serverId = null;
+				status = "in_progress";
+			} else if (!["server", "admin"].includes(role)) {
+				return res.status(403).json({ message: "Rôle non autorisé" });
+			}
+
+			if (!items || !Array.isArray(items) || items.length === 0) {
+				return res.status(400).json({ message: "Aucun produit sélectionné" });
+			}
+
+			const enrichedItems = await Promise.all(
+items.map(async (item) => {
+					if (item.productId) {
+						const product = await Product.findById(item.productId).select("category");
+						if (product && product.category) {
+							const category = product.category.toLowerCase();
+							return { ...item, category };
+						}
+					}
+					return item;
+				})
+			);
+
+			console.log("🔍 Items enrichis avec catégories:", enrichedItems);
+
+			const calculatedTotal = enrichedItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+			if (total !== calculatedTotal) {
+				return res.status(400).json({ message: "Le total ne correspond pas aux articles" });
+			}
+
+			const order = new Order({
+tableId,
+items: enrichedItems,
+total,
+status,
+restaurantId,
+serverId,
+reservationId,
+clientId,
+clientName,
+origin: role === "client" ? "client" : "server",
+});
+
+			await order.save();
+			res.status(201).json(order);
+		} catch (err) {
+			console.error("Erreur création commande :", err);
+			res.status(500).json({ message: err.message, stack: err.stack });
+		}
+	}
+);

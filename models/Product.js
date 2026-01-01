@@ -38,6 +38,21 @@ const productSchema = new mongoose.Schema(
 				ref: "Allergen",
 			},
 		],
+		// 📦 Gestion des stocks
+		quantifiable: {
+			type: Boolean,
+			default: false,
+		},
+		quantity: {
+			type: Number,
+			default: null,
+			min: 0,
+		},
+		lowStockThreshold: {
+			type: Number,
+			default: 5,
+			min: 0,
+		},
 		createdAt: {
 			type: Date,
 			default: Date.now,
@@ -64,5 +79,26 @@ productSchema.statics.findAvailable = function (restaurantId) {
 		available: true,
 	}).maxTimeMS(10000);
 };
+
+// Méthode statique pour trouver les produits à stock bas
+productSchema.statics.findLowStock = function (restaurantId) {
+	return this.find({
+		restaurantId,
+		quantifiable: true,
+		$expr: { $lte: ["$quantity", "$lowStockThreshold"] },
+	}).maxTimeMS(10000);
+};
+
+// Virtuel pour vérifier si stock bas
+productSchema.virtual("isLowStock").get(function () {
+	if (!this.quantifiable || this.quantity === null) return false;
+	return this.quantity <= this.lowStockThreshold;
+});
+
+// Virtuel pour vérifier si rupture de stock
+productSchema.virtual("isOutOfStock").get(function () {
+	if (!this.quantifiable || this.quantity === null) return false;
+	return this.quantity === 0;
+});
 
 module.exports = mongoose.model("Product", productSchema);
