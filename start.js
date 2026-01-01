@@ -58,9 +58,21 @@ io.on("connection", (socket) => {
 		`✅ Client connecté via Socket.io: ${socket.id} (User: ${socket.userId}, Restaurant: ${socket.restaurantId})`
 	);
 
-	// Ping/pong keep-alive agressif pour Render
+	// Ping/pong keep-alive agressif pour Render (ancien système)
 	socket.on("ping", (cb) => {
 		if (typeof cb === "function") cb();
+	});
+
+	// ⭐ Nouveau heartbeat custom du client pour maintenir la connexion active
+	socket.on("client-ping", (data) => {
+		// Répondre au client avec un pong (optionnel, pour monitoring)
+		socket.emit("server-pong", {
+			timestamp: Date.now(),
+			clientTimestamp: data?.timestamp,
+		});
+
+		// Log silencieux (décommenter pour debug)
+		// console.log(`💓 Heartbeat reçu de ${socket.id} (Restaurant: ${socket.restaurantId})`);
 	});
 
 	// Joindre la room du restaurant
