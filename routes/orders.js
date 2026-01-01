@@ -61,37 +61,50 @@ router.post(
 							"category"
 						);
 						if (product && product.category) {
-						// Convertir en minuscule pour correspondre à l'enum Order
-						const category = product.category.toLowerCase();
-						return { ...item, category };
+							// Convertir en minuscule pour correspondre à l'enum Order
+							const category = product.category.toLowerCase();
+							return { ...item, category };
+						}
 					}
-				}
-				return item; // Si pas de productId ou produit introuvable, on garde l'item tel quel
-			})
-		);
+					return item; // Si pas de productId ou produit introuvable, on garde l'item tel quel
+				})
+			);
 
-		console.log("🔍 Items enrichis avec catégories:", enrichedItems);
+			console.log("🔍 Items enrichis avec catégories:", enrichedItems);
 
-		// Vérification du total
-		const calculatedTotal = enrichedItems.reduce(
-			(sum, i) => sum + i.price * i.quantity,
-			0
-		);
-		if (total !== calculatedTotal) {
-			return res
-				.status(400)
-				.json({ message: "Le total ne correspond pas aux articles" });
-		}
+			// Vérification du total
+			const calculatedTotal = enrichedItems.reduce(
+				(sum, i) => sum + i.price * i.quantity,
+				0
+			);
+			if (total !== calculatedTotal) {
+				return res
+					.status(400)
+					.json({ message: "Le total ne correspond pas aux articles" });
+			}
 
-		// Création de la commande
-		const order = new Order({
-			tableId,
-			items: enrichedItems,
-			total,
-			status,
-			restaurantId,
-			serverId,
-			reservationId, // ⭐ AJOUTÉ
+			// Création de la commande
+			const order = new Order({
+				tableId,
+				items: enrichedItems,
+				total,
+				status,
+				restaurantId,
+				serverId,
+				reservationId, // ⭐ AJOUTÉ
+				clientId, // ⭐ AJOUTÉ
+				clientName, // ⭐ AJOUTÉ
+				origin: role === "client" ? "client" : "server",
+			});
+
+			await order.save();
+
+			// 🔔 Réponse
+			res.status(201).json(order);
+		} catch (err) {
+			console.error("Erreur création commande :", err); // log complet côté serveur
+			res.status(500).json({
+				message: err.message, // renvoie le vrai message d'erreur
 				stack: err.stack, // optionnel : détail complet pour le dev
 			});
 		}
