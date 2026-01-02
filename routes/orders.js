@@ -446,6 +446,78 @@ router.put(
 	}
 );
 
+// PUT /orders/reservation/:reservationId/finalize-items - Mettre à jour tous les items non finalisés
+// Utilisé quand une réservation est fermée (payée) ou annulée
+router.put(
+	"/reservation/:reservationId/finalize-items",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { reservationId } = req.params;
+			const { status } = req.body; // "served" ou "cancelled"
+
+			if (!["served", "cancelled"].includes(status)) {
+				return res.status(400).json({
+					message: "Statut invalide. Doit être 'served' ou 'cancelled'.",
+				});
+			}
+
+			// Trouver toutes les commandes de la réservation
+			const orders = await Order.find({ reservationId });
+
+			if (!orders.length) {
+				return res.json({
+					success: true,
+					message: "Aucune commande trouvée pour cette réservation.",
+					updatedCount: 0,
+				});
+			}
+
+			let totalUpdated = 0;
+
+			// Mettre à jour les items qui ne sont pas déjà "served" ou "cancelled"
+			for (const order of orders) {
+				let orderModified = false;
+
+				for (const item of order.items) {
+					if (item.itemStatus !== "served" && item.itemStatus !== "cancelled") {
+						item.itemStatus = status;
+
+						// Si passage en servi, arrêter le timer
+						if (status === "served" && item.startTime && !item.endTime) {
+							item.endTime = new Date();
+						}
+
+						orderModified = true;
+						totalUpdated++;
+					}
+				}
+
+				if (orderModified) {
+					await order.save();
+				}
+			}
+
+			console.log(
+				`✅ [FINALIZE] ${totalUpdated} items mis à jour en "${status}" pour réservation ${reservationId}`
+			);
+
+			res.json({
+				success: true,
+				message: `${totalUpdated} item(s) mis à jour en "${status}".`,
+				updatedCount: totalUpdated,
+			});
+		} catch (err) {
+			console.error("❌ Erreur finalize-items:", err);
+			res.status(500).json({
+				message: "Erreur lors de la mise à jour des items.",
+				error: err.message,
+			});
+		}
+	}
+);
+
 // DELETE /orders/:orderId - Supprimer une commande (optionnel)
 router.delete(
 	"/:orderId",

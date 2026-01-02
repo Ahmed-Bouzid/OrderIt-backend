@@ -254,8 +254,24 @@ class StripeService {
 					order.paid = true;
 					order.paidAt = new Date();
 					order.paymentMethod = "card";
+					order.paidAmount = payment.amount / 100; // Convertir centimes en euros
+					order.paymentStatus = "paid";
 					await order.save();
 					console.log(`✅ Commande ${order._id} marquée comme payée`);
+
+					// ⭐ Mettre à jour aussi la réservation
+					if (order.reservationId) {
+						const Reservation = require("../models/Reservation");
+						const reservation = await Reservation.findById(order.reservationId);
+						if (reservation) {
+							reservation.paidAmount =
+								(reservation.paidAmount || 0) + payment.amount / 100;
+							await reservation.save();
+							console.log(
+								`✅ Réservation ${reservation._id} mise à jour - paidAmount: ${reservation.paidAmount}€`
+							);
+						}
+					}
 				}
 			}
 		}

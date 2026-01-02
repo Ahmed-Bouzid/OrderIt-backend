@@ -39,9 +39,22 @@ const emitOrderEvent = (io, restaurantId, eventName, data) => {
 	console.log(`📡 Événement order envoyé: ${eventName}`);
 };
 
+/**
+ * 💬 Émettre un événement de message client → serveur
+ */
+const emitClientMessageEvent = (io, restaurantId, eventName, data) => {
+	io.to(`restaurant-${restaurantId}`).emit("client-message", {
+		type: eventName,
+		data,
+		timestamp: new Date().toISOString(),
+	});
+	console.log(`📡 Événement client-message envoyé: ${eventName}`);
+};
+
 module.exports = {
 	emitReservationEvent,
 	emitTableEvent,
 	emitProductEvent,
 	emitOrderEvent,
+	emitClientMessageEvent,
 };
