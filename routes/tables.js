@@ -177,6 +177,7 @@ router.put(
 		}
 
 		try {
+			console.log("📝 Mise à jour table:", req.params.id, "avec:", updates);
 			const updated = await Table.findByIdAndUpdate(req.params.id, updates, {
 				new: true,
 				runValidators: true,
@@ -185,16 +186,22 @@ router.put(
 				return res.status(404).json({ message: "Table non trouvée." });
 			}
 
+			console.log("✅ Table mise à jour:", updated._id);
+
 			// ⭐ Émettre l'événement WebSocket
-			const io = getIO(req);
-			if (io && updated.restaurantId) {
-				emitTableEvent(io, updated.restaurantId, "updated", updated.toObject());
+			try {
+				const io = getIO(req);
+				if (io && updated.restaurantId) {
+					emitTableEvent(io, updated.restaurantId, "updated", updated.toObject());
+				}
+			} catch (wsError) {
+				console.error("⚠️ Erreur WebSocket (non bloquant):", wsError.message);
 			}
 
 			res.json(updated);
 		} catch (err) {
-			console.error(err);
-			res.status(500).json({ message: "Erreur server" });
+			console.error("❌ Erreur PUT /tables/:id:", err);
+			res.status(500).json({ message: "Erreur server", error: err.message });
 		}
 	}
 );
