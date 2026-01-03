@@ -140,8 +140,8 @@ router.put(
 			return res.status(400).json({ errors: errors.array() });
 		}
 
-		// On filtre les champs autorisés (ajout de capacity et status)
-		const allowedFields = ["number", "qrCodeUrl", "capacity", "status"];
+		// On filtre les champs autorisés (ajout de capacity, status, position et size)
+		const allowedFields = ["number", "qrCodeUrl", "capacity", "status", "position", "size"];
 		const updates = Object.fromEntries(
 			Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
 		);
