@@ -141,7 +141,14 @@ router.put(
 		}
 
 		// On filtre les champs autorisés (ajout de capacity, status, position et size)
-		const allowedFields = ["number", "qrCodeUrl", "capacity", "status", "position", "size"];
+		const allowedFields = [
+			"number",
+			"qrCodeUrl",
+			"capacity",
+			"status",
+			"position",
+			"size",
+		];
 		const updates = Object.fromEntries(
 			Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
 		);
