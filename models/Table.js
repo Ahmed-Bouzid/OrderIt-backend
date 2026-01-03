@@ -27,6 +27,21 @@ const tableSchema = new mongoose.Schema(
 			min: 1,
 			max: 50,
 		},
+		// Position sur la grille (6x6)
+		position: {
+			x: {
+				type: Number,
+				default: 0,
+				min: 0,
+				max: 5, // Grille 6x6, index 0-5
+			},
+			y: {
+				type: Number,
+				default: 0,
+				min: 0,
+				max: 5,
+			},
+		},
 		qrCodeUrl: {
 			type: String,
 		},
@@ -74,6 +89,19 @@ tableSchema.pre("findOneAndUpdate", function (next) {
 // Index pour retrouver rapidement une table d'un restaurant
 tableSchema.index({ restaurantId: 1, number: 1 }, { unique: true });
 tableSchema.index({ restaurantId: 1, status: 1 });
+
+// Index pour positions uniques par restaurant
+tableSchema.index(
+	{ restaurantId: 1, "position.x": 1, "position.y": 1 },
+	{
+		unique: true,
+		sparse: true,
+		partialFilterExpression: {
+			"position.x": { $exists: true },
+			"position.y": { $exists: true },
+		},
+	}
+);
 
 // Méthode statique pour récupérer toutes les tables d'un restaurant
 tableSchema.statics.findByRestaurant = function (restaurantId) {

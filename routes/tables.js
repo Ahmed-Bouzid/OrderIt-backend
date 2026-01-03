@@ -244,4 +244,91 @@ router.delete(
 	}
 );
 
+// ⭐ PATCH /fusion - Fusionner deux tables
+router.patch(
+	"/fusion",
+	auth,
+	checkRoles(["admin"]),
+	[
+		body("sourceId").isMongoId().withMessage("sourceId invalide"),
+		body("targetId").isMongoId().withMessage("targetId invalide"),
+	],
+	async (req, res) => {
+		const errors = validationResult(req);
+		if (!errors.isEmpty()) {
+			return res.status(400).json({ errors: errors.array() });
+		}
+
+		const { sourceId, targetId } = req.body;
+
+		if (sourceId === targetId) {
+			return res
+				.status(400)
+				.json({ message: "Impossible de fusionner une table avec elle-même" });
+		}
+
+		try {
+			// Récupérer les deux tables
+			const [sourceTable, targetTable] = await Promise.all([
+				Table.findById(sourceId),
+				Table.findById(targetId),
+			]);
+
+			if (!sourceTable || !targetTable) {
+				return res
+					.status(404)
+					.json({ message: "Une ou plusieurs tables introuvables" });
+			}
+
+			// Vérifier qu'elles appartiennent au même restaurant
+			if (
+				sourceTable.restaurantId.toString() !==
+				targetTable.restaurantId.toString()
+			) {
+				return res.status(400).json({
+					message: "Les tables doivent appartenir au même restaurant",
+				});
+			}
+
+			// Calculer la nouvelle capacité
+			const newCapacity = sourceTable.capacity + targetTable.capacity;
+
+			if (newCapacity > 50) {
+				return res.status(400).json({
+					message: "Capacité maximale dépassée (50 places maximum)",
+				});
+			}
+
+			// Mettre à jour la table cible
+			targetTable.capacity = newCapacity;
+			await targetTable.save();
+
+			// Supprimer la table source
+			await Table.findByIdAndDelete(sourceId);
+
+			// ⭐ Émettre les événements WebSocket
+			const io = getIO(req);
+			if (io && targetTable.restaurantId) {
+				emitTableEvent(
+					io,
+					targetTable.restaurantId,
+					"merged",
+					targetTable.toObject()
+				);
+				emitTableEvent(io, targetTable.restaurantId, "deleted", {
+					_id: sourceId,
+				});
+			}
+
+			res.json({
+				message: "Tables fusionnées avec succès",
+				merged: targetTable.toObject(),
+			});
+		} catch (err) {
+			console.error("Erreur fusion tables:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	}
+);
+
 module.exports = router;
