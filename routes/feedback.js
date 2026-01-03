@@ -114,7 +114,10 @@ router.get("/", auth, checkRoles(["admin", "manager"]), async (req, res) => {
 			},
 		});
 	} catch (error) {
-		console.error("[FEEDBACK] Erreur lors de la récupération des feedbacks:", error);
+		console.error(
+			"[FEEDBACK] Erreur lors de la récupération des feedbacks:",
+			error
+		);
 		res.status(500).json({
 			message: "Erreur lors de la récupération des feedbacks.",
 			error: error.message,
@@ -139,11 +142,9 @@ router.patch("/:id", auth, checkRoles(["admin"]), async (req, res) => {
 			}
 		}
 
-		const feedback = await Feedback.findByIdAndUpdate(
-			id,
-			update,
-			{ new: true }
-		);
+		const feedback = await Feedback.findByIdAndUpdate(id, update, {
+			new: true,
+		});
 
 		if (!feedback) {
 			return res.status(404).json({ message: "Feedback non trouvé." });
@@ -154,7 +155,10 @@ router.patch("/:id", auth, checkRoles(["admin"]), async (req, res) => {
 			feedback,
 		});
 	} catch (error) {
-		console.error("[FEEDBACK] Erreur lors de la mise à jour du feedback:", error);
+		console.error(
+			"[FEEDBACK] Erreur lors de la mise à jour du feedback:",
+			error
+		);
 		res.status(500).json({
 			message: "Erreur lors de la mise à jour du feedback.",
 			error: error.message,
@@ -175,7 +179,10 @@ router.delete("/:id", auth, checkRoles(["admin"]), async (req, res) => {
 
 		res.json({ message: "Feedback supprimé avec succès." });
 	} catch (error) {
-		console.error("[FEEDBACK] Erreur lors de la suppression du feedback:", error);
+		console.error(
+			"[FEEDBACK] Erreur lors de la suppression du feedback:",
+			error
+		);
 		res.status(500).json({
 			message: "Erreur lors de la suppression du feedback.",
 			error: error.message,

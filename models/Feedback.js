@@ -83,9 +83,9 @@ feedbackSchema.index({ userId: 1, createdAt: -1 });
 // TTL index : supprime automatiquement les feedbacks résolus après 90 jours
 feedbackSchema.index(
 	{ resolvedAt: 1 },
-	{ 
+	{
 		expireAfterSeconds: 90 * 24 * 60 * 60, // 90 jours
-		partialFilterExpression: { resolved: true }
+		partialFilterExpression: { resolved: true },
 	}
 );
 
