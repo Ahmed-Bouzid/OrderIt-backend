@@ -27,17 +27,15 @@ const tableSchema = new mongoose.Schema(
 			min: 1,
 			max: 50,
 		},
-		// Position sur la grille (6x6)
+		// Position sur la grille (6x6) - OPTIONNEL pour rétrocompatibilité
 		position: {
 			x: {
 				type: Number,
-				default: 0,
 				min: 0,
 				max: 5, // Grille 6x6, index 0-5
 			},
 			y: {
 				type: Number,
-				default: 0,
 				min: 0,
 				max: 5,
 			},
