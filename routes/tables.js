@@ -192,7 +192,12 @@ router.put(
 			try {
 				const io = getIO(req);
 				if (io && updated.restaurantId) {
-					emitTableEvent(io, updated.restaurantId, "updated", updated.toObject());
+					emitTableEvent(
+						io,
+						updated.restaurantId,
+						"updated",
+						updated.toObject()
+					);
 				}
 			} catch (wsError) {
 				console.error("⚠️ Erreur WebSocket (non bloquant):", wsError.message);

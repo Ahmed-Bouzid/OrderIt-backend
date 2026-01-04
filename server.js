@@ -65,6 +65,7 @@ app.use("/client-orders", require("./routes/clientOrders")); // ⭐ Route publiq
 app.use("/client-messages", require("./routes/clientMessages")); // 💬 Route messagerie client → serveur
 app.use("/servers", require("./routes/servers"));
 app.use("/reservations", require("./routes/reservations"));
+app.use("/assistant", require("./routes/assistant")); // ⭐ Assistant intelligent réservations
 app.use("/products", auth, require("./routes/products"));
 app.use("/products", auth, require("./routes/productOptions")); // ⭐ Routes options produits
 app.use("/products", auth, require("./routes/productAllergens")); // ⭐ Routes allergènes produits
