@@ -27,12 +27,12 @@ const tableUpdateValidationRules = [
 		.withMessage("La position doit être un objet."),
 	body("position.x")
 		.optional()
-		.isNumeric()
-		.withMessage("position.x doit être un nombre."),
+		.isFloat({ min: -1000, max: 10000 })
+		.withMessage("position.x doit être un nombre entre -1000 et 10000."),
 	body("position.y")
 		.optional()
-		.isNumeric()
-		.withMessage("position.y doit être un nombre."),
+		.isFloat({ min: -1000, max: 10000 })
+		.withMessage("position.y doit être un nombre entre -1000 et 10000."),
 	body("size")
 		.optional()
 		.isFloat({ min: 0.5, max: 2.5 })
