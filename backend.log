@@ -1,0 +1,16 @@
+
+> backend@1.0.0 start
+> node start.js
+
+=== [DEBUG] DEMARRAGE start.js ===
+[dotenv@17.0.1] injecting env (7) from .env – [tip] encrypt with dotenvx: https://dotenvx.com
+=== [DEBUG] DEMARRAGE server.js ===
+=== DEMARRAGE SERVER.JS ===
+[DEBUG] clientToken.js chargé
+✅ Stripe initialisé en mode TEST
+(node:74147) [MONGOOSE] Warning: Duplicate schema index on {"stripePaymentIntentId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✅ MongoDB connecté
+🚀 Server EasyQR démarré sur http://0.0.0.0:3000
+🌐 Accès local: http://192.168.1.165:3000
+🔌 WebSocket prêt sur ws://0.0.0.0:3000
