@@ -15,8 +15,16 @@ async function cleanDuplicates() {
 
 		// Nettoyer les deux jours
 		const days = [
-			{ name: "10 janvier", start: "2026-01-10T00:00:00.000Z", end: "2026-01-10T23:59:59.999Z" },
-			{ name: "11 janvier", start: "2026-01-11T00:00:00.000Z", end: "2026-01-11T23:59:59.999Z" },
+			{
+				name: "10 janvier",
+				start: "2026-01-10T00:00:00.000Z",
+				end: "2026-01-10T23:59:59.999Z",
+			},
+			{
+				name: "11 janvier",
+				start: "2026-01-11T00:00:00.000Z",
+				end: "2026-01-11T23:59:59.999Z",
+			},
 		];
 
 		for (const day of days) {
@@ -28,37 +36,39 @@ async function cleanDuplicates() {
 				reservationDate: { $gte: startDate, $lte: endDate },
 			}).sort({ reservationTime: 1, clientName: 1 });
 
-			console.log(`\n📋 Trouvé ${reservations.length} réservations le ${day.name}`);
+			console.log(
+				`\n📋 Trouvé ${reservations.length} réservations le ${day.name}`
+			);
 
-		// Grouper par heure + nom client
-		const groups = {};
-		for (const res of reservations) {
-			const key = `${res.reservationTime}_${res.clientName}`;
-			if (!groups[key]) {
-				groups[key] = [];
+			// Grouper par heure + nom client
+			const groups = {};
+			for (const res of reservations) {
+				const key = `${res.reservationTime}_${res.clientName}`;
+				if (!groups[key]) {
+					groups[key] = [];
+				}
+				groups[key].push(res);
 			}
-			groups[key].push(res);
-		}
 
-		console.log("\n🔍 Analyse des doublons:");
-		let duplicateCount = 0;
-		const toDelete = [];
+			console.log("\n🔍 Analyse des doublons:");
+			let duplicateCount = 0;
+			const toDelete = [];
 
-		for (const [key, group] of Object.entries(groups)) {
-			if (group.length > 1) {
-				const [time, name] = key.split("_");
-				console.log(
-					`   ⚠️  ${time} - ${name}: ${group.length} réservations (doublon)`
-				);
-				duplicateCount += group.length - 1;
+			for (const [key, group] of Object.entries(groups)) {
+				if (group.length > 1) {
+					const [time, name] = key.split("_");
+					console.log(
+						`   ⚠️  ${time} - ${name}: ${group.length} réservations (doublon)`
+					);
+					duplicateCount += group.length - 1;
 
-				// Garder le premier, supprimer les autres
-				for (let i = 1; i < group.length; i++) {
-					toDelete.push(group[i]._id);
-					console.log(`      ❌ Suppression: ${group[i]._id}`);
+					// Garder le premier, supprimer les autres
+					for (let i = 1; i < group.length; i++) {
+						toDelete.push(group[i]._id);
+						console.log(`      ❌ Suppression: ${group[i]._id}`);
+					}
 				}
 			}
-		}
 
 			if (toDelete.length > 0) {
 				console.log(`\n🗑️  Suppression de ${toDelete.length} doublons...`);
@@ -88,12 +98,18 @@ async function cleanDuplicates() {
 		// Statistiques finales
 		const total10 = await Reservation.countDocuments({
 			restaurantId: "686af511bb4cba684ff3b72e",
-			reservationDate: { $gte: new Date("2026-01-10T00:00:00.000Z"), $lte: new Date("2026-01-10T23:59:59.999Z") },
+			reservationDate: {
+				$gte: new Date("2026-01-10T00:00:00.000Z"),
+				$lte: new Date("2026-01-10T23:59:59.999Z"),
+			},
 		});
 
 		const total11 = await Reservation.countDocuments({
 			restaurantId: "686af511bb4cba684ff3b72e",
-			reservationDate: { $gte: new Date("2026-01-11T00:00:00.000Z"), $lte: new Date("2026-01-11T23:59:59.999Z") },
+			reservationDate: {
+				$gte: new Date("2026-01-11T00:00:00.000Z"),
+				$lte: new Date("2026-01-11T23:59:59.999Z"),
+			},
 		});
 
 		console.log("\n📈 Statistiques finales:");

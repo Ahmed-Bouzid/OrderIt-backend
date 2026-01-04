@@ -496,10 +496,7 @@ async function seedReservations() {
 
 		console.log("\n📋 Horaires du 10 janvier:");
 		day10
-			.sort(
-				(a, b) =>
-					a.reservationTime.localeCompare(b.reservationTime)
-			)
+			.sort((a, b) => a.reservationTime.localeCompare(b.reservationTime))
 			.forEach((r) => {
 				console.log(
 					`   ${r.reservationTime} - ${r.clientName} (${r.nbPersonnes} pers.)`
@@ -508,10 +505,7 @@ async function seedReservations() {
 
 		console.log("\n📋 Horaires du 11 janvier:");
 		day11
-			.sort(
-				(a, b) =>
-					a.reservationTime.localeCompare(b.reservationTime)
-			)
+			.sort((a, b) => a.reservationTime.localeCompare(b.reservationTime))
 			.forEach((r) => {
 				console.log(
 					`   ${r.reservationTime} - ${r.clientName} (${r.nbPersonnes} pers.)`
@@ -519,10 +513,7 @@ async function seedReservations() {
 			});
 
 		console.log("\n👥 Total personnes:");
-		const totalPeople = result.reduce(
-			(sum, r) => sum + r.nbPersonnes,
-			0
-		);
+		const totalPeople = result.reduce((sum, r) => sum + r.nbPersonnes, 0);
 		console.log(`   ${totalPeople} personnes au total`);
 
 		await mongoose.connection.close();

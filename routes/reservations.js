@@ -736,7 +736,7 @@ router.get(
         clientName,
         server,
         page = 1,
-        limit = 20,
+        limit = 100, // ⭐ Augmenté de 20 à 100 pour éviter les pertes
         sortBy = "reservationDate",
         order = "asc",
       } = req.query;

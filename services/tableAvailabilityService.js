@@ -19,7 +19,9 @@ const Restaurant = require("../models/Restaurant");
 async function checkTableAvailability({ restaurantId, date, time, people }) {
 	try {
 		console.log("🔍 [TABLE SERVICE] Analyse disponibilité table par table");
-		console.log(`📅 Date: ${date} | ⏰ Heure: ${time} | 👥 Personnes: ${people}`);
+		console.log(
+			`📅 Date: ${date} | ⏰ Heure: ${time} | 👥 Personnes: ${people}`
+		);
 
 		// 1. Récupérer le turnover du restaurant
 		const restaurant = await Restaurant.findById(restaurantId);
@@ -33,7 +35,9 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 		const requestedStart = parseTime(time);
 		const requestedEnd = requestedStart + turnover;
 		console.log(
-			`🕐 Créneau demandé: ${time} → ${formatMinutesToTime(requestedEnd)} (${turnover} min)`
+			`🕐 Créneau demandé: ${time} → ${formatMinutesToTime(
+				requestedEnd
+			)} (${turnover} min)`
 		);
 
 		// 3. Récupérer toutes les tables actives du restaurant
@@ -94,9 +98,7 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 					const overlapStart = Math.max(resStart, requestedStart);
 					const overlapEnd = Math.min(resEnd, requestedEnd);
 					const overlapMinutes = overlapEnd - overlapStart;
-					const overlapPercent = Math.round(
-						(overlapMinutes / turnover) * 100
-					);
+					const overlapPercent = Math.round((overlapMinutes / turnover) * 100);
 
 					conflictDetails = {
 						reservationId: res._id,
@@ -273,8 +275,7 @@ function findCombinedTables(
 	// 1. Identifier toutes les tables libres au créneau
 	const freeTables = tables.filter((table) => {
 		const tableRes = reservations.filter(
-			(r) =>
-				r.tableId && r.tableId.toString() === table._id.toString()
+			(r) => r.tableId && r.tableId.toString() === table._id.toString()
 		);
 
 		for (const res of tableRes) {
@@ -351,9 +352,7 @@ async function scanDayForAlternatives({
 			if (table.capacity < people) return false;
 
 			const tableRes = reservations.filter(
-				(r) =>
-					r.tableId &&
-					r.tableId.toString() === table._id.toString()
+				(r) => r.tableId && r.tableId.toString() === table._id.toString()
 			);
 
 			for (const res of tableRes) {

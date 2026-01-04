@@ -57,12 +57,15 @@ router.post(
 		try {
 			const { restaurantId, date, time, people } = req.body;
 
-			console.log("🔍 [ASSISTANT] Vérification disponibilité (table par table):", {
-				restaurantId,
-				date,
-				time,
-				people,
-			});
+			console.log(
+				"🔍 [ASSISTANT] Vérification disponibilité (table par table):",
+				{
+					restaurantId,
+					date,
+					time,
+					people,
+				}
+			);
 
 			// Utiliser le nouveau service basé sur les tables
 			const result = await checkTableAvailability({
