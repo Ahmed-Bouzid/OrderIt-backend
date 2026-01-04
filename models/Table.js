@@ -31,14 +31,21 @@ const tableSchema = new mongoose.Schema(
 		position: {
 			x: {
 				type: Number,
-				min: 0,
-				max: 5, // Grille 6x6, index 0-5
+				min: -1000,
+				max: 10000, // Canvas large pour plan de salle libre
 			},
 			y: {
 				type: Number,
-				min: 0,
-				max: 5,
+				min: -1000,
+				max: 10000,
 			},
+		},
+		// Taille de la table (multiplicateur 0.5-2.5)
+		size: {
+			type: Number,
+			default: 1,
+			min: 0.5,
+			max: 2.5,
 		},
 		qrCodeUrl: {
 			type: String,
