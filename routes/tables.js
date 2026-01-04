@@ -16,6 +16,12 @@ const Order = require("../models/Order");
 // ⭐ Import socket emitter
 const { emitTableEvent } = require("../utils/socketEmitter");
 
+// ⭐ Import availability checker
+const {
+	getAvailableTableIds,
+	enrichTablesWithAvailability,
+} = require("../utils/tableAvailabilityChecker");
+
 // ⭐ Helper pour accéder à io via req.app
 const getIO = (req) => req.app.locals.io;
 
@@ -346,6 +352,64 @@ router.patch(
 		} catch (err) {
 			console.error("Erreur fusion tables:", err);
 			res.status(500).json({ message: "Erreur serveur" });
+		}
+	}
+);
+
+// ⭐ GET /restaurant/:restaurantId/available - Tables avec disponibilité calculée
+router.get(
+	"/restaurant/:restaurantId/available",
+	auth,
+	validateObjectIds(["restaurantId"]),
+	checkRoles(["admin", "server"]),
+	checkUserRestaurant("restaurantId"),
+	async (req, res) => {
+		try {
+			const { restaurantId } = req.params;
+			const { date, time, excludeReservationId } = req.query;
+
+			console.log("🔄 [TABLES] Fetch tables disponibilité:", {
+				restaurantId,
+				date,
+				time,
+				excludeReservationId,
+			});
+
+			// Récupérer toutes les tables du restaurant
+			const tables = await Table.find({ restaurantId }).maxTimeMS(10000);
+
+			// Si pas de date/heure, retourner toutes les tables comme disponibles
+			if (!date || !time) {
+				console.log("⚠️ [TABLES] Pas de date/heure - toutes tables disponibles");
+				const enrichedTables = tables.map((t) => ({
+					...t.toObject(),
+					isAvailable: true,
+				}));
+				return res.json(enrichedTables);
+			}
+
+			// Calculer les tables occupées pour ce créneau
+			const occupiedTableIds = await getAvailableTableIds({
+				restaurantId,
+				reservationDate: new Date(date),
+				reservationTime: time,
+				duration: 120, // 2h par défaut
+				excludeReservationId: excludeReservationId || null,
+			});
+
+			// Enrichir les tables avec leur disponibilité
+			const enrichedTables = enrichTablesWithAvailability(
+				tables,
+				occupiedTableIds
+			);
+
+			console.log(`✅ [TABLES] ${tables.length} tables retournées`);
+			res.json(enrichedTables);
+		} catch (err) {
+			console.error("🚨 [TABLES] Erreur fetch disponibilité:", err);
+			res
+				.status(500)
+				.json({ message: "Erreur serveur lors du calcul de disponibilité" });
 		}
 	}
 );

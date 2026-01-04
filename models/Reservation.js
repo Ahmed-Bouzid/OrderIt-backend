@@ -73,6 +73,32 @@ const reservationSchema = new mongoose.Schema(
 		canceled: { type: Boolean, default: false },
 		canceledAt: { type: Date },
 
+		// ⭐⭐ NOUVEAU : Historique d'audit des modifications
+		auditLog: [
+			{
+				timestamp: { type: Date, default: Date.now },
+				action: {
+					type: String,
+					enum: [
+						"created",
+						"table_assigned",
+						"table_changed",
+						"status_changed",
+						"payment",
+						"order_sent",
+						"present_changed",
+						"cancelled",
+						"field_updated",
+					],
+				},
+				userId: { type: mongoose.Schema.Types.ObjectId },
+				userType: { type: String, enum: ["server", "admin", "system"] },
+				userName: { type: String },
+				message: { type: String },
+				metadata: { type: mongoose.Schema.Types.Mixed },
+			},
+		],
+
 		createdAt: { type: Date, default: Date.now, index: true },
 		updatedAt: { type: Date, default: Date.now },
 	},
@@ -203,6 +229,30 @@ reservationSchema.methods.calculateRemainingAmount = async function () {
 		console.error("Erreur calcul montant restant:", error);
 		return 0;
 	}
+};
+
+// ⭐⭐ MÉTHODE : Ajouter une entrée d'audit
+reservationSchema.methods.addAuditEntry = function ({
+	action,
+	userId,
+	userType,
+	userName,
+	message,
+	metadata,
+}) {
+	if (!this.auditLog) this.auditLog = [];
+
+	this.auditLog.push({
+		timestamp: new Date(),
+		action,
+		userId,
+		userType: userType || "system",
+		userName: userName || "Système",
+		message,
+		metadata: metadata || {},
+	});
+
+	return this;
 };
 
 // Index pour retrouver rapidement toutes les réservations d'une table ou d'un restaurant
