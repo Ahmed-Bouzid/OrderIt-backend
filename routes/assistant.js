@@ -7,7 +7,10 @@ const router = express.Router();
 const { body, validationResult } = require("express-validator");
 const auth = require("../middlewares/auth");
 const checkRoles = require("../middlewares/checkRoles");
-const { checkAvailability } = require("../services/availabilityService");
+const { checkAvailability } = require("../services/availabilityService"); // Ancien (places globales)
+const {
+	checkTableAvailability,
+} = require("../services/tableAvailabilityService"); // Nouveau (table par table)
 const Restaurant = require("../models/Restaurant");
 
 /**
@@ -54,21 +57,22 @@ router.post(
 		try {
 			const { restaurantId, date, time, people } = req.body;
 
-			console.log("🔍 Assistant - Vérification disponibilité:", {
+			console.log("🔍 [ASSISTANT] Vérification disponibilité (table par table):", {
 				restaurantId,
 				date,
 				time,
 				people,
 			});
 
-			const result = await checkAvailability({
+			// Utiliser le nouveau service basé sur les tables
+			const result = await checkTableAvailability({
 				restaurantId,
 				date,
 				time,
 				people: parseInt(people),
 			});
 
-			console.log("✅ Assistant - Résultat:", result.status, result.reason);
+			console.log("✅ [ASSISTANT] Résultat:", result.status, result.reason);
 
 			res.json(result);
 		} catch (error) {
