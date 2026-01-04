@@ -62,7 +62,12 @@ async function checkAvailability({ restaurantId, date, time, people }) {
 			const resTime = parseTime(res.reservationTime);
 			const resEnd = resTime + turnoverTime;
 
-			const overlap = checkOverlap(requestedTime, requestedEnd, resTime, resEnd);
+			const overlap = checkOverlap(
+				requestedTime,
+				requestedEnd,
+				resTime,
+				resEnd
+			);
 
 			if (overlap.hasOverlap) {
 				conflicts.push({
