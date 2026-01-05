@@ -179,6 +179,24 @@ async function autoAssignTables(restaurantId, date) {
 				oldAssignments.set(r._id.toString(), r.tableId.toString());
 			}
 		});
+
+		// 4️⃣ RÉINITIALISER toutes les tables (permettre réassignation)
+		console.log("🔄 [AUTO-ASSIGN] Réinitialisation des attributions...");
+		for (const reservation of allReservations) {
+			reservation.tableId = undefined;
+		}
+
+		// 5️⃣ Trier les réservations par priorité
+		allReservations.sort((a, b) => {
+			// 1. Plus grandes réservations en premier
+			if (b.nbPersonnes !== a.nbPersonnes) {
+				return b.nbPersonnes - a.nbPersonnes;
+			}
+			// 2. Puis par ordre chronologique
+			const timeA = a.reservationTime || "00:00";
+			const timeB = b.reservationTime || "00:00";
+			return timeA.localeCompare(timeB);
+		});
 		console.log(
 			`📋 [AUTO-ASSIGN] Ordre optimisé: ${allReservations
 				.map((r) => `${r.clientName}(${r.nbPersonnes}p-${r.reservationTime})`)
@@ -230,13 +248,16 @@ async function autoAssignTables(restaurantId, date) {
 			const availableTables = [];
 			for (const table of suitableTables) {
 				// Vérifier si cette table est libre pour ce créneau
-				// En excluant les réservations déjà traitées dans cette boucle
+				// Prendre en compte TOUTES les réservations qui ont maintenant un tableId
+				// (y compris celles qu'on vient d'assigner dans cette boucle)
 				const isAvailable = await isTableAvailableForReservations(
 					table._id,
 					date,
 					reservationTime,
 					turnoverTime,
-					allReservations.filter((r) => r.tableId && r._id !== reservation._id)
+					allReservations.filter(
+						(r) => r.tableId && r._id.toString() !== reservation._id.toString()
+					)
 				);
 
 				if (isAvailable) {
