@@ -176,4 +176,52 @@ router.put(
 	}
 );
 
+/**
+ * POST /assistant/auto-assign-tables
+ * Attribution automatique des tables pour une date donnée
+ * Body: { date: "2026-01-11", restaurantId: "..." }
+ */
+router.post(
+	"/auto-assign-tables",
+	auth,
+	checkRoles(["admin", "server"]),
+	async (req, res) => {
+		try {
+			const { date, restaurantId } = req.body;
+
+			if (!date) {
+				return res.status(400).json({
+					status: "error",
+					message: "La date est requise",
+				});
+			}
+
+			if (!restaurantId) {
+				return res.status(400).json({
+					status: "error",
+					message: "Le restaurant ID est requis",
+				});
+			}
+
+			console.log("🤖 [ASSISTANT] Attribution automatique:", {
+				date,
+				restaurantId,
+				user: req.user?.email,
+			});
+
+			const { autoAssignTables } = require("../services/tableAssignmentService");
+			const result = await autoAssignTables(restaurantId, new Date(date));
+
+			res.json(result);
+		} catch (error) {
+			console.error("❌ [ASSISTANT] Erreur attribution:", error);
+			res.status(500).json({
+				status: "error",
+				message: "Erreur lors de l'attribution automatique",
+				error: error.message,
+			});
+		}
+	}
+);
+
 module.exports = router;
