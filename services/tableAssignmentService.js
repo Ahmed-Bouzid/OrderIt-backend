@@ -145,19 +145,33 @@ async function autoAssignTables(restaurantId, date) {
 		console.log(
 			`🔍 [AUTO-ASSIGN] Recherche tables pour restaurantId: ${restaurantId}`
 		);
+
+		// TEST : Charger TOUTES les tables d'abord
+		const allTablesDirect = await Table.find({ restaurantId: restaurantId });
+		console.log(
+			`🔍 [AUTO-ASSIGN] TOUTES tables (sans filtre statut): ${allTablesDirect.length}`
+		);
+		allTablesDirect.forEach((t, i) =>
+			console.log(
+				`    [${i + 1}] ${t._id.toString().slice(-8)} | status: "${
+					t.status
+				}" | cap: ${t.capacity}`
+			)
+		);
+
 		const tables = await Table.find({
 			restaurantId: restaurantId,
 			status: { $in: ["available", "occupied"] }, // Exclure unavailable
 		});
 
 		console.log(
-			`🪑 [AUTO-ASSIGN] ${tables.length} tables trouvées avec statut available/occupied`
+			`🪑 [AUTO-ASSIGN] Tables FILTRÉES (available/occupied): ${tables.length}`
 		);
 		tables.forEach((t, i) =>
 			console.log(
-				`  [${i + 1}] ${t._id.toString().slice(-8)} | status: ${
+				`  [${i + 1}] ${t._id.toString().slice(-8)} | status: "${
 					t.status
-				} | cap: ${t.capacity}`
+				}" | cap: ${t.capacity}`
 			)
 		);
 		// 3️⃣ Sauvegarder les anciennes attributions pour traçabilité
