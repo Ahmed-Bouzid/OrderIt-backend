@@ -142,13 +142,24 @@ async function autoAssignTables(restaurantId, date) {
 		}
 
 		// 2️⃣ Récupérer toutes les tables actives du restaurant
+		console.log(
+			`🔍 [AUTO-ASSIGN] Recherche tables pour restaurantId: ${restaurantId}`
+		);
 		const tables = await Table.find({
 			restaurantId: restaurantId,
 			status: { $in: ["available", "occupied"] }, // Exclure unavailable
 		});
 
-		console.log(`🪑 [AUTO-ASSIGN] ${tables.length} tables disponibles`);
-
+		console.log(
+			`🪑 [AUTO-ASSIGN] ${tables.length} tables trouvées avec statut available/occupied`
+		);
+		tables.forEach((t, i) =>
+			console.log(
+				`  [${i + 1}] ${t._id.toString().slice(-8)} | status: ${
+					t.status
+				} | cap: ${t.capacity}`
+			)
+		);
 		// 3️⃣ Sauvegarder les anciennes attributions pour traçabilité
 		const oldAssignments = new Map();
 		allReservations.forEach((r) => {
