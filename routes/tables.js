@@ -143,12 +143,18 @@ router.put(
 	async (req, res) => {
 		console.log("🔍 [TABLE UPDATE] Début modification table");
 		console.log("📋 [TABLE UPDATE] ID table:", req.params.id);
-		console.log("📦 [TABLE UPDATE] Body reçu:", JSON.stringify(req.body, null, 2));
+		console.log(
+			"📦 [TABLE UPDATE] Body reçu:",
+			JSON.stringify(req.body, null, 2)
+		);
 		console.log("👤 [TABLE UPDATE] User:", req.user?.email || req.user?.id);
-		
+
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
-			console.log("❌ [TABLE UPDATE] Erreurs de validation:", JSON.stringify(errors.array(), null, 2));
+			console.log(
+				"❌ [TABLE UPDATE] Erreurs de validation:",
+				JSON.stringify(errors.array(), null, 2)
+			);
 			return res.status(400).json({ errors: errors.array() });
 		}
 
@@ -165,7 +171,10 @@ router.put(
 			Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
 		);
 
-		console.log("🔧 [TABLE UPDATE] Champs filtrés pour update:", JSON.stringify(updates, null, 2));
+		console.log(
+			"🔧 [TABLE UPDATE] Champs filtrés pour update:",
+			JSON.stringify(updates, null, 2)
+		);
 
 		// Validation du status si fourni
 		if (
@@ -204,19 +213,27 @@ router.put(
 				id: existingTable._id,
 				number: existingTable.number,
 				restaurantId: existingTable.restaurantId,
-				capacity: existingTable.capacity
+				capacity: existingTable.capacity,
 			});
 
 			// Vérifier si le nouveau numéro existe déjà (si on change le number)
 			if (updates.number && updates.number !== existingTable.number) {
-				console.log("🔍 [TABLE UPDATE] Vérification unicité du nouveau numéro:", updates.number);
+				console.log(
+					"🔍 [TABLE UPDATE] Vérification unicité du nouveau numéro:",
+					updates.number
+				);
 				const duplicateTable = await Table.findOne({
 					restaurantId: existingTable.restaurantId,
 					number: updates.number,
-					_id: { $ne: req.params.id }
+					_id: { $ne: req.params.id },
 				});
 				if (duplicateTable) {
-					console.log("❌ [TABLE UPDATE] Numéro déjà utilisé:", updates.number, "par table:", duplicateTable._id);
+					console.log(
+						"❌ [TABLE UPDATE] Numéro déjà utilisé:",
+						updates.number,
+						"par table:",
+						duplicateTable._id
+					);
 					return res.status(400).json({
 						message: `Le numéro ${updates.number} est déjà utilisé par une autre table.`,
 					});
@@ -228,9 +245,12 @@ router.put(
 				new: true,
 				runValidators: true,
 			});
-			
+
 			if (!updated) {
-				console.log("❌ [TABLE UPDATE] Table non trouvée après update (ne devrait pas arriver):", req.params.id);
+				console.log(
+					"❌ [TABLE UPDATE] Table non trouvée après update (ne devrait pas arriver):",
+					req.params.id
+				);
 				return res.status(404).json({ message: "Table non trouvée." });
 			}
 
@@ -238,7 +258,7 @@ router.put(
 				id: updated._id,
 				number: updated.number,
 				capacity: updated.capacity,
-				status: updated.status
+				status: updated.status,
 			});
 
 			// ⭐ Émettre l'événement WebSocket
@@ -254,34 +274,43 @@ router.put(
 					);
 				}
 			} catch (wsError) {
-				console.error("⚠️ [TABLE UPDATE] Erreur WebSocket (non bloquant):", wsError.message);
+				console.error(
+					"⚠️ [TABLE UPDATE] Erreur WebSocket (non bloquant):",
+					wsError.message
+				);
 			}
 
 			res.json(updated);
 		} catch (err) {
 			console.error("❌ [TABLE UPDATE] Erreur lors de la mise à jour:", err);
 			console.error("❌ [TABLE UPDATE] Stack:", err.stack);
-			
+
 			// Détailler le type d'erreur
-			if (err.name === 'ValidationError') {
-				console.error("❌ [TABLE UPDATE] Erreur de validation Mongoose:", err.message);
-				return res.status(400).json({ 
-					message: "Erreur de validation", 
-					errors: Object.keys(err.errors).map(key => ({
+			if (err.name === "ValidationError") {
+				console.error(
+					"❌ [TABLE UPDATE] Erreur de validation Mongoose:",
+					err.message
+				);
+				return res.status(400).json({
+					message: "Erreur de validation",
+					errors: Object.keys(err.errors).map((key) => ({
 						field: key,
-						message: err.errors[key].message
-					}))
+						message: err.errors[key].message,
+					})),
 				});
 			}
-			
+
 			if (err.code === 11000) {
-				console.error("❌ [TABLE UPDATE] Erreur d'unicité (duplicate key):", err.message);
-				return res.status(400).json({ 
+				console.error(
+					"❌ [TABLE UPDATE] Erreur d'unicité (duplicate key):",
+					err.message
+				);
+				return res.status(400).json({
 					message: "Ce numéro de table existe déjà pour ce restaurant.",
-					error: err.message 
+					error: err.message,
 				});
 			}
-			
+
 			res.status(500).json({ message: "Erreur serveur", error: err.message });
 		}
 	}
@@ -450,7 +479,9 @@ router.get(
 
 			// Si pas de date/heure, retourner toutes les tables comme disponibles
 			if (!date || !time) {
-				console.log("⚠️ [TABLES] Pas de date/heure - toutes tables disponibles");
+				console.log(
+					"⚠️ [TABLES] Pas de date/heure - toutes tables disponibles"
+				);
 				const enrichedTables = tables.map((t) => ({
 					...t.toObject(),
 					isAvailable: true,

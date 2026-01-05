@@ -7,16 +7,20 @@ module.exports = function checkRoles(allowedRoles) {
 				userId: req.user?.id,
 				userEmail: req.user?.email,
 				userRole: req.user?.role,
-				allowedRoles: allowedRoles
+				allowedRoles: allowedRoles,
 			});
 
 			if (!req.user) {
-				console.warn("❌ [CHECK ROLES] req.user manquant - authentification requise");
+				console.warn(
+					"❌ [CHECK ROLES] req.user manquant - authentification requise"
+				);
 				return res.status(401).json({ message: "Authentification requise." });
 			}
 
 			if (!req.user.role) {
-				console.warn("❌ [CHECK ROLES] Rôle utilisateur manquant dans req.user");
+				console.warn(
+					"❌ [CHECK ROLES] Rôle utilisateur manquant dans req.user"
+				);
 				return res.status(403).json({ message: "Rôle utilisateur manquant." });
 			}
 
@@ -25,7 +29,11 @@ module.exports = function checkRoles(allowedRoles) {
 			if (userRole === "server") userRole = "server";
 
 			if (!allowedRoles.includes(userRole)) {
-				console.warn(`❌ [CHECK ROLES] Accès refusé - Rôle ${req.user.role} pas dans [${allowedRoles.join(', ')}]`);
+				console.warn(
+					`❌ [CHECK ROLES] Accès refusé - Rôle ${
+						req.user.role
+					} pas dans [${allowedRoles.join(", ")}]`
+				);
 				return res.status(403).json({
 					message: "Accès refusé : rôle utilisateur insuffisant.",
 					role: req.user.role,

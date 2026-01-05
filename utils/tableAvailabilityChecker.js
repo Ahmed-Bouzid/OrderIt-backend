@@ -14,7 +14,7 @@ const Reservation = require("../models/Reservation");
  */
 function parseTimeToDate(baseDate, timeString) {
 	if (!timeString) return baseDate;
-	
+
 	const [hours, minutes] = timeString.split(":").map(Number);
 	const date = new Date(baseDate);
 	date.setHours(hours, minutes, 0, 0);
@@ -59,13 +59,20 @@ async function getAvailableTableIds({
 
 		// Si pas de date/heure, on ne peut pas déterminer la disponibilité
 		if (!reservationDate || !reservationTime) {
-			console.log("⚠️ [AVAILABILITY] Date ou heure manquante - retour tableau vide");
+			console.log(
+				"⚠️ [AVAILABILITY] Date ou heure manquante - retour tableau vide"
+			);
 			return [];
 		}
 
 		// Parser la date et l'heure de début
-		const requestedStart = parseTimeToDate(new Date(reservationDate), reservationTime);
-		const requestedEnd = new Date(requestedStart.getTime() + duration * 60 * 1000);
+		const requestedStart = parseTimeToDate(
+			new Date(reservationDate),
+			reservationTime
+		);
+		const requestedEnd = new Date(
+			requestedStart.getTime() + duration * 60 * 1000
+		);
 
 		console.log("📅 [AVAILABILITY] Créneau demandé:", {
 			start: requestedStart.toISOString(),
@@ -75,7 +82,7 @@ async function getAvailableTableIds({
 		// Récupérer toutes les réservations actives du restaurant pour ce jour
 		const startOfDay = new Date(reservationDate);
 		startOfDay.setHours(0, 0, 0, 0);
-		
+
 		const endOfDay = new Date(reservationDate);
 		endOfDay.setHours(23, 59, 59, 999);
 
@@ -89,7 +96,9 @@ async function getAvailableTableIds({
 			...(excludeReservationId && { _id: { $ne: excludeReservationId } }),
 		}).select("tableId reservationDate reservationTime");
 
-		console.log(`📊 [AVAILABILITY] ${activeReservations.length} réservations actives trouvées`);
+		console.log(
+			`📊 [AVAILABILITY] ${activeReservations.length} réservations actives trouvées`
+		);
 
 		// Construire la liste des tables occupées pour ce créneau
 		const occupiedTableIds = new Set();
@@ -98,7 +107,10 @@ async function getAvailableTableIds({
 			if (!resa.tableId || !resa.reservationTime) continue;
 
 			// Calculer le créneau de la réservation existante
-			const resaStart = parseTimeToDate(new Date(resa.reservationDate), resa.reservationTime);
+			const resaStart = parseTimeToDate(
+				new Date(resa.reservationDate),
+				resa.reservationTime
+			);
 			const resaEnd = new Date(resaStart.getTime() + duration * 60 * 1000);
 
 			// Vérifier si les créneaux se chevauchent
@@ -113,7 +125,9 @@ async function getAvailableTableIds({
 
 		// Retourner le Set converti en Array pour faciliter l'usage
 		const occupiedIds = Array.from(occupiedTableIds);
-		console.log(`✅ [AVAILABILITY] ${occupiedIds.length} tables occupées pour ce créneau`);
+		console.log(
+			`✅ [AVAILABILITY] ${occupiedIds.length} tables occupées pour ce créneau`
+		);
 
 		return occupiedIds;
 	} catch (error) {
@@ -132,9 +146,9 @@ function enrichTablesWithAvailability(tables, occupiedTableIds) {
 	return tables.map((table) => {
 		const tableId = table._id.toString();
 		const isAvailable = !occupiedTableIds.includes(tableId);
-		
+
 		return {
-			...table.toObject ? table.toObject() : table,
+			...(table.toObject ? table.toObject() : table),
 			isAvailable,
 		};
 	});
