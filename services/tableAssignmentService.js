@@ -44,6 +44,10 @@ async function isTableAvailable(
 
 	const reservations = await Reservation.find(query);
 
+	console.log(
+		`🔍 [AVAILABLE] Table ${tableId} à ${startTime}: ${reservations.length} réservations existantes`
+	);
+
 	// Vérifier les chevauchements
 	for (const resa of reservations) {
 		const resaStart = new Date(resa.reservationDate);
@@ -55,6 +59,9 @@ async function isTableAvailable(
 
 		// Chevauchement si [start1, end1] ∩ [start2, end2] ≠ ∅
 		if (startDate < resaEnd && endDate > resaStart) {
+			console.log(
+				`⚠️ [AVAILABLE] Conflit détecté: ${resa.clientName} (${resa.reservationTime}) chevauche ${startTime}`
+			);
 			return false; // Chevauchement détecté
 		}
 	}
@@ -142,6 +149,10 @@ async function autoAssignTables(restaurantId, date) {
 			const nbPersonnes = reservation.nbPersonnes || 1;
 			const reservationTime = reservation.reservationTime || "12:00";
 
+			console.log(
+				`\n🎯 [AUTO-ASSIGN] Traitement: ${reservation.clientName} (${nbPersonnes}p à ${reservationTime})`
+			);
+
 			// Filtrer les tables avec capacité suffisante
 			const suitableTables = tables.filter(
 				(table) => table.capacity >= nbPersonnes
@@ -180,7 +191,7 @@ async function autoAssignTables(restaurantId, date) {
 
 			if (availableTables.length === 0) {
 				console.log(
-					`❌ [AUTO-ASSIGN] Aucune table disponible pour ${reservation.clientName} à ${reservationTime}`
+					`❌ [AUTO-ASSIGN] Aucune table disponible pour ${reservation.clientName} à ${reservationTime} (${suitableTables.length} tables de capacité suffisante vérifiées)`
 				);
 				results.unassigned.push({
 					reservationId: reservation._id,
