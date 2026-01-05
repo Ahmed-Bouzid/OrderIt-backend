@@ -241,4 +241,89 @@ router.post(
 	}
 );
 
-module.exports = router;
+/**
+ * POST /assistant/clear-assignments
+ * Supprime toutes les attributions de tables pour une date donnée
+ */
+router.post(
+	"/clear-assignments",
+	auth,
+	checkRoles(["admin", "server"]),
+	[
+		body("restaurantId")
+			.notEmpty()
+			.withMessage("Restaurant ID requis")
+			.isMongoId()
+			.withMessage("Restaurant ID invalide"),
+		body("date")
+			.notEmpty()
+			.withMessage("Date requise")
+			.isISO8601()
+			.withMessage("Format de date invalide (YYYY-MM-DD attendu)"),
+	],
+	async (req, res) => {
+		const errors = validationResult(req);
+		if (!errors.isEmpty()) {
+			return res.status(400).json({
+				errors: errors.array().map((err) => ({
+					field: err.param,
+					message: err.msg,
+				})),
+			});
+		}
+
+		try {
+			const { restaurantId, date } = req.body;
+
+			console.log("🗑️ [ROUTE] Suppression attributions:", {
+				restaurantId,
+				date,
+			});
+
+			const Reservation = require("../models/Reservation");
+
+			// Construire les bornes de la date
+			const dateStart = new Date(date);
+			dateStart.setHours(0, 0, 0, 0);
+			const dateEnd = new Date(date);
+			dateEnd.setHours(23, 59, 59, 999);
+
+			// Trouver toutes les réservations de la date
+			const reservations = await Reservation.find({
+				restaurantId: restaurantId,
+				reservationDate: { $gte: dateStart, $lte: dateEnd },
+				status: { $in: ["en attente", "ouverte"] },
+			});
+
+			console.log(`📊 [CLEAR] ${reservations.length} réservations trouvées`);
+
+			// Supprimer les tableId
+			let clearedCount = 0;
+			for (const reservation of reservations) {
+				if (reservation.tableId) {
+					reservation.tableId = undefined;
+					await reservation.save();
+					clearedCount++;
+				}
+			}
+
+			console.log(
+				`✅ [CLEAR] ${clearedCount} attributions supprimées sur ${reservations.length} réservations`
+			);
+
+			res.json({
+				status: "success",
+				message: `${clearedCount} attribution(s) supprimée(s)`,
+				clearedCount,
+				totalReservations: reservations.length,
+			});
+		} catch (error) {
+			console.error("❌ [ROUTE] Erreur suppression:", error);
+			res.status(500).json({
+				status: "error",
+				message: "Erreur lors de la suppression des attributions",
+				error: error.message,
+			});
+		}
+	}
+);
