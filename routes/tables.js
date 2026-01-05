@@ -141,8 +141,14 @@ router.put(
 	checkRoles(["admin"]),
 	tableUpdateValidationRules,
 	async (req, res) => {
+		console.log("🔍 [TABLE UPDATE] Début modification table");
+		console.log("📋 [TABLE UPDATE] ID table:", req.params.id);
+		console.log("📦 [TABLE UPDATE] Body reçu:", JSON.stringify(req.body, null, 2));
+		console.log("👤 [TABLE UPDATE] User:", req.user?.email || req.user?.id);
+		
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
+			console.log("❌ [TABLE UPDATE] Erreurs de validation:", JSON.stringify(errors.array(), null, 2));
 			return res.status(400).json({ errors: errors.array() });
 		}
 
@@ -159,11 +165,14 @@ router.put(
 			Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
 		);
 
+		console.log("🔧 [TABLE UPDATE] Champs filtrés pour update:", JSON.stringify(updates, null, 2));
+
 		// Validation du status si fourni
 		if (
 			updates.status &&
 			!Object.values(TABLE_STATUS).includes(updates.status)
 		) {
+			console.log("❌ [TABLE UPDATE] Statut invalide:", updates.status);
 			return res.status(400).json({
 				message: `Statut invalide. Valeurs autorisées: ${Object.values(
 					TABLE_STATUS
@@ -174,7 +183,9 @@ router.put(
 		// Validation de la capacité si fournie
 		if (updates.capacity !== undefined) {
 			const cap = parseInt(updates.capacity);
+			console.log("🔍 [TABLE UPDATE] Validation capacité:", cap);
 			if (isNaN(cap) || cap < 1 || cap > 50) {
+				console.log("❌ [TABLE UPDATE] Capacité invalide:", cap);
 				return res.status(400).json({
 					message: "Capacité invalide. Doit être entre 1 et 50.",
 				});
@@ -183,21 +194,58 @@ router.put(
 		}
 
 		try {
-			console.log("📝 Mise à jour table:", req.params.id, "avec:", updates);
+			// Vérifier que la table existe d'abord
+			const existingTable = await Table.findById(req.params.id);
+			if (!existingTable) {
+				console.log("❌ [TABLE UPDATE] Table non trouvée:", req.params.id);
+				return res.status(404).json({ message: "Table non trouvée." });
+			}
+			console.log("✅ [TABLE UPDATE] Table existante trouvée:", {
+				id: existingTable._id,
+				number: existingTable.number,
+				restaurantId: existingTable.restaurantId,
+				capacity: existingTable.capacity
+			});
+
+			// Vérifier si le nouveau numéro existe déjà (si on change le number)
+			if (updates.number && updates.number !== existingTable.number) {
+				console.log("🔍 [TABLE UPDATE] Vérification unicité du nouveau numéro:", updates.number);
+				const duplicateTable = await Table.findOne({
+					restaurantId: existingTable.restaurantId,
+					number: updates.number,
+					_id: { $ne: req.params.id }
+				});
+				if (duplicateTable) {
+					console.log("❌ [TABLE UPDATE] Numéro déjà utilisé:", updates.number, "par table:", duplicateTable._id);
+					return res.status(400).json({
+						message: `Le numéro ${updates.number} est déjà utilisé par une autre table.`,
+					});
+				}
+			}
+
+			console.log("🔄 [TABLE UPDATE] Lancement findByIdAndUpdate...");
 			const updated = await Table.findByIdAndUpdate(req.params.id, updates, {
 				new: true,
 				runValidators: true,
 			});
+			
 			if (!updated) {
+				console.log("❌ [TABLE UPDATE] Table non trouvée après update (ne devrait pas arriver):", req.params.id);
 				return res.status(404).json({ message: "Table non trouvée." });
 			}
 
-			console.log("✅ Table mise à jour:", updated._id);
+			console.log("✅ [TABLE UPDATE] Table mise à jour avec succès:", {
+				id: updated._id,
+				number: updated.number,
+				capacity: updated.capacity,
+				status: updated.status
+			});
 
 			// ⭐ Émettre l'événement WebSocket
 			try {
 				const io = getIO(req);
 				if (io && updated.restaurantId) {
+					console.log("📡 [TABLE UPDATE] Émission WebSocket...");
 					emitTableEvent(
 						io,
 						updated.restaurantId,
@@ -206,13 +254,35 @@ router.put(
 					);
 				}
 			} catch (wsError) {
-				console.error("⚠️ Erreur WebSocket (non bloquant):", wsError.message);
+				console.error("⚠️ [TABLE UPDATE] Erreur WebSocket (non bloquant):", wsError.message);
 			}
 
 			res.json(updated);
 		} catch (err) {
-			console.error("❌ Erreur PUT /tables/:id:", err);
-			res.status(500).json({ message: "Erreur server", error: err.message });
+			console.error("❌ [TABLE UPDATE] Erreur lors de la mise à jour:", err);
+			console.error("❌ [TABLE UPDATE] Stack:", err.stack);
+			
+			// Détailler le type d'erreur
+			if (err.name === 'ValidationError') {
+				console.error("❌ [TABLE UPDATE] Erreur de validation Mongoose:", err.message);
+				return res.status(400).json({ 
+					message: "Erreur de validation", 
+					errors: Object.keys(err.errors).map(key => ({
+						field: key,
+						message: err.errors[key].message
+					}))
+				});
+			}
+			
+			if (err.code === 11000) {
+				console.error("❌ [TABLE UPDATE] Erreur d'unicité (duplicate key):", err.message);
+				return res.status(400).json({ 
+					message: "Ce numéro de table existe déjà pour ce restaurant.",
+					error: err.message 
+				});
+			}
+			
+			res.status(500).json({ message: "Erreur serveur", error: err.message });
 		}
 	}
 );
