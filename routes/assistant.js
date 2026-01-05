@@ -186,10 +186,17 @@ router.post(
 	auth,
 	checkRoles(["admin", "server"]),
 	async (req, res) => {
+		console.log("🔵 [ROUTE] /auto-assign-tables APPELÉE");
+		console.log("🔵 [ROUTE] Body reçu:", JSON.stringify(req.body, null, 2));
+		console.log("🔵 [ROUTE] User:", req.user?.email, "| Role:", req.user?.role);
+
 		try {
 			const { date, restaurantId } = req.body;
 
+			console.log("🔍 [ROUTE] Validation params:", { date, restaurantId });
+
 			if (!date) {
+				console.error("❌ [ROUTE] Date manquante");
 				return res.status(400).json({
 					status: "error",
 					message: "La date est requise",
@@ -197,24 +204,34 @@ router.post(
 			}
 
 			if (!restaurantId) {
+				console.error("❌ [ROUTE] RestaurantId manquant");
 				return res.status(400).json({
 					status: "error",
 					message: "Le restaurant ID est requis",
 				});
 			}
 
-			console.log("🤖 [ASSISTANT] Attribution automatique:", {
+			console.log("🤖 [ROUTE] Attribution automatique:", {
 				date,
 				restaurantId,
 				user: req.user?.email,
 			});
 
-			const { autoAssignTables } = require("../services/tableAssignmentService");
+			const {
+				autoAssignTables,
+			} = require("../services/tableAssignmentService");
+
+			console.log("⚙️ [ROUTE] Appel service autoAssignTables...");
 			const result = await autoAssignTables(restaurantId, new Date(date));
 
+			console.log(
+				"✅ [ROUTE] Résultat service:",
+				JSON.stringify(result, null, 2)
+			);
 			res.json(result);
 		} catch (error) {
-			console.error("❌ [ASSISTANT] Erreur attribution:", error);
+			console.error("❌ [ROUTE] Erreur attribution:", error);
+			console.error("❌ [ROUTE] Stack:", error.stack);
 			res.status(500).json({
 				status: "error",
 				message: "Erreur lors de l'attribution automatique",

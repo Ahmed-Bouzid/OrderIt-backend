@@ -91,42 +91,52 @@ async function getTableUsageCount(tableId, date) {
 }
 
 /**
- * Attribution automatique des tables pour une date donnée
+ * Attribution automatique des tables pour une date donnée (avec réassignation)
  * @param {String} restaurantId - ID du restaurant
  * @param {Date} date - Date pour l'attribution
  * @returns {Promise<Object>}
  */
 async function autoAssignTables(restaurantId, date) {
-	console.log("🤖 [AUTO-ASSIGN] Début attribution automatique pour", date);
+	console.log(
+		"🤖 [AUTO-ASSIGN] Début attribution automatique OPTIMISÉE pour",
+		date
+	);
 
 	try {
 		// Récupérer le turnover time du restaurant (default: 120min)
 		const restaurant = await Restaurant.findById(restaurantId);
 		const turnoverTime = restaurant?.turnoverTime || 120;
 
-		// 1️⃣ Récupérer toutes les réservations sans table pour cette date
+		// 1️⃣ Récupérer TOUTES les réservations du jour (avec et sans table)
 		const dateStart = new Date(date);
 		dateStart.setHours(0, 0, 0, 0);
 		const dateEnd = new Date(date);
 		dateEnd.setHours(23, 59, 59, 999);
 
-		const unassignedReservations = await Reservation.find({
+		const allReservations = await Reservation.find({
 			restaurantId: restaurantId,
 			reservationDate: { $gte: dateStart, $lte: dateEnd },
-			tableId: { $exists: false }, // Pas de table assignée
 			status: { $in: ["en attente", "ouverte"] },
-		}).sort({ reservationTime: 1 }); // Trier par heure croissante
+		});
 
 		console.log(
-			`📊 [AUTO-ASSIGN] ${unassignedReservations.length} réservations sans table`
+			`📊 [AUTO-ASSIGN] ${allReservations.length} réservations totales du jour`
 		);
 
-		if (unassignedReservations.length === 0) {
+		const unassignedCount = allReservations.filter((r) => !r.tableId).length;
+		console.log(
+			`📊 [AUTO-ASSIGN] ${unassignedCount} sans table, ${
+				allReservations.length - unassignedCount
+			} avec table`
+		);
+
+		if (allReservations.length === 0) {
 			return {
 				status: "info",
-				message: "Toutes les réservations ont déjà une table",
+				message: "Aucune réservation pour ce jour",
 				assignedCount: 0,
 				unassignedCount: 0,
+				reassignedCount: 0,
 				details: [],
 			};
 		}
@@ -139,18 +149,59 @@ async function autoAssignTables(restaurantId, date) {
 
 		console.log(`🪑 [AUTO-ASSIGN] ${tables.length} tables disponibles`);
 
+		// 3️⃣ Sauvegarder les anciennes attributions pour traçabilité
+		const oldAssignments = new Map();
+		allReservations.forEach((r) => {
+			if (r.tableId) {
+				oldAssignments.set(r._id.toString(), r.tableId.toString());
+			}
+		});
+
+		// 4️⃣ RÉINITIALISER toutes les tables (permettre réassignation)
+		console.log("🔄 [AUTO-ASSIGN] Réinitialisation des attributions...");
+		for (const reservation of allReservations) {
+			reservation.tableId = undefined;
+		}
+
+		// 5️⃣ Trier les réservations par priorité : grosses tables d'abord, puis heure
+		// Cela permet d'assigner d'abord les réservations difficiles à placer
+		allReservations.sort((a, b) => {
+			// 1. Priorité aux plus grandes réservations (plus difficiles à placer)
+			if (a.nbPersonnes !== b.nbPersonnes) {
+				return b.nbPersonnes - a.nbPersonnes;
+			}
+			// 2. Puis par heure croissante
+			return (a.reservationTime || "00:00").localeCompare(
+				b.reservationTime || "00:00"
+			);
+		});
+
+		console.log(
+			`📋 [AUTO-ASSIGN] Ordre optimisé: ${allReservations
+				.map((r) => `${r.clientName}(${r.nbPersonnes}p-${r.reservationTime})`)
+				.join(", ")}`
+		);
+
 		const results = {
 			assigned: [],
 			unassigned: [],
+			reassigned: [],
 		};
 
-		// 3️⃣ Pour chaque réservation, trouver la meilleure table
-		for (const reservation of unassignedReservations) {
+		// 6️⃣ Attribution optimisée
+		// 6️⃣ Attribution optimisée
+		for (const reservation of allReservations) {
 			const nbPersonnes = reservation.nbPersonnes || 1;
 			const reservationTime = reservation.reservationTime || "12:00";
+			const resaId = reservation._id.toString();
+			const hadTable = oldAssignments.has(resaId);
 
 			console.log(
-				`\n🎯 [AUTO-ASSIGN] Traitement: ${reservation.clientName} (${nbPersonnes}p à ${reservationTime})`
+				`\n🎯 [AUTO-ASSIGN] Traitement: ${
+					reservation.clientName
+				} (${nbPersonnes}p à ${reservationTime})${
+					hadTable ? " [avait table]" : " [nouvelle]"
+				}`
 			);
 
 			// Filtrer les tables avec capacité suffisante
@@ -165,19 +216,24 @@ async function autoAssignTables(restaurantId, date) {
 				results.unassigned.push({
 					reservationId: reservation._id,
 					clientName: reservation.clientName,
+					nbPersonnes: nbPersonnes,
+					time: reservationTime,
 					reason: "no_table_with_sufficient_capacity",
 				});
 				continue;
 			}
 
-			// Vérifier la disponibilité de chaque table
+			// Vérifier la disponibilité de chaque table (en excluant cette réservation)
 			const availableTables = [];
 			for (const table of suitableTables) {
-				const isAvailable = await isTableAvailable(
+				// Vérifier si cette table est libre pour ce créneau
+				// En excluant les réservations déjà traitées dans cette boucle
+				const isAvailable = await isTableAvailableForReservations(
 					table._id,
 					date,
 					reservationTime,
-					turnoverTime
+					turnoverTime,
+					allReservations.filter((r) => r.tableId && r._id !== reservation._id)
 				);
 
 				if (isAvailable) {
@@ -196,6 +252,8 @@ async function autoAssignTables(restaurantId, date) {
 				results.unassigned.push({
 					reservationId: reservation._id,
 					clientName: reservation.clientName,
+					nbPersonnes: nbPersonnes,
+					time: reservationTime,
 					reason: "no_available_table_at_time",
 				});
 				continue;
@@ -215,37 +273,113 @@ async function autoAssignTables(restaurantId, date) {
 
 			// Attribuer la table
 			reservation.tableId = bestTable._id;
-			await reservation.save();
 
 			console.log(
-				`✅ [AUTO-ASSIGN] ${reservation.clientName} → ${bestTable.number}`
+				`✅ [AUTO-ASSIGN] ${reservation.clientName} → ${bestTable.number}${
+					hadTable && oldAssignments.get(resaId) !== bestTable._id.toString()
+						? " [RÉASSIGNÉ]"
+						: ""
+				}`
 			);
 
-			results.assigned.push({
-				reservationId: reservation._id,
-				clientName: reservation.clientName,
-				tableName: bestTable.number,
-				tableId: bestTable._id,
-			});
+			// Vérifier si c'est une réassignation
+			if (hadTable) {
+				if (oldAssignments.get(resaId) !== bestTable._id.toString()) {
+					results.reassigned.push({
+						reservationId: reservation._id,
+						clientName: reservation.clientName,
+						oldTableId: oldAssignments.get(resaId),
+						newTableId: bestTable._id,
+						newTableName: bestTable.number,
+					});
+				}
+			} else {
+				results.assigned.push({
+					reservationId: reservation._id,
+					clientName: reservation.clientName,
+					tableName: bestTable.number,
+					tableId: bestTable._id,
+				});
+			}
 		}
 
-		return {
+		// 7️⃣ Sauvegarder toutes les réservations (nouvelles attributions + réassignations)
+		console.log("\n💾 [AUTO-ASSIGN] Sauvegarde des attributions...");
+		for (const reservation of allReservations) {
+			await reservation.save();
+		}
+
+		console.log("\n📊 [AUTO-ASSIGN] RÉSULTATS FINAUX:");
+		console.log(`  ✅ Nouvelles attributions: ${results.assigned.length}`);
+		console.log(`  🔄 Réassignations: ${results.reassigned.length}`);
+		console.log(`  ❌ Sans table: ${results.unassigned.length}`);
+
+		const finalResult = {
 			status: "success",
 			assignedCount: results.assigned.length,
+			reassignedCount: results.reassigned.length,
 			unassignedCount: results.unassigned.length,
 			details: {
 				assigned: results.assigned,
+				reassigned: results.reassigned,
 				unassigned: results.unassigned,
 			},
 		};
+
+		console.log(
+			"\n🎯 [AUTO-ASSIGN] Retour:",
+			JSON.stringify(finalResult, null, 2)
+		);
+
+		return finalResult;
 	} catch (error) {
 		console.error("❌ [AUTO-ASSIGN] Erreur:", error);
 		throw error;
 	}
 }
 
+/**
+ * Vérifie si une table est disponible en vérifiant les conflits avec une liste de réservations
+ * (version optimisée pour l'attribution globale)
+ */
+async function isTableAvailableForReservations(
+	tableId,
+	date,
+	startTime,
+	turnoverTime,
+	reservationsWithTables
+) {
+	// Construire les bornes du créneau
+	const startDate = new Date(date);
+	const [hours, minutes] = startTime.split(":");
+	startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+	const endDate = new Date(startDate);
+	endDate.setMinutes(endDate.getMinutes() + turnoverTime);
+
+	// Vérifier les chevauchements avec les réservations déjà attribuées
+	for (const resa of reservationsWithTables) {
+		if (resa.tableId?.toString() !== tableId.toString()) continue;
+
+		const resaStart = new Date(resa.reservationDate);
+		const [rHours, rMinutes] = (resa.reservationTime || "00:00").split(":");
+		resaStart.setHours(parseInt(rHours), parseInt(rMinutes), 0, 0);
+
+		const resaEnd = new Date(resaStart);
+		resaEnd.setMinutes(resaEnd.getMinutes() + turnoverTime);
+
+		// Chevauchement si [start1, end1] ∩ [start2, end2] ≠ ∅
+		if (startDate < resaEnd && endDate > resaStart) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
 module.exports = {
 	autoAssignTables,
 	isTableAvailable,
+	isTableAvailableForReservations,
 	getTableUsageCount,
 };
