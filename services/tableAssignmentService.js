@@ -349,6 +349,10 @@ async function isTableAvailableForReservations(
 	turnoverTime,
 	reservationsWithTables
 ) {
+	console.log(
+		`🔍 [AVAILABLE] Vérif table ${tableId} pour ${startTime} | Réservations déjà attribuées: ${reservationsWithTables.length}`
+	);
+
 	// Construire les bornes du créneau
 	const startDate = new Date(date);
 	const [hours, minutes] = startTime.split(":");
@@ -357,9 +361,17 @@ async function isTableAvailableForReservations(
 	const endDate = new Date(startDate);
 	endDate.setMinutes(endDate.getMinutes() + turnoverTime);
 
+	console.log(
+		`📅 [AVAILABLE] Créneau testé: ${startDate.toISOString()} → ${endDate.toISOString()}`
+	);
+
 	// Vérifier les chevauchements avec les réservations déjà attribuées
 	for (const resa of reservationsWithTables) {
 		if (resa.tableId?.toString() !== tableId.toString()) continue;
+
+		console.log(
+			`🔎 [AVAILABLE] Résa ${resa.clientName} sur cette table à ${resa.reservationTime}`
+		);
 
 		const resaStart = new Date(resa.reservationDate);
 		const [rHours, rMinutes] = (resa.reservationTime || "00:00").split(":");
@@ -368,12 +380,18 @@ async function isTableAvailableForReservations(
 		const resaEnd = new Date(resaStart);
 		resaEnd.setMinutes(resaEnd.getMinutes() + turnoverTime);
 
+		console.log(
+			`📅 [AVAILABLE] Créneau existant: ${resaStart.toISOString()} → ${resaEnd.toISOString()}`
+		);
+
 		// Chevauchement si [start1, end1] ∩ [start2, end2] ≠ ∅
 		if (startDate < resaEnd && endDate > resaStart) {
+			console.log(`❌ [AVAILABLE] CONFLIT DÉTECTÉ !`);
 			return false;
 		}
 	}
 
+	console.log(`✅ [AVAILABLE] Table disponible`);
 	return true;
 }
 
