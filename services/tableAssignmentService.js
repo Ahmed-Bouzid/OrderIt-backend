@@ -146,7 +146,7 @@ async function autoAssignTables(restaurantId, date) {
 			`🔍 [AUTO-ASSIGN] Recherche tables pour restaurantId: ${restaurantId}`
 		);
 
-		// TEST : Charger TOUTES les tables d'abord
+		// Charger TOUTES les tables
 		const allTablesDirect = await Table.find({ restaurantId: restaurantId });
 		console.log(
 			`🔍 [AUTO-ASSIGN] TOUTES tables (sans filtre statut): ${allTablesDirect.length}`
@@ -159,11 +159,8 @@ async function autoAssignTables(restaurantId, date) {
 			)
 		);
 
-		const tables = await Table.find({
-			restaurantId: restaurantId,
-			status: { $in: ["available", "occupied"] }, // Exclure unavailable
-		});
-
+		// Filtrer en JavaScript pour exclure seulement "unavailable"
+		const tables = allTablesDirect.filter((t) => t.status !== "unavailable");
 		console.log(
 			`🪑 [AUTO-ASSIGN] Tables FILTRÉES (available/occupied): ${tables.length}`
 		);
@@ -174,6 +171,7 @@ async function autoAssignTables(restaurantId, date) {
 				}" | cap: ${t.capacity}`
 			)
 		);
+
 		// 3️⃣ Sauvegarder les anciennes attributions pour traçabilité
 		const oldAssignments = new Map();
 		allReservations.forEach((r) => {
@@ -181,26 +179,6 @@ async function autoAssignTables(restaurantId, date) {
 				oldAssignments.set(r._id.toString(), r.tableId.toString());
 			}
 		});
-
-		// 4️⃣ RÉINITIALISER toutes les tables (permettre réassignation)
-		console.log("🔄 [AUTO-ASSIGN] Réinitialisation des attributions...");
-		for (const reservation of allReservations) {
-			reservation.tableId = undefined;
-		}
-
-		// 5️⃣ Trier les réservations par priorité : grosses tables d'abord, puis heure
-		// Cela permet d'assigner d'abord les réservations difficiles à placer
-		allReservations.sort((a, b) => {
-			// 1. Priorité aux plus grandes réservations (plus difficiles à placer)
-			if (a.nbPersonnes !== b.nbPersonnes) {
-				return b.nbPersonnes - a.nbPersonnes;
-			}
-			// 2. Puis par heure croissante
-			return (a.reservationTime || "00:00").localeCompare(
-				b.reservationTime || "00:00"
-			);
-		});
-
 		console.log(
 			`📋 [AUTO-ASSIGN] Ordre optimisé: ${allReservations
 				.map((r) => `${r.clientName}(${r.nbPersonnes}p-${r.reservationTime})`)
