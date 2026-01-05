@@ -116,6 +116,16 @@ router.post("/login", async (req, res) => {
 			}
 		}
 
+		// ⭐ Si c'est un developer, ajouter la liste des restaurants
+		if (user.role === "developer") {
+			const Restaurant = require("../models/Restaurant");
+			const restaurants = await Restaurant.find()
+				.select("_id name email phone address")
+				.lean();
+			response.restaurants = restaurants;
+			response.isDeveloper = true;
+		}
+
 		return res.json(response);
 	} catch (err) {
 		console.error("Erreur login:", err);

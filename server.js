@@ -66,6 +66,7 @@ app.use("/client-messages", require("./routes/clientMessages")); // 💬 Route m
 app.use("/servers", require("./routes/servers"));
 app.use("/reservations", require("./routes/reservations"));
 app.use("/assistant", require("./routes/assistant")); // ⭐ Assistant intelligent réservations
+app.use("/developer", require("./routes/developer")); // 🔧 Routes développeur
 app.use("/products", auth, require("./routes/products"));
 app.use("/products", auth, require("./routes/productOptions")); // ⭐ Routes options produits
 app.use("/products", auth, require("./routes/productAllergens")); // ⭐ Routes allergènes produits

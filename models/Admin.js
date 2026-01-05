@@ -25,7 +25,7 @@ const adminSchema = new mongoose.Schema({
 	},
 	role: {
 		type: String,
-		enum: ["admin"],
+		enum: ["admin", "developer"],
 		default: "admin",
 		immutable: true, // empêche toute modification du rôle
 	},
@@ -40,10 +40,15 @@ const adminSchema = new mongoose.Schema({
 	},
 });
 
-// 🔒 Middleware pour empêcher la création de plusieurs admins
+// 🔒 Middleware pour empêcher la création de plusieurs admins (sauf developer)
 adminSchema.pre("save", async function (next) {
-	const existingAdmin = await this.constructor.findOne();
-	if (existingAdmin) {
+	// Autoriser plusieurs comptes si c'est un developer
+	if (this.role === "developer") {
+		return next();
+	}
+
+	const existingAdmin = await this.constructor.findOne({ role: "admin" });
+	if (existingAdmin && existingAdmin._id.toString() !== this._id.toString()) {
 		const error = new Error("Un seul admin est autorisé dans le système.");
 		error.status = 403;
 		return next(error);
