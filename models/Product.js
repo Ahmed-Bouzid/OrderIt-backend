@@ -53,6 +53,12 @@ const productSchema = new mongoose.Schema(
 			default: 5,
 			min: 0,
 		},
+		// 🗄️ Champ pour archivage lors de l'import menu
+		archived: {
+			type: Boolean,
+			default: false,
+			index: true,
+		},
 		createdAt: {
 			type: Date,
 			default: Date.now,

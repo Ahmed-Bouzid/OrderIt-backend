@@ -16,6 +16,8 @@ const restaurantSchema = new mongoose.Schema({
 	products: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
 	// Assistant de réservations - Durée moyenne d'occupation (en minutes)
 	turnoverTime: { type: Number, default: 120, min: 30, max: 300 },
+	// 🔐 Activation du restaurant (toggle développeur)
+	active: { type: Boolean, default: true, index: true },
 });
 
 module.exports = mongoose.model("Restaurant", restaurantSchema);
