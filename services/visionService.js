@@ -5,42 +5,37 @@ const vision = require("@google-cloud/vision");
  * Extraction de texte à partir d'images de menus
  */
 
-let visionClient = null;
+// Note: Ne pas utiliser de cache pour le client, on l'initialise à chaque fois
+// pour être sûr de prendre en compte les changements d'env
 
 /**
  * Initialise le client Google Vision
  * IMPORTANT : Nécessite GOOGLE_VISION_API_KEY dans .env
  */
 function getVisionClient() {
-	if (!visionClient) {
-		const apiKey = process.env.GOOGLE_VISION_API_KEY;
-		const credentialsFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+	const apiKey = process.env.GOOGLE_VISION_API_KEY;
+	const credentialsFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
-		if (!apiKey && !credentialsFile) {
-			console.warn(
-				"⚠️ GOOGLE_VISION_API_KEY ou GOOGLE_APPLICATION_CREDENTIALS non défini - Mode démo OCR"
-			);
-			return null;
-		}
-
-		// Utiliser API Key si disponible (plus simple pour dev)
-		if (apiKey) {
-			console.log("✅ Initialisation Google Vision avec API Key");
-			visionClient = new vision.ImageAnnotatorClient({
-				apiKey: apiKey,
-			});
-		} else {
-			// Sinon utiliser le fichier de credentials (production)
-			console.log(
-				"✅ Initialisation Google Vision avec fichier credentials"
-			);
-			visionClient = new vision.ImageAnnotatorClient({
-				keyFilename: credentialsFile,
-			});
-		}
+	if (!apiKey && !credentialsFile) {
+		console.warn(
+			"⚠️ GOOGLE_VISION_API_KEY ou GOOGLE_APPLICATION_CREDENTIALS non défini - Mode démo OCR"
+		);
+		return null;
 	}
 
-	return visionClient;
+	// Utiliser API Key si disponible (plus simple pour dev)
+	if (apiKey) {
+		console.log("✅ Initialisation Google Vision avec API Key");
+		return new vision.ImageAnnotatorClient({
+			apiKey: apiKey,
+		});
+	} else {
+		// Sinon utiliser le fichier de credentials (production)
+		console.log("✅ Initialisation Google Vision avec fichier credentials");
+		return new vision.ImageAnnotatorClient({
+			keyFilename: credentialsFile,
+		});
+	}
 }
 
 /**
