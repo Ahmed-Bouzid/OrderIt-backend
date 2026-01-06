@@ -169,6 +169,49 @@ router.post("/import-menu", auth, checkDeveloper, async (req, res) => {
 			`📸 Import menu pour ${restaurant.name} (${restaurant_id}) - ${menu.length} catégories`
 		);
 
+		// Fonction pour normaliser les catégories (éviter les doublons)
+		const normalizeCategory = (categoryName) => {
+			return categoryName
+				.trim()
+				.toLowerCase()
+				.replace(/^(les?|la|l'|le)\s+/i, "") // Enlever articles
+				.replace(/[^a-z0-9àâäéèêëïîôùûç]/g, "") // Garder alphanum + accents
+				.trim();
+		};
+
+		// Récupérer les catégories existantes pour détecter les doublons
+		const existingCategories = await Product.distinct("category", {
+			restaurantId: restaurant_id,
+			archived: false,
+		});
+
+		// Map pour normalisation : normalized -> nom original préféré
+		const categoryMap = new Map();
+		existingCategories.forEach((cat) => {
+			const normalized = normalizeCategory(cat);
+			if (!categoryMap.has(normalized)) {
+				categoryMap.set(normalized, cat);
+			}
+		});
+
+		// Traiter les nouvelles catégories du JSON
+		const newCategories = new Set();
+		menu.forEach((categoryData) => {
+			const normalized = normalizeCategory(categoryData.category);
+			if (!categoryMap.has(normalized)) {
+				// Nouvelle catégorie détectée
+				categoryMap.set(normalized, categoryData.category);
+				newCategories.add(categoryData.category);
+			}
+		});
+
+		console.log(
+			`📂 ${existingCategories.length} catégories existantes, ${newCategories.size} nouvelles`
+		);
+		if (newCategories.size > 0) {
+			console.log("🆕 Nouvelles catégories:", [...newCategories].join(", "));
+		}
+
 		// Archiver l'ancien menu (soft delete)
 		const archivedCount = await Product.updateMany(
 			{ restaurantId: restaurant_id },
@@ -192,6 +235,10 @@ router.post("/import-menu", auth, checkDeveloper, async (req, res) => {
 				continue;
 			}
 
+			// Utiliser le nom de catégorie normalisé (préférer l'existant si doublon)
+			const normalized = normalizeCategory(category);
+			const finalCategoryName = categoryMap.get(normalized) || category.trim();
+
 			for (const item of items) {
 				try {
 					const { name, price, description } = item;
@@ -209,7 +256,7 @@ router.post("/import-menu", auth, checkDeveloper, async (req, res) => {
 						name: name.trim(),
 						description: description?.trim() || "",
 						price: price,
-						category: category.trim(),
+						category: finalCategoryName,
 						available: true,
 						archived: false,
 					});
@@ -234,6 +281,8 @@ router.post("/import-menu", auth, checkDeveloper, async (req, res) => {
 			restaurant_name: restaurant.name,
 			items_imported: totalImported,
 			items_archived: archivedCount.modifiedCount,
+			categories_created: newCategories.size,
+			new_categories: [...newCategories],
 			errors: importErrors.length > 0 ? importErrors : undefined,
 		});
 	} catch (error) {
