@@ -9,23 +9,35 @@ let visionClient = null;
 
 /**
  * Initialise le client Google Vision
- * IMPORTANT : Nécessite GOOGLE_APPLICATION_CREDENTIALS dans .env
+ * IMPORTANT : Nécessite GOOGLE_VISION_API_KEY dans .env
  */
 function getVisionClient() {
 	if (!visionClient) {
-		// Si pas de credentials, utiliser API Key (moins sécurisé mais OK pour dev)
 		const apiKey = process.env.GOOGLE_VISION_API_KEY;
+		const credentialsFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
-		if (!apiKey) {
+		if (!apiKey && !credentialsFile) {
 			console.warn(
-				"⚠️ GOOGLE_VISION_API_KEY non définie - OCR désactivé"
+				"⚠️ GOOGLE_VISION_API_KEY ou GOOGLE_APPLICATION_CREDENTIALS non défini - Mode démo OCR"
 			);
 			return null;
 		}
 
-		visionClient = new vision.ImageAnnotatorClient({
-			keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-		});
+		// Utiliser API Key si disponible (plus simple pour dev)
+		if (apiKey) {
+			console.log("✅ Initialisation Google Vision avec API Key");
+			visionClient = new vision.ImageAnnotatorClient({
+				apiKey: apiKey,
+			});
+		} else {
+			// Sinon utiliser le fichier de credentials (production)
+			console.log(
+				"✅ Initialisation Google Vision avec fichier credentials"
+			);
+			visionClient = new vision.ImageAnnotatorClient({
+				keyFilename: credentialsFile,
+			});
+		}
 	}
 
 	return visionClient;
