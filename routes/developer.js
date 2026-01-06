@@ -438,6 +438,7 @@ router.post("/ocr", auth, checkDeveloper, async (req, res) => {
 			status: "success",
 			text: extractedText,
 			length: extractedText.length,
+			isDemoMode: !process.env.GOOGLE_VISION_API_KEY, // Indiquer si mode démo
 		});
 	} catch (error) {
 		console.error("❌ Erreur OCR:", error);

@@ -40,9 +40,34 @@ async function extractTextFromImage(imageData) {
 	const client = getVisionClient();
 
 	if (!client) {
-		throw new Error(
-			"Google Vision API non configurée - définir GOOGLE_VISION_API_KEY"
+		// 🧪 MODE DEMO : Retourner un menu fictif pour tester sans API
+		console.warn(
+			"⚠️ Mode DEMO OCR - Retour d'un menu d'exemple (configurer GOOGLE_VISION_API_KEY pour utiliser l'API réelle)"
 		);
+
+		return `RESTAURANT LE GOURMET
+Menu du Jour
+
+=== ENTRÉES ===
+Salade César - 8.50€
+Soupe à l'oignon - 6.00€
+Carpaccio de boeuf - 12.00€
+
+=== PLATS ===
+Steak frites - 18.00€
+Poulet rôti - 15.50€
+Saumon grillé - 22.00€
+Pizza Margherita - 13.00€
+
+=== DESSERTS ===
+Tarte Tatin - 7.50€
+Crème brûlée - 6.50€
+Mousse au chocolat - 6.00€
+
+=== BOISSONS ===
+Eau minérale - 3.00€
+Café - 2.50€
+Thé - 2.50€`;
 	}
 
 	try {
