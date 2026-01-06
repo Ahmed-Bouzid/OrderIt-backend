@@ -30,6 +30,22 @@ router.post("/login", async (req, res) => {
 			return res.status(401).json({ message: "Identifiants invalides." });
 		}
 
+		// 🔒 VÉRIFICATION ABONNEMENT : Si restaurant désactivé, bloquer la connexion
+		// ⚠️ Exception : Les développeurs peuvent toujours se connecter
+		if (user.role !== "developer" && user.restaurantId) {
+			const Restaurant = require("../models/Restaurant");
+			const restaurant = await Restaurant.findById(user.restaurantId);
+			
+			if (restaurant && !restaurant.active) {
+				console.log(`🚫 Connexion refusée - Restaurant désactivé: ${restaurant.name} (${user.email})`);
+				return res.status(403).json({ 
+					message: "Restaurant désactivé - Veuillez procéder au paiement pour réactiver votre compte",
+					code: "RESTAURANT_DISABLED",
+					restaurantName: restaurant.name
+				});
+			}
+		}
+
 		const payload = {
 			id: user._id,
 			email: user.email,

@@ -322,6 +322,25 @@ router.post("/create-restaurant", auth, checkDeveloper, async (req, res) => {
 		});
 	} catch (error) {
 		console.error("❌ Erreur création restaurant:", error);
+
+		// Gérer les erreurs de duplication MongoDB
+		if (error.code === 11000) {
+			const field = Object.keys(error.keyValue || {})[0];
+			const value = error.keyValue?.[field];
+			return res.status(409).json({
+				status: "error",
+				message: `Ce ${field} (${value}) est déjà utilisé par un autre restaurant`,
+			});
+		}
+
+		// Gérer les erreurs de validation du modèle Admin
+		if (error.status === 403) {
+			return res.status(403).json({
+				status: "error",
+				message: error.message,
+			});
+		}
+
 		res.status(500).json({
 			status: "error",
 			message: "Erreur serveur lors de la création",
