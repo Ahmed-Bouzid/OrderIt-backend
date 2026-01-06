@@ -7,6 +7,7 @@ const Table = require("../models/Table");
 const Reservation = require("../models/Reservation");
 const Product = require("../models/Product");
 const Server = require("../models/Server");
+const { extractTextFromImage } = require("../services/visionService");
 
 /**
  * GET /developer/restaurants
@@ -15,7 +16,9 @@ const Server = require("../models/Server");
 router.get("/restaurants", auth, checkDeveloper, async (req, res) => {
 	try {
 		const restaurants = await Restaurant.find()
-			.select("_id name email phone address createdAt turnoverTime active")
+			.select(
+				"_id name email phone address createdAt turnoverTime active subscriptionPlan"
+			)
 			.lean();
 
 		// Enrichir avec des stats
@@ -400,5 +403,61 @@ router.patch(
 		}
 	}
 );
+
+/**
+ * POST /developer/ocr
+ * Extraction de texte d'une image de menu via Google Vision API
+ */
+router.post("/ocr", auth, checkDeveloper, async (req, res) => {
+	try {
+		const { imageBase64 } = req.body;
+
+		if (!imageBase64) {
+			return res.status(400).json({
+				status: "error",
+				message: "Image manquante (imageBase64 requis)",
+			});
+		}
+
+		console.log(
+			`🧠 OCR demandé par ${req.user.email} (${imageBase64.length} bytes)`
+		);
+
+		// Extraire le texte avec Google Vision
+		const extractedText = await extractTextFromImage(imageBase64);
+
+		if (!extractedText || extractedText.trim().length === 0) {
+			return res.json({
+				status: "success",
+				text: "",
+				message: "Aucun texte détecté dans l'image",
+			});
+		}
+
+		res.json({
+			status: "success",
+			text: extractedText,
+			length: extractedText.length,
+		});
+	} catch (error) {
+		console.error("❌ Erreur OCR:", error);
+
+		// Si Google Vision non configurée, retourner message clair
+		if (error.message.includes("non configurée")) {
+			return res.status(503).json({
+				status: "error",
+				message:
+					"OCR temporairement indisponible - Configuration Google Vision manquante",
+				code: "OCR_UNAVAILABLE",
+			});
+		}
+
+		res.status(500).json({
+			status: "error",
+			message: "Erreur OCR",
+			error: error.message,
+		});
+	}
+});
 
 module.exports = router;

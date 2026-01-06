@@ -35,13 +35,16 @@ router.post("/login", async (req, res) => {
 		if (user.role !== "developer" && user.restaurantId) {
 			const Restaurant = require("../models/Restaurant");
 			const restaurant = await Restaurant.findById(user.restaurantId);
-			
+
 			if (restaurant && !restaurant.active) {
-				console.log(`🚫 Connexion refusée - Restaurant désactivé: ${restaurant.name} (${user.email})`);
-				return res.status(403).json({ 
-					message: "Restaurant désactivé - Veuillez procéder au paiement pour réactiver votre compte",
+				console.log(
+					`🚫 Connexion refusée - Restaurant désactivé: ${restaurant.name} (${user.email})`
+				);
+				return res.status(403).json({
+					message:
+						"Restaurant désactivé - Veuillez procéder au paiement pour réactiver votre compte",
 					code: "RESTAURANT_DISABLED",
-					restaurantName: restaurant.name
+					restaurantName: restaurant.name,
 				});
 			}
 		}

@@ -18,6 +18,12 @@ const restaurantSchema = new mongoose.Schema({
 	turnoverTime: { type: Number, default: 120, min: 30, max: 300 },
 	// 🔐 Activation du restaurant (toggle développeur)
 	active: { type: Boolean, default: true, index: true },
+	// 💳 Type d'abonnement SaaS (pour billing futur)
+	subscriptionPlan: {
+		type: String,
+		enum: ["free", "starter", "pro", "enterprise"],
+		default: "free",
+	},
 });
 
 module.exports = mongoose.model("Restaurant", restaurantSchema);
