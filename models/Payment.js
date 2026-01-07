@@ -39,7 +39,7 @@ const paymentSchema = new mongoose.Schema(
 			type: String,
 			required: true,
 			unique: true,
-			index: true,
+			// Note: index défini en bas avec paymentSchema.index() pour éviter duplication
 		},
 
 		// Client secret pour confirmer le paiement côté client
