@@ -257,61 +257,63 @@ router.post(
 	auth,
 	validatePasswordComplexity,
 	async (req, res) => {
-	try {
-		const { currentPassword, newPassword } = req.body;
-		const userId = req.user.id;
-		const userType = req.user.userType;
+		try {
+			const { currentPassword, newPassword } = req.body;
+			const userId = req.user.id;
+			const userType = req.user.userType;
 
-		// Validations
-		if (!currentPassword || !newPassword) {
-			return res.status(400).json({
-				message:
-					"Le mot de passe actuel et le nouveau mot de passe sont requis.",
-			});
+			// Validations
+			if (!currentPassword || !newPassword) {
+				return res.status(400).json({
+					message:
+						"Le mot de passe actuel et le nouveau mot de passe sont requis.",
+				});
+			}
+
+			if (newPassword.length < 6) {
+				return res.status(400).json({
+					message:
+						"Le nouveau mot de passe doit contenir au moins 6 caractères.",
+				});
+			}
+
+			// Trouver l'utilisateur selon son type
+			let user;
+			if (userType === "admin") {
+				user = await Admin.findById(userId);
+			} else {
+				user = await Server.findById(userId);
+			}
+
+			if (!user) {
+				return res.status(404).json({ message: "Utilisateur non trouvé." });
+			}
+
+			// Vérifier le mot de passe actuel
+			const validPassword = await bcrypt.compare(
+				currentPassword,
+				user.passwordHash
+			);
+			if (!validPassword) {
+				return res
+					.status(401)
+					.json({ message: "Mot de passe actuel incorrect." });
+			}
+
+			// Hasher et sauvegarder le nouveau mot de passe
+			const salt = await bcrypt.genSalt(10);
+			const newPasswordHash = await bcrypt.hash(newPassword, salt);
+
+			user.passwordHash = newPasswordHash;
+			await user.save();
+
+			console.log(`✅ Mot de passe modifié pour ${user.email}`);
+			res.status(200).json({ message: "Mot de passe modifié avec succès." });
+		} catch (err) {
+			console.error("Erreur change-password:", err);
+			res.status(500).json({ message: "Erreur serveur." });
 		}
-
-		if (newPassword.length < 6) {
-			return res.status(400).json({
-				message: "Le nouveau mot de passe doit contenir au moins 6 caractères.",
-			});
-		}
-
-		// Trouver l'utilisateur selon son type
-		let user;
-		if (userType === "admin") {
-			user = await Admin.findById(userId);
-		} else {
-			user = await Server.findById(userId);
-		}
-
-		if (!user) {
-			return res.status(404).json({ message: "Utilisateur non trouvé." });
-		}
-
-		// Vérifier le mot de passe actuel
-		const validPassword = await bcrypt.compare(
-			currentPassword,
-			user.passwordHash
-		);
-		if (!validPassword) {
-			return res
-				.status(401)
-				.json({ message: "Mot de passe actuel incorrect." });
-		}
-
-		// Hasher et sauvegarder le nouveau mot de passe
-		const salt = await bcrypt.genSalt(10);
-		const newPasswordHash = await bcrypt.hash(newPassword, salt);
-
-		user.passwordHash = newPasswordHash;
-		await user.save();
-
-		console.log(`✅ Mot de passe modifié pour ${user.email}`);
-		res.status(200).json({ message: "Mot de passe modifié avec succès." });
-	} catch (err) {
-		console.error("Erreur change-password:", err);
-		res.status(500).json({ message: "Erreur serveur." });
 	}
-});
+);
 
 module.exports = router;

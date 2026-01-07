@@ -46,8 +46,7 @@ const validatePasswordComplexity = (req, res, next) => {
 		return res.status(400).json({
 			message: "Mot de passe trop faible",
 			errors,
-			hint:
-				"Exemple de mot de passe fort: MonMotDePasse123!",
+			hint: "Exemple de mot de passe fort: MonMotDePasse123!",
 		});
 	}
 

@@ -1,7 +1,7 @@
 /**
  * 🔐 Middleware de vérification MFA (Multi-Factor Authentication)
  * Appliqué sur les routes sensibles nécessitant une double authentification
- * 
+ *
  * Fonctionnement:
  * 1. Vérifie que l'utilisateur a activé le MFA
  * 2. Vérifie le code TOTP (6 chiffres) fourni dans le header X-MFA-Code
@@ -72,9 +72,7 @@ const verifyMFA = async (req, res, next) => {
 
 		if (!verified) {
 			// Log tentative échouée pour monitoring
-			console.warn(
-				`⚠️ Tentative MFA échouée pour ${user.email} (${userId})`
-			);
+			console.warn(`⚠️ Tentative MFA échouée pour ${user.email} (${userId})`);
 
 			return res.status(403).json({
 				message: "Code MFA invalide",
