@@ -212,13 +212,37 @@ router.delete(
 	auth,
 	validateObjectIds(["id"]),
 	checkUserRestaurant("id"),
-	checkRoles(["admin"]),
+	checkRoles(["admin", "developer"]),
 	async (req, res) => {
 		try {
-			const deleted = await Restaurant.findByIdAndDelete(req.params.id);
-			if (!deleted)
+			const restaurant = await Restaurant.findById(req.params.id);
+			if (!restaurant)
 				return res.status(404).json({ message: "Restaurant non trouvé." });
-			res.json({ message: "Restaurant supprimé." });
+
+			// 🗑️ Supprimer tous les produits du restaurant
+			const deletedProducts = await Product.deleteMany({
+				restaurantId: req.params.id,
+			});
+			console.log(
+				`🗑️ ${deletedProducts.deletedCount} produits supprimés pour le restaurant ${restaurant.name}`
+			);
+
+			// 🗑️ Supprimer tous les serveurs du restaurant
+			const deletedServers = await Server.deleteMany({
+				restaurantId: req.params.id,
+			});
+			console.log(
+				`🗑️ ${deletedServers.deletedCount} serveurs supprimés pour le restaurant ${restaurant.name}`
+			);
+
+			// 🗑️ Supprimer le restaurant
+			await Restaurant.findByIdAndDelete(req.params.id);
+
+			res.json({
+				message: "Restaurant et ses données supprimés.",
+				deletedProducts: deletedProducts.deletedCount,
+				deletedServers: deletedServers.deletedCount,
+			});
 		} catch (err) {
 			console.error(err);
 			res.status(500).json({ message: "Erreur server." });
@@ -382,6 +406,105 @@ router.delete(
 		} catch (err) {
 			console.error(err);
 			res.status(500).json({ message: "Erreur lors de la suppression." });
+		}
+	}
+);
+
+// 🗑️ Supprimer uniquement les tables d'un restaurant (mode développeur)
+router.delete(
+	"/:id/tables",
+	auth,
+	validateObjectIds(["id"]),
+	checkRoles(["developer"]),
+	async (req, res) => {
+		try {
+			const restaurant = await Restaurant.findById(req.params.id);
+			if (!restaurant)
+				return res.status(404).json({ message: "Restaurant non trouvé." });
+
+			const Table = require("../models/Table");
+			const deletedTables = await Table.deleteMany({
+				restaurantId: req.params.id,
+			});
+
+			console.log(
+				`🗑️ ${deletedTables.deletedCount} tables supprimées pour ${restaurant.name}`
+			);
+
+			res.json({
+				message: "Tables supprimées.",
+				deletedTables: deletedTables.deletedCount,
+			});
+		} catch (err) {
+			console.error(err);
+			res.status(500).json({ message: "Erreur server." });
+		}
+	}
+);
+
+// 🗑️ Supprimer uniquement les serveurs d'un restaurant (mode développeur)
+router.delete(
+	"/:id/servers",
+	auth,
+	validateObjectIds(["id"]),
+	checkRoles(["developer"]),
+	async (req, res) => {
+		try {
+			const restaurant = await Restaurant.findById(req.params.id);
+			if (!restaurant)
+				return res.status(404).json({ message: "Restaurant non trouvé." });
+
+			const deletedServers = await Server.deleteMany({
+				restaurantId: req.params.id,
+			});
+
+			console.log(
+				`🗑️ ${deletedServers.deletedCount} serveurs supprimés pour ${restaurant.name}`
+			);
+
+			res.json({
+				message: "Serveurs supprimés.",
+				deletedServers: deletedServers.deletedCount,
+			});
+		} catch (err) {
+			console.error(err);
+			res.status(500).json({ message: "Erreur server." });
+		}
+	}
+);
+
+// 🗑️ Supprimer uniquement les produits d'un restaurant (mode développeur)
+router.delete(
+	"/:id/products",
+	auth,
+	validateObjectIds(["id"]),
+	checkRoles(["developer"]),
+	async (req, res) => {
+		try {
+			const restaurant = await Restaurant.findById(req.params.id);
+			if (!restaurant)
+				return res.status(404).json({ message: "Restaurant non trouvé." });
+
+			const deletedProducts = await Product.deleteMany({
+				restaurantId: req.params.id,
+			});
+
+			// Nettoyer le tableau products du restaurant
+			await Restaurant.findByIdAndUpdate(req.params.id, {
+				$set: { products: [] },
+			});
+
+			console.log(
+				`🗑️ ${deletedProducts.deletedCount} produits supprimés pour ${restaurant.name}`
+			);
+
+			res.json({
+				message: "Produits supprimés.",
+				deletedProducts: deletedProducts.deletedCount,
+			});
+		} catch (err) {
+			console.error(err);
+			res.status(500).json({ message: "Erreur server." });
 		}
 	}
 );
