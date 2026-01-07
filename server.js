@@ -14,9 +14,10 @@ const enforceHttps = require("./middlewares/enforceHttps");
 // Création de l'app
 const app = express();
 
-// 🌐 Trust proxy pour Render/Heroku/Cloudflare (lit l'IP réelle depuis X-Forwarded-For)
+// 🌐 Trust proxy pour Render/Heroku (derrière 1 proxy uniquement)
 // CRITIQUE pour rate limiting derrière reverse proxy
-app.set("trust proxy", true);
+// 1 = fait confiance au premier proxy seulement (sécurisé)
+app.set("trust proxy", 1);
 
 // 🔒 Forcer HTTPS en production (AVANT tout autre middleware)
 app.use(enforceHttps);
