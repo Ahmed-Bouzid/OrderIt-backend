@@ -15,7 +15,7 @@ module.exports = function (requiredPermissions = []) {
 		if (!hasPermission) {
 			return res
 				.status(403)
-				.json({ message: "Accès refusé : permissions insuffisantes." });
+				.json({ message: "Accès refusé : permissions pas suffisantes." });
 		}
 
 		next();
