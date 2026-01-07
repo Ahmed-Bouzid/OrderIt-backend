@@ -9,9 +9,13 @@ const xss = require("xss-clean");
 const auth = require("./middlewares/auth");
 const clientTokenRoutes = require("./routes/clientToken");
 const clientProductsRoutes = require("./routes/clientProducts");
+const enforceHttps = require("./middlewares/enforceHttps");
 
 // Création de l'app
 const app = express();
+
+// 🔒 Forcer HTTPS en production (AVANT tout autre middleware)
+app.use(enforceHttps);
 
 // CORS strict pour Expo, localhost, Render, Vercel
 app.use(
@@ -73,6 +77,7 @@ app.use("/products", auth, require("./routes/productAllergens")); // ⭐ Routes 
 app.use("/allergens", require("./routes/allergens")); // ⭐ Routes allergènes
 app.use("/payments", auth, require("./routes/payments")); // 💳 Routes Stripe
 app.use("/feedback", require("./routes/feedback")); // 🛠️ Routes feedback utilisateurs
+app.use("/mfa", require("./routes/mfa")); // 🔐 Routes MFA (Multi-Factor Authentication)
 app.use("/client/token", clientTokenRoutes);
 app.use("/client/products", clientProductsRoutes);
 

@@ -7,9 +7,11 @@ const RefreshTokenStore = require("../utils/RefreshTokenStore");
 const router = express.Router();
 const jwtBlacklist = require("../utils/jwtBlacklist");
 const auth = require("../middlewares/auth");
+const { loginLimiter, strictLimiter } = require("../middlewares/rateLimiter");
+const validatePasswordComplexity = require("../middlewares/validatePasswordComplexity");
 
-// POST /login - Authentification + génération tokens
-router.post("/login", async (req, res) => {
+// POST /login - Authentification + génération tokens (PROTECTION BRUTE-FORCE)
+router.post("/login", loginLimiter, async (req, res) => {
 	try {
 		const { email, password } = req.body;
 
@@ -57,20 +59,7 @@ router.post("/login", async (req, res) => {
 			restaurantId: user.restaurantId || null,
 		};
 
-		// === AUTH DEBUG ===
-		console.log("=== AUTH DEBUG ===");
-		console.log("JWT_SECRET exists?", !!process.env.JWT_SECRET);
-		console.log(
-			"JWT_SECRET value (first 5 chars):",
-			process.env.JWT_SECRET
-				? process.env.JWT_SECRET.substring(0, 5) + "..."
-				: "UNDEFINED"
-		);
-		console.log(
-			"All env vars starting with JWT:",
-			Object.keys(process.env).filter((key) => key.includes("JWT"))
-		);
-
+		// === Vérification JWT_SECRET (sans logs sensibles) ===
 		const jwtSecret = process.env.JWT_SECRET;
 		if (!jwtSecret || jwtSecret.trim() === "") {
 			console.error("❌ CRITICAL: JWT_SECRET is empty or undefined!");
@@ -152,8 +141,8 @@ router.post("/login", async (req, res) => {
 	}
 });
 
-// POST /refresh - Rafraîchissement du token d'accès via refresh token
-router.post("/refresh", async (req, res) => {
+// POST /refresh - Rafraîchissement du token d'accès via refresh token (PROTECTION)
+router.post("/refresh", strictLimiter, async (req, res) => {
 	try {
 		// ⭐ Accepter le refresh token depuis les cookies OU le body
 		const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
@@ -262,8 +251,12 @@ router.post("/logout", async (req, res) => {
 	}
 });
 
-// POST /change-password - Modifier son propre mot de passe
-router.post("/change-password", auth, async (req, res) => {
+// POST /change-password - Modifier son propre mot de passe (avec validation complexité)
+router.post(
+	"/change-password",
+	auth,
+	validatePasswordComplexity,
+	async (req, res) => {
 	try {
 		const { currentPassword, newPassword } = req.body;
 		const userId = req.user.id;

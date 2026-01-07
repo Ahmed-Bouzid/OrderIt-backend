@@ -38,6 +38,24 @@ const adminSchema = new mongoose.Schema({
 		type: Date,
 		default: Date.now,
 	},
+	// 🔐 Champs MFA (Multi-Factor Authentication)
+	mfaEnabled: {
+		type: Boolean,
+		default: false,
+	},
+	mfaSecret: {
+		type: String,
+		default: null,
+	},
+	mfaBackupCodes: [
+		{
+			code: String,
+			used: {
+				type: Boolean,
+				default: false,
+			},
+		},
+	],
 });
 
 // 🔒 Middleware pour empêcher la création de plusieurs admins par restaurant

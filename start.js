@@ -8,15 +8,29 @@ const jwt = require("jsonwebtoken");
 
 const port = process.env.PORT || 3000;
 
-// ⭐ Créer le serveur HTTP avec Socket.io
+// ⭐ Créer le serveur HTTP avec Socket.io (CORS STRICT)
 const server = http.createServer(app);
 const io = new Server(server, {
-	cors: {
-		origin: "*", // Temporairement pour test
-		credentials: true,
-		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-		allowedHeaders: ["Content-Type", "Authorization"],
-	},
+	cors:
+		process.env.NODE_ENV !== "production"
+			? {
+					// Développement : CORS permissif
+					origin: "*",
+					credentials: true,
+					methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+					allowedHeaders: ["Content-Type", "Authorization"],
+			  }
+			: {
+					// Production : CORS STRICT (liste blanche)
+					origin: [
+						"https://orderit-frontend.vercel.app", // Frontend production
+						"https://orderit-backend-6y1m.onrender.com", // Backend production
+						process.env.FRONTEND_URL, // Variable d'environnement
+					].filter(Boolean), // Enlever les undefined
+					credentials: true,
+					methods: ["GET", "POST"],
+					allowedHeaders: ["Content-Type", "Authorization"],
+			  },
 	transports: ["websocket", "polling"], // Important : polling en fallback
 	allowUpgrades: true,
 	pingTimeout: 60000, // Augmente pour Render

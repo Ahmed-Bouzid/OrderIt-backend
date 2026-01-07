@@ -10,6 +10,7 @@ const adminValidation = require("../middlewares/adminValidation");
 const serverValidationRules = require("../middlewares/serverValidationRules");
 const checkUserRestaurantBody = require("../middlewares/checkUserRestaurantBody");
 const createServerValidation = require("../middlewares/createServerValidation");
+const validatePasswordComplexity = require("../middlewares/validatePasswordComplexity");
 const auth = require("../middlewares/auth");
 const Server = require("../models/Server");
 const Restaurant = require("../models/Restaurant");
@@ -113,13 +114,14 @@ router.post("/login", async (req, res) => {
 // === Middleware global d’authentification pour les routes suivantes ===
 router.use(auth);
 
-// === Création d’un server (admin uniquement) ===
+// === Création d'un server (admin uniquement) avec validation mot de passe ===
 router.post(
 	"/",
 	auth,
 	checkRoles(["admin"]),
 	checkUserRestaurantBody("restaurantId"), // <-- ajouté ici
 	createServerValidation,
+	validatePasswordComplexity,
 	async (req, res) => {
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
