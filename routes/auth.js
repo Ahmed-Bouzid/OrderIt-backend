@@ -64,16 +64,18 @@ router.post("/login", loginLimiter, async (req, res) => {
 		userType,
 		restaurantId: user.restaurantId || null,
 		category: restaurantCategory,
-		// === Vérification JWT_SECRET (sans logs sensibles) ===
-		const jwtSecret = process.env.JWT_SECRET;
-		if (!jwtSecret || jwtSecret.trim() === "") {
-			console.error("❌ CRITICAL: JWT_SECRET is empty or undefined!");
-			return res
-				.status(500)
-				.json({ message: "Server configuration error (JWT_SECRET missing)" });
-		}
+	};
 
-		const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
+	// === Vérification JWT_SECRET (sans logs sensibles) ===
+	const jwtSecret = process.env.JWT_SECRET;
+	if (!jwtSecret || jwtSecret.trim() === "") {
+		console.error("❌ CRITICAL: JWT_SECRET is empty or undefined!");
+		return res
+			.status(500)
+			.json({ message: "Server configuration error (JWT_SECRET missing)" });
+	}
+
+	const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
 		if (!refreshSecret || refreshSecret.trim() === "") {
 			console.error("❌ CRITICAL: REFRESH_TOKEN_SECRET is empty or undefined!");
 			return res.status(500).json({
