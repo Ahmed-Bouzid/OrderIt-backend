@@ -49,7 +49,26 @@ router.post(
 		}
 	}
 );
+// 🏪 GET /restaurants/:id/info - Récupérer les infos publiques d'un restaurant (category, name)
+router.get("/:id/info", validateObjectIds(["id"]), async (req, res) => {
+	try {
+		const restaurant = await Restaurant.findById(req.params.id).select(
+			"name category"
+		);
 
+		if (!restaurant) {
+			return res.status(404).json({ message: "Restaurant non trouvé" });
+		}
+
+		res.json({
+			name: restaurant.name,
+			category: restaurant.category || "restaurant",
+		});
+	} catch (err) {
+		console.error("Erreur récupération info restaurant:", err);
+		res.status(500).json({ message: "Erreur serveur" });
+	}
+});
 // Ajout d’un server
 router.post(
 	"/:id/server",
