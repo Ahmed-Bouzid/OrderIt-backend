@@ -10,7 +10,7 @@ router.post("/", async (req, res) => {
 		console.log("[DEBUG] Body reçu sur /client/token:", req.body);
 		const { pseudo, tableId, restaurantId } = req.body;
 
-		if (!pseudo || !tableId || !restaurantId) {
+		if (!pseudo || !restaurantId) {
 			console.warn("[WARN] Champs manquants /client/token:", {
 				pseudo,
 				tableId,
@@ -18,16 +18,23 @@ router.post("/", async (req, res) => {
 			});
 			return res
 				.status(400)
-				.json({ message: "Pseudo, tableId et restaurantId sont requis." });
+				.json({ message: "Pseudo et restaurantId sont requis." });
+		}
+
+		// 🍔 Foodtruck : tableId optionnel
+		const tokenData = {
+			clientId: pseudo, // on peut l'utiliser comme identifiant temporaire
+			restaurantId,
+			expiresIn: 2 * 3600, // expire dans 2 heures
+		};
+
+		// Ajouter tableId seulement si présent (restaurant classique)
+		if (tableId) {
+			tokenData.tableId = tableId;
 		}
 
 		// Création du token limité
-		const token = generateClientToken({
-			clientId: pseudo, // on peut l'utiliser comme identifiant temporaire
-			restaurantId,
-			tableId,
-			expiresIn: 2 * 3600, // expire dans 2 heures
-		});
+		const token = generateClientToken(tokenData);
 
 		// On retourne le token au client
 		res.status(201).json({
