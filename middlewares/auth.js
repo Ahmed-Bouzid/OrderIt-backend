@@ -23,15 +23,6 @@ module.exports = function auth(req, res, next) {
 			clientId: decoded.clientId || null,
 		};
 
-		// Pour le client, on s’attend à ce que le token ait tableId et restaurantId
-		req.user = {
-			id: decoded.id || null, // id pour admin/server, null pour client temporaire
-			role: decoded.role || "client", // "admin" | "server" | "client"
-			userType: decoded.userType || "client",
-			restaurantId: decoded.restaurantId,
-			tableId: decoded.tableId || null, // uniquement pour le client
-			clientId: decoded.clientId || null, // pseudo temporaire si client
-		};
 
 		next();
 	} catch (err) {
