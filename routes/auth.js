@@ -34,31 +34,36 @@ router.post("/login", loginLimiter, async (req, res) => {
 
 		// 🔒 VÉRIFICATION ABONNEMENT : Si restaurant désactivé, bloquer la connexion
 		// ⚠️ Exception : Les développeurs peuvent toujours se connecter
-		if (user.role !== "developer" && user.restaurantId) {
-			const Restaurant = require("../models/Restaurant");
-			const restaurant = await Restaurant.findById(user.restaurantId);
+	let restaurantCategory = "restaurant"; // Par défaut
+	if (user.role !== "developer" && user.restaurantId) {
+		const Restaurant = require("../models/Restaurant");
+		const restaurant = await Restaurant.findById(user.restaurantId);
 
-			if (restaurant && !restaurant.active) {
-				console.log(
-					`🚫 Connexion refusée - Restaurant désactivé: ${restaurant.name} (${user.email})`
-				);
-				return res.status(403).json({
-					message:
-						"Restaurant désactivé - Veuillez procéder au paiement pour réactiver votre compte",
-					code: "RESTAURANT_DISABLED",
-					restaurantName: restaurant.name,
-				});
-			}
+		if (restaurant && !restaurant.active) {
+			console.log(
+				`🚫 Connexion refusée - Restaurant désactivé: ${restaurant.name} (${user.email})`
+			);
+			return res.status(403).json({
+				message:
+					"Restaurant désactivé - Veuillez procéder au paiement pour réactiver votre compte",
+				code: "RESTAURANT_DISABLED",
+				restaurantName: restaurant.name,
+			});
 		}
 
-		const payload = {
-			id: user._id,
-			email: user.email,
-			role: user.role,
-			userType,
-			restaurantId: user.restaurantId || null,
-		};
+		// 🍔 Récupérer la catégorie du restaurant (foodtruck, restaurant, snack, etc.)
+		if (restaurant) {
+			restaurantCategory = restaurant.category || "restaurant";
+		}
+	}
 
+	const payload = {
+		id: user._id,
+		email: user.email,
+		role: user.role,
+		userType,
+		restaurantId: user.restaurantId || null,
+		category: restaurantCategory,
 		// === Vérification JWT_SECRET (sans logs sensibles) ===
 		const jwtSecret = process.env.JWT_SECRET;
 		if (!jwtSecret || jwtSecret.trim() === "") {
@@ -114,15 +119,7 @@ router.post("/login", loginLimiter, async (req, res) => {
 			role: user.role,
 			userType,
 			restaurantId: user.restaurantId || null,
-		};
-
-		// ⭐ Si c'est un serveur, ajouter serverId et tableId
-		if (userType === "server") {
-			response.serverId = user._id.toString();
-			if (user.tableId) {
-				response.tableId = user.tableId.toString();
-			}
-		}
+		category: restaurantCategory, // 🍔 Catégorie du restaurant (foodtruck, restaurant, etc.)
 
 		// ⭐ Si c'est un developer, ajouter la liste des restaurants
 		if (user.role === "developer") {

@@ -11,6 +11,12 @@ const restaurantSchema = new mongoose.Schema({
 		enum: ["admin", "manager"],
 		default: "admin",
 	},
+	// 🏢 Catégorie de restaurant (pour adapter l'interface)
+	category: {
+		type: String,
+		enum: ["restaurant", "foodtruck", "snack", "cafe", "boulangerie", "bar"],
+		default: "restaurant",
+	},
 	servers: [{ type: mongoose.Schema.Types.ObjectId, ref: "Server" }],
 	createdAt: { type: Date, default: Date.now },
 	products: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
