@@ -34,117 +34,129 @@ router.post("/login", loginLimiter, async (req, res) => {
 
 		// 🔒 VÉRIFICATION ABONNEMENT : Si restaurant désactivé, bloquer la connexion
 		// ⚠️ Exception : Les développeurs peuvent toujours se connecter
-	let restaurantCategory = "restaurant"; // Par défaut
-	if (user.role !== "developer" && user.restaurantId) {
-		const Restaurant = require("../models/Restaurant");
-		const restaurant = await Restaurant.findById(user.restaurantId);
+		let restaurantCategory = "restaurant"; // Par défaut
+		if (user.role !== "developer" && user.restaurantId) {
+			const Restaurant = require("../models/Restaurant");
+			const restaurant = await Restaurant.findById(user.restaurantId);
 
-		if (restaurant && !restaurant.active) {
-			console.log(
-				`🚫 Connexion refusée - Restaurant désactivé: ${restaurant.name} (${user.email})`
-			);
-			return res.status(403).json({
-				message:
-					"Restaurant désactivé - Veuillez procéder au paiement pour réactiver votre compte",
-				code: "RESTAURANT_DISABLED",
-				restaurantName: restaurant.name,
+			if (restaurant && !restaurant.active) {
+				console.log(
+					`🚫 Connexion refusée - Restaurant désactivé: ${restaurant.name} (${user.email})`
+				);
+				return res.status(403).json({
+					message:
+						"Restaurant désactivé - Veuillez procéder au paiement pour réactiver votre compte",
+					code: "RESTAURANT_DISABLED",
+					restaurantName: restaurant.name,
+				});
+			}
+
+			// 🍔 Récupérer la catégorie du restaurant (foodtruck, restaurant, snack, etc.)
+			if (restaurant) {
+				restaurantCategory = restaurant.category || "restaurant";
+				console.log(
+					"🍔 [AUTH] Category extraite du restaurant:",
+					restaurantCategory,
+					"pour restaurant:",
+					restaurant.name
+				);
+			}
+		}
+
+		const payload = {
+			id: user._id,
+			email: user.email,
+			role: user.role,
+			userType,
+			restaurantId: user.restaurantId || null,
+			category: restaurantCategory,
+		};
+
+		// === Vérification JWT_SECRET (sans logs sensibles) ===
+		const jwtSecret = process.env.JWT_SECRET;
+		if (!jwtSecret || jwtSecret.trim() === "") {
+			console.error("❌ CRITICAL: JWT_SECRET is empty or undefined!");
+			return res
+				.status(500)
+				.json({ message: "Server configuration error (JWT_SECRET missing)" });
+		}
+
+		const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
+		if (!refreshSecret || refreshSecret.trim() === "") {
+			console.error("❌ CRITICAL: REFRESH_TOKEN_SECRET is empty or undefined!");
+			return res.status(500).json({
+				message: "Server configuration error (REFRESH_TOKEN_SECRET missing)",
 			});
 		}
 
-		// 🍔 Récupérer la catégorie du restaurant (foodtruck, restaurant, snack, etc.)
-		if (restaurant) {
-			restaurantCategory = restaurant.category || "restaurant";
-			console.log("🍔 [AUTH] Category extraite du restaurant:", restaurantCategory, "pour restaurant:", restaurant.name);
+		let accessToken, refreshToken;
+		try {
+			accessToken = jwt.sign(payload, jwtSecret, {
+				expiresIn: "2h",
+			});
+		} catch (error) {
+			console.error("JWT sign error details (accessToken):", error.message);
+			throw error;
 		}
-	}
-
-	const payload = {
-		id: user._id,
-		email: user.email,
-		role: user.role,
-		userType,
-		restaurantId: user.restaurantId || null,
-		category: restaurantCategory,
-	};
-
-	// === Vérification JWT_SECRET (sans logs sensibles) ===
-	const jwtSecret = process.env.JWT_SECRET;
-	if (!jwtSecret || jwtSecret.trim() === "") {
-		console.error("❌ CRITICAL: JWT_SECRET is empty or undefined!");
-		return res
-			.status(500)
-			.json({ message: "Server configuration error (JWT_SECRET missing)" });
-	}
-
-	const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
-	if (!refreshSecret || refreshSecret.trim() === "") {
-		console.error("❌ CRITICAL: REFRESH_TOKEN_SECRET is empty or undefined!");
-		return res.status(500).json({
-			message: "Server configuration error (REFRESH_TOKEN_SECRET missing)",
-		});
-	}
-
-	let accessToken, refreshToken;
-	try {
-		accessToken = jwt.sign(payload, jwtSecret, {
-			expiresIn: "2h",
-		});
-	} catch (error) {
-		console.error("JWT sign error details (accessToken):", error.message);
-		throw error;
-	}
-	try {
-		refreshToken = jwt.sign(payload, refreshSecret, {
-			expiresIn: "7d",
-		});
-	} catch (error) {
-		console.error("JWT sign error details (refreshToken):", error.message);
-		throw error;
-	}
-
-	// Stockage en base du refresh token avec expiration TTL gérée par MongoDB
-	await RefreshTokenStore.add(refreshToken, payload, 7 * 24 * 3600);
-
-	// Cookie sécurisé pour le refresh token
-	res.cookie("refreshToken", refreshToken, {
-		httpOnly: true,
-		secure: process.env.NODE_ENV === "production",
-		sameSite: "strict",
-		maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
-	});
-
-	// ⭐ Construire la réponse avec serverId si c'est un serveur
-	const response = {
-		accessToken,
-		refreshToken, // ⭐ IMPORTANT: Envoyer le refreshToken aussi au frontend (AsyncStorage)
-		userId: user._id,
-		email: user.email,
-		role: user.role,
-		userType,
-		restaurantId: user.restaurantId || null,
-		category: restaurantCategory, // 🍔 Catégorie du restaurant (foodtruck, restaurant, etc.)
-	};
-
-	// ⭐ Si c'est un serveur, ajouter serverId et tableId
-	if (userType === "server") {
-		response.serverId = user._id.toString();
-		if (user.tableId) {
-			response.tableId = user.tableId.toString();
+		try {
+			refreshToken = jwt.sign(payload, refreshSecret, {
+				expiresIn: "7d",
+			});
+		} catch (error) {
+			console.error("JWT sign error details (refreshToken):", error.message);
+			throw error;
 		}
-	}
 
-	// ⭐ Si c'est un developer, ajouter la liste des restaurants
-	if (user.role === "developer") {
-		const Restaurant = require("../models/Restaurant");
-		const restaurants = await Restaurant.find()
-			.select("_id name email phone address")
-			.lean();
-		response.restaurants = restaurants;
-		response.isDeveloper = true;
-	}
+		// Stockage en base du refresh token avec expiration TTL gérée par MongoDB
+		await RefreshTokenStore.add(refreshToken, payload, 7 * 24 * 3600);
 
-	console.log("🚀 [AUTH] Réponse envoyée au frontend - category:", response.category, "role:", response.role, "restaurantId:", response.restaurantId);
-	return res.json(response);
+		// Cookie sécurisé pour le refresh token
+		res.cookie("refreshToken", refreshToken, {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === "production",
+			sameSite: "strict",
+			maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+		});
+
+		// ⭐ Construire la réponse avec serverId si c'est un serveur
+		const response = {
+			accessToken,
+			refreshToken, // ⭐ IMPORTANT: Envoyer le refreshToken aussi au frontend (AsyncStorage)
+			userId: user._id,
+			email: user.email,
+			role: user.role,
+			userType,
+			restaurantId: user.restaurantId || null,
+			category: restaurantCategory, // 🍔 Catégorie du restaurant (foodtruck, restaurant, etc.)
+		};
+
+		// ⭐ Si c'est un serveur, ajouter serverId et tableId
+		if (userType === "server") {
+			response.serverId = user._id.toString();
+			if (user.tableId) {
+				response.tableId = user.tableId.toString();
+			}
+		}
+
+		// ⭐ Si c'est un developer, ajouter la liste des restaurants
+		if (user.role === "developer") {
+			const Restaurant = require("../models/Restaurant");
+			const restaurants = await Restaurant.find()
+				.select("_id name email phone address")
+				.lean();
+			response.restaurants = restaurants;
+			response.isDeveloper = true;
+		}
+
+		console.log(
+			"🚀 [AUTH] Réponse envoyée au frontend - category:",
+			response.category,
+			"role:",
+			response.role,
+			"restaurantId:",
+			response.restaurantId
+		);
+		return res.json(response);
 	} catch (err) {
 		console.error("Erreur login:", err);
 		return res.status(500).json({ message: "Erreur server." });
