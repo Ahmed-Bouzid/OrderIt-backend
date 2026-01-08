@@ -54,6 +54,7 @@ router.post("/login", loginLimiter, async (req, res) => {
 		// 🍔 Récupérer la catégorie du restaurant (foodtruck, restaurant, snack, etc.)
 		if (restaurant) {
 			restaurantCategory = restaurant.category || "restaurant";
+			console.log("🍔 [AUTH] Category extraite du restaurant:", restaurantCategory, "pour restaurant:", restaurant.name);
 		}
 	}
 
@@ -142,6 +143,7 @@ router.post("/login", loginLimiter, async (req, res) => {
 		response.isDeveloper = true;
 	}
 
+	console.log("🚀 [AUTH] Réponse envoyée au frontend - category:", response.category, "role:", response.role, "restaurantId:", response.restaurantId);
 	return res.json(response);
 	} catch (err) {
 		console.error("Erreur login:", err);
