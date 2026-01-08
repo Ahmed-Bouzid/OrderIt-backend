@@ -452,4 +452,189 @@ router.patch(
 	}
 );
 
+/**
+ * DELETE /developer/restaurants/:id/tables
+ * Supprime toutes les tables d'un restaurant
+ */
+router.delete(
+	"/restaurants/:id/tables",
+	auth,
+	checkDeveloper,
+	async (req, res) => {
+		try {
+			const { id } = req.params;
+
+			const restaurant = await Restaurant.findById(id);
+			if (!restaurant) {
+				return res.status(404).json({
+					status: "error",
+					message: "Restaurant non trouvé",
+				});
+			}
+
+			const result = await Table.deleteMany({ restaurantId: id });
+
+			console.log(
+				`🗑️ Developer: Suppression de ${result.deletedCount} tables du restaurant ${restaurant.name}`
+			);
+
+			res.json({
+				status: "success",
+				message: `${result.deletedCount} table(s) supprimée(s)`,
+				deletedCount: result.deletedCount,
+				restaurant: restaurant.name,
+			});
+		} catch (error) {
+			console.error("❌ Erreur suppression tables:", error);
+			res.status(500).json({
+				status: "error",
+				message: "Erreur serveur",
+				error: error.message,
+			});
+		}
+	}
+);
+
+/**
+ * DELETE /developer/restaurants/:id/employees
+ * Supprime tous les employés (serveurs) d'un restaurant
+ */
+router.delete(
+	"/restaurants/:id/employees",
+	auth,
+	checkDeveloper,
+	async (req, res) => {
+		try {
+			const { id } = req.params;
+
+			const restaurant = await Restaurant.findById(id);
+			if (!restaurant) {
+				return res.status(404).json({
+					status: "error",
+					message: "Restaurant non trouvé",
+				});
+			}
+
+			const result = await Server.deleteMany({ restaurantId: id });
+
+			console.log(
+				`🗑️ Developer: Suppression de ${result.deletedCount} employés du restaurant ${restaurant.name}`
+			);
+
+			res.json({
+				status: "success",
+				message: `${result.deletedCount} employé(s) supprimé(s)`,
+				deletedCount: result.deletedCount,
+				restaurant: restaurant.name,
+			});
+		} catch (error) {
+			console.error("❌ Erreur suppression employés:", error);
+			res.status(500).json({
+				status: "error",
+				message: "Erreur serveur",
+				error: error.message,
+			});
+		}
+	}
+);
+
+/**
+ * DELETE /developer/restaurants/:id/products
+ * Supprime tous les produits d'un restaurant
+ */
+router.delete(
+	"/restaurants/:id/products",
+	auth,
+	checkDeveloper,
+	async (req, res) => {
+		try {
+			const { id } = req.params;
+
+			const restaurant = await Restaurant.findById(id);
+			if (!restaurant) {
+				return res.status(404).json({
+					status: "error",
+					message: "Restaurant non trouvé",
+				});
+			}
+
+			const result = await Product.deleteMany({ restaurantId: id });
+
+			console.log(
+				`🗑️ Developer: Suppression de ${result.deletedCount} produits du restaurant ${restaurant.name}`
+			);
+
+			res.json({
+				status: "success",
+				message: `${result.deletedCount} produit(s) supprimé(s)`,
+				deletedCount: result.deletedCount,
+				restaurant: restaurant.name,
+			});
+		} catch (error) {
+			console.error("❌ Erreur suppression produits:", error);
+			res.status(500).json({
+				status: "error",
+				message: "Erreur serveur",
+				error: error.message,
+			});
+		}
+	}
+);
+
+/**
+ * DELETE /developer/restaurants/:id
+ * Supprime complètement un restaurant et toutes ses données associées
+ */
+router.delete("/restaurants/:id", auth, checkDeveloper, async (req, res) => {
+	try {
+		const { id } = req.params;
+
+		const restaurant = await Restaurant.findById(id);
+		if (!restaurant) {
+			return res.status(404).json({
+				status: "error",
+				message: "Restaurant non trouvé",
+			});
+		}
+
+		const restaurantName = restaurant.name;
+
+		// Supprimer toutes les données associées en parallèle
+		const [tables, servers, products, reservations] = await Promise.all([
+			Table.deleteMany({ restaurantId: id }),
+			Server.deleteMany({ restaurantId: id }),
+			Product.deleteMany({ restaurantId: id }),
+			Reservation.deleteMany({ restaurantId: id }),
+		]);
+
+		// Supprimer le restaurant lui-même
+		await Restaurant.findByIdAndDelete(id);
+
+		console.log(`🗑️ Developer: Restaurant ${restaurantName} complètement supprimé
+  - ${tables.deletedCount} tables
+  - ${servers.deletedCount} employés
+  - ${products.deletedCount} produits
+  - ${reservations.deletedCount} réservations`);
+
+		res.json({
+			status: "success",
+			message: `Restaurant ${restaurantName} supprimé avec succès`,
+			deleted: {
+				restaurant: restaurantName,
+				tables: tables.deletedCount,
+				employees: servers.deletedCount,
+				products: products.deletedCount,
+				reservations: reservations.deletedCount,
+			},
+		});
+	} catch (error) {
+		console.error("❌ Erreur suppression restaurant:", error);
+		res.status(500).json({
+			status: "error",
+			message: "Erreur serveur",
+			error: error.message,
+		});
+	}
+});
+
 module.exports = router;
