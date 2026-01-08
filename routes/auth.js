@@ -76,64 +76,73 @@ router.post("/login", loginLimiter, async (req, res) => {
 	}
 
 	const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
-		if (!refreshSecret || refreshSecret.trim() === "") {
-			console.error("❌ CRITICAL: REFRESH_TOKEN_SECRET is empty or undefined!");
-			return res.status(500).json({
-				message: "Server configuration error (REFRESH_TOKEN_SECRET missing)",
-			});
-		}
-
-		let accessToken, refreshToken;
-		try {
-			accessToken = jwt.sign(payload, jwtSecret, {
-				expiresIn: "2h",
-			});
-		} catch (error) {
-			console.error("JWT sign error details (accessToken):", error.message);
-			throw error;
-		}
-		try {
-			refreshToken = jwt.sign(payload, refreshSecret, {
-				expiresIn: "7d",
-			});
-		} catch (error) {
-			console.error("JWT sign error details (refreshToken):", error.message);
-			throw error;
-		}
-
-		// Stockage en base du refresh token avec expiration TTL gérée par MongoDB
-		await RefreshTokenStore.add(refreshToken, payload, 7 * 24 * 3600);
-
-		// Cookie sécurisé pour le refresh token
-		res.cookie("refreshToken", refreshToken, {
-			httpOnly: true,
-			secure: process.env.NODE_ENV === "production",
-			sameSite: "strict",
-			maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+	if (!refreshSecret || refreshSecret.trim() === "") {
+		console.error("❌ CRITICAL: REFRESH_TOKEN_SECRET is empty or undefined!");
+		return res.status(500).json({
+			message: "Server configuration error (REFRESH_TOKEN_SECRET missing)",
 		});
+	}
 
-		// ⭐ Construire la réponse avec serverId si c'est un serveur
-		const response = {
-			accessToken,
-			refreshToken, // ⭐ IMPORTANT: Envoyer le refreshToken aussi au frontend (AsyncStorage)
-			userId: user._id,
-			email: user.email,
-			role: user.role,
-			userType,
-			restaurantId: user.restaurantId || null,
+	let accessToken, refreshToken;
+	try {
+		accessToken = jwt.sign(payload, jwtSecret, {
+			expiresIn: "2h",
+		});
+	} catch (error) {
+		console.error("JWT sign error details (accessToken):", error.message);
+		throw error;
+	}
+	try {
+		refreshToken = jwt.sign(payload, refreshSecret, {
+			expiresIn: "7d",
+		});
+	} catch (error) {
+		console.error("JWT sign error details (refreshToken):", error.message);
+		throw error;
+	}
+
+	// Stockage en base du refresh token avec expiration TTL gérée par MongoDB
+	await RefreshTokenStore.add(refreshToken, payload, 7 * 24 * 3600);
+
+	// Cookie sécurisé pour le refresh token
+	res.cookie("refreshToken", refreshToken, {
+		httpOnly: true,
+		secure: process.env.NODE_ENV === "production",
+		sameSite: "strict",
+		maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+	});
+
+	// ⭐ Construire la réponse avec serverId si c'est un serveur
+	const response = {
+		accessToken,
+		refreshToken, // ⭐ IMPORTANT: Envoyer le refreshToken aussi au frontend (AsyncStorage)
+		userId: user._id,
+		email: user.email,
+		role: user.role,
+		userType,
+		restaurantId: user.restaurantId || null,
 		category: restaurantCategory, // 🍔 Catégorie du restaurant (foodtruck, restaurant, etc.)
+	};
 
-		// ⭐ Si c'est un developer, ajouter la liste des restaurants
-		if (user.role === "developer") {
-			const Restaurant = require("../models/Restaurant");
-			const restaurants = await Restaurant.find()
-				.select("_id name email phone address")
-				.lean();
-			response.restaurants = restaurants;
-			response.isDeveloper = true;
+	// ⭐ Si c'est un serveur, ajouter serverId et tableId
+	if (userType === "server") {
+		response.serverId = user._id.toString();
+		if (user.tableId) {
+			response.tableId = user.tableId.toString();
 		}
+	}
 
-		return res.json(response);
+	// ⭐ Si c'est un developer, ajouter la liste des restaurants
+	if (user.role === "developer") {
+		const Restaurant = require("../models/Restaurant");
+		const restaurants = await Restaurant.find()
+			.select("_id name email phone address")
+			.lean();
+		response.restaurants = restaurants;
+		response.isDeveloper = true;
+	}
+
+	return res.json(response);
 	} catch (err) {
 		console.error("Erreur login:", err);
 		return res.status(500).json({ message: "Erreur server." });
