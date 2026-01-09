@@ -23,7 +23,6 @@ module.exports = function auth(req, res, next) {
 			clientId: decoded.clientId || null,
 		};
 
-
 		next();
 	} catch (err) {
 		console.error("JWT invalide :", err);

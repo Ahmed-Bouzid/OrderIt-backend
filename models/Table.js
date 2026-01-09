@@ -49,6 +49,7 @@ const tableSchema = new mongoose.Schema(
 		},
 		qrCodeUrl: {
 			type: String,
+			required: false,
 		},
 		// Statut de la table (remplace isAvailable)
 		status: {
