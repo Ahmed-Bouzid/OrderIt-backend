@@ -27,7 +27,7 @@ const verifyMFA = async (req, res, next) => {
 		}
 
 		// Récupérer l'utilisateur depuis la DB
-		const User = userType === "admin" || userType === "developer" ? Admin : Server;
+		const User = userType === "admin" ? Admin : Server;
 		const user = await User.findById(userId);
 
 		if (!user) {
@@ -106,7 +106,7 @@ const requireMFAEnabled = async (req, res, next) => {
 			});
 		}
 
-		const User = userType === "admin" || userType === "developer" ? Admin : Server;
+		const User = userType === "admin" ? Admin : Server;
 		const user = await User.findById(userId);
 
 		if (!user) {

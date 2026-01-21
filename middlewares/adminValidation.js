@@ -10,8 +10,8 @@ const adminValidationRules = [
 		.withMessage("Le mot de passe doit contenir au moins 6 caractères."),
 	body("serverId").notEmpty().withMessage("serverId est requis."),
 	body("role")
-		.isIn(["admin", "developer"])
-		.withMessage("Le rôle doit obligatoirement être 'admin' ou 'developer'."),
+		.equals("admin")
+		.withMessage("Le rôle doit obligatoirement être 'admin'."),
 ];
 
 module.exports = adminValidationRules;

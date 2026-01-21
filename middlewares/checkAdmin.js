@@ -1,5 +1,5 @@
 const checkRoles = require("./checkRoles");
 
-const checkAdmin = checkRoles(["admin", "developer"]);
+const checkAdmin = checkRoles(["admin"]);
 
 module.exports = checkAdmin;

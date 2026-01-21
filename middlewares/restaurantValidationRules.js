@@ -8,7 +8,7 @@ const restaurantValidationRules = [
 		.withMessage("Le mot de passe doit contenir au moins 6 caractères."),
 	body("role")
 		.optional()
-		.isIn(["admin", "developer", "restaurant"])
+		.isIn(["admin", "restaurant"])
 		.withMessage("Role invalide."),
 ];
 module.exports = restaurantValidationRules;

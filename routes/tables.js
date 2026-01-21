@@ -44,7 +44,7 @@ router.get("/:tableId", validateObjectIds(["tableId"]), async (req, res) => {
 router.post(
 	"/",
 	auth,
-	checkRoles(["admin"]),
+	checkRoles(["admin", "developer"]),
 	checkUserRestaurantBody("restaurantId"), // <-- ajouté ici
 	tableValidationRules,
 	async (req, res) => {

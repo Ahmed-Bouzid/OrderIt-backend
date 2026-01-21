@@ -7,7 +7,8 @@ function checkUserRestaurantBody(fieldName = "restaurantId") {
 		const bodyRestaurantId = req.body[fieldName];
 
 		if (
-			(userRole !== "admin" && userRole !== "developer") &&
+			userRole !== "admin" &&
+			userRole !== "developer" && // Autoriser les développeurs
 			bodyRestaurantId &&
 			userRestaurantId !== bodyRestaurantId
 		) {
