@@ -7,7 +7,7 @@ function checkUserRestaurantBody(fieldName = "restaurantId") {
 		const bodyRestaurantId = req.body[fieldName];
 
 		if (
-			userRole !== "admin" &&
+			(userRole !== "admin" && userRole !== "developer") &&
 			bodyRestaurantId &&
 			userRestaurantId !== bodyRestaurantId
 		) {

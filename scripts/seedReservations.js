@@ -3,13 +3,14 @@
  * Usage: node scripts/seedReservations.js
  */
 
-const mongoose = require("mongoose");
-const Reservation = require("../models/Reservation");
+import mongoose from "mongoose";
+import Reservation from "../models/Reservation";
+import { RESTAURANT_ID } from "../../../CLIENT-end/client-public/src/config/restaurantConfig";
 require("dotenv").config();
 
 const reservations = [
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "69449f7e4a1487a5c9b0b9d6",
 		orderIds: [],
 		status: "en attente",
@@ -32,7 +33,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "69449f7e4a1487a5c9b0b9d6",
 		orderIds: [],
 		status: "en attente",
@@ -55,7 +56,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "686af53bbb4cba684ff3b732",
 		orderIds: [],
 		status: "en attente",
@@ -78,7 +79,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "69449f7e4a1487a5c9b0b9d6",
 		orderIds: [],
 		status: "en attente",
@@ -101,7 +102,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "686af53bbb4cba684ff3b732",
 		orderIds: [],
 		status: "en attente",
@@ -124,7 +125,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "69449f7e4a1487a5c9b0b9d6",
 		orderIds: [],
 		status: "en attente",
@@ -147,7 +148,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "686af53bbb4cba684ff3b732",
 		orderIds: [],
 		status: "en attente",
@@ -170,7 +171,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "69449f7e4a1487a5c9b0b9d6",
 		orderIds: [],
 		status: "en attente",
@@ -193,7 +194,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "686af53bbb4cba684ff3b732",
 		orderIds: [],
 		status: "en attente",
@@ -216,7 +217,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "69449f7e4a1487a5c9b0b9d6",
 		orderIds: [],
 		status: "en attente",
@@ -240,7 +241,7 @@ const reservations = [
 	},
 	// Réservations pour le 11 janvier
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "686af53bbb4cba684ff3b732",
 		orderIds: [],
 		status: "en attente",
@@ -263,7 +264,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "69449f7e4a1487a5c9b0b9d6",
 		orderIds: [],
 		status: "en attente",
@@ -286,7 +287,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "686af53bbb4cba684ff3b732",
 		orderIds: [],
 		status: "en attente",
@@ -309,7 +310,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "69449f7e4a1487a5c9b0b9d6",
 		orderIds: [],
 		status: "en attente",
@@ -332,7 +333,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "686af53bbb4cba684ff3b732",
 		orderIds: [],
 		status: "en attente",
@@ -355,7 +356,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "69449f7e4a1487a5c9b0b9d6",
 		orderIds: [],
 		status: "en attente",
@@ -378,7 +379,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "686af53bbb4cba684ff3b732",
 		orderIds: [],
 		status: "en attente",
@@ -401,7 +402,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "69449f7e4a1487a5c9b0b9d6",
 		orderIds: [],
 		status: "en attente",
@@ -424,7 +425,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "686af53bbb4cba684ff3b732",
 		orderIds: [],
 		status: "en attente",
@@ -447,7 +448,7 @@ const reservations = [
 		canceled: false,
 	},
 	{
-		restaurantId: "686af511bb4cba684ff3b72e",
+		restaurantId: RESTAURANT_ID,
 		serverId: "69449f7e4a1487a5c9b0b9d6",
 		orderIds: [],
 		status: "en attente",
@@ -485,10 +486,10 @@ async function seedReservations() {
 
 		console.log("\n📊 Résumé par jour:");
 		const day10 = result.filter((r) =>
-			r.reservationDate.toISOString().includes("2026-01-10")
+			r.reservationDate.toISOString().includes("2026-01-10"),
 		);
 		const day11 = result.filter((r) =>
-			r.reservationDate.toISOString().includes("2026-01-11")
+			r.reservationDate.toISOString().includes("2026-01-11"),
 		);
 
 		console.log(`   10 janvier: ${day10.length} réservations`);
@@ -499,7 +500,7 @@ async function seedReservations() {
 			.sort((a, b) => a.reservationTime.localeCompare(b.reservationTime))
 			.forEach((r) => {
 				console.log(
-					`   ${r.reservationTime} - ${r.clientName} (${r.nbPersonnes} pers.)`
+					`   ${r.reservationTime} - ${r.clientName} (${r.nbPersonnes} pers.)`,
 				);
 			});
 
@@ -508,7 +509,7 @@ async function seedReservations() {
 			.sort((a, b) => a.reservationTime.localeCompare(b.reservationTime))
 			.forEach((r) => {
 				console.log(
-					`   ${r.reservationTime} - ${r.clientName} (${r.nbPersonnes} pers.)`
+					`   ${r.reservationTime} - ${r.clientName} (${r.nbPersonnes} pers.)`,
 				);
 			});
 

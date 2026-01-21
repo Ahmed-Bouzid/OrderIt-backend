@@ -11,7 +11,7 @@ router.get(
 	async (req, res) => {
 		try {
 			const reservation = await Reservation.findById(
-				req.params.reservationId
+				req.params.reservationId,
 			).select("_id tableId");
 			if (!reservation) {
 				return res.status(404).json({ message: "Réservation non trouvée" });
@@ -28,7 +28,7 @@ router.get(
 			console.error("Erreur récupération commandes publiques:", err);
 			res.status(500).json({ message: "Erreur serveur" });
 		}
-	}
+	},
 );
 
 module.exports = router;

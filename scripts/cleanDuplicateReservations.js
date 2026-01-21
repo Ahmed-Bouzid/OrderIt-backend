@@ -5,6 +5,9 @@
 
 const mongoose = require("mongoose");
 const Reservation = require("../models/Reservation");
+const {
+	RESTAURANT_ID: Resto_id_key,
+} = require("../../../CLIENT-end/client-public/src/config/restaurantConfig");
 require("dotenv").config();
 
 async function cleanDuplicates() {
@@ -32,12 +35,12 @@ async function cleanDuplicates() {
 			const endDate = new Date(day.end);
 
 			const reservations = await Reservation.find({
-				restaurantId: "686af511bb4cba684ff3b72e",
+				restaurantId: Resto_id_key,
 				reservationDate: { $gte: startDate, $lte: endDate },
 			}).sort({ reservationTime: 1, clientName: 1 });
 
 			console.log(
-				`\n📋 Trouvé ${reservations.length} réservations le ${day.name}`
+				`\n📋 Trouvé ${reservations.length} réservations le ${day.name}`,
 			);
 
 			// Grouper par heure + nom client
@@ -58,7 +61,7 @@ async function cleanDuplicates() {
 				if (group.length > 1) {
 					const [time, name] = key.split("_");
 					console.log(
-						`   ⚠️  ${time} - ${name}: ${group.length} réservations (doublon)`
+						`   ⚠️  ${time} - ${name}: ${group.length} réservations (doublon)`,
 					);
 					duplicateCount += group.length - 1;
 
@@ -82,7 +85,7 @@ async function cleanDuplicates() {
 
 			// Afficher le résultat final
 			const remaining = await Reservation.find({
-				restaurantId: "686af511bb4cba684ff3b72e",
+				restaurantId: Resto_id_key,
 				reservationDate: { $gte: startDate, $lte: endDate },
 			}).sort({ reservationTime: 1 });
 
@@ -90,14 +93,14 @@ async function cleanDuplicates() {
 			console.log(`\n📋 Liste finale ${day.name}:`);
 			remaining.forEach((r) => {
 				console.log(
-					`   ${r.reservationTime} - ${r.clientName} (${r.nbPersonnes} pers.)`
+					`   ${r.reservationTime} - ${r.clientName} (${r.nbPersonnes} pers.)`,
 				);
 			});
 		}
 
 		// Statistiques finales
 		const total10 = await Reservation.countDocuments({
-			restaurantId: "686af511bb4cba684ff3b72e",
+			restaurantId: Resto_id_key,
 			reservationDate: {
 				$gte: new Date("2026-01-10T00:00:00.000Z"),
 				$lte: new Date("2026-01-10T23:59:59.999Z"),
@@ -105,7 +108,7 @@ async function cleanDuplicates() {
 		});
 
 		const total11 = await Reservation.countDocuments({
-			restaurantId: "686af511bb4cba684ff3b72e",
+			restaurantId: Resto_id_key,
 			reservationDate: {
 				$gte: new Date("2026-01-11T00:00:00.000Z"),
 				$lte: new Date("2026-01-11T23:59:59.999Z"),

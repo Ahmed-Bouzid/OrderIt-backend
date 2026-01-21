@@ -7,7 +7,11 @@ function checkUserRestaurant(paramRestaurantId = "restaurantId") {
 		const paramId =
 			req.params[paramRestaurantId] || req.body[paramRestaurantId];
 
-		if (userRole !== "admin" && paramId && userRestaurantId !== paramId) {
+		if (
+			(userRole !== "admin" && userRole !== "developer") &&
+			paramId &&
+			userRestaurantId !== paramId
+		) {
 			return res
 				.status(403)
 				.json({ message: "Accès refusé : restaurant différent." });

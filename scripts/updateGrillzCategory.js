@@ -18,7 +18,7 @@ async function updateGrillz() {
 		const result = await Restaurant.findByIdAndUpdate(
 			"695e4300adde654b80f6911a",
 			{ category: "foodtruck" },
-			{ new: true }
+			{ new: true },
 		);
 
 		if (result) {

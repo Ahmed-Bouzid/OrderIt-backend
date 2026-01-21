@@ -195,17 +195,41 @@ router.get(
 	validateObjectIds(["reservationId"]),
 	async (req, res) => {
 		try {
-			const orders = await Order.find({
+			console.log(
+				"[DEBUG] GET /reservation/:reservationId",
+				req.params.reservationId
+			);
+			// Log user info
+			if (req.user) {
+				console.log("[DEBUG] User:", req.user);
+			} else {
+				console.log("[DEBUG] Pas de req.user");
+			}
+			// Log query
+			const query = {
 				reservationId: req.params.reservationId,
-				paid: { $ne: true }, // ⭐ EXCLURE les commandes déjà payées
-			})
+				paid: { $ne: true },
+			};
+			console.log("[DEBUG] Query utilisée:", query);
+			const orders = await Order.find(query)
 				.populate("tableId", "number")
 				.populate("serverId", "firstName lastName");
 
-			console.log(
-				`📦 Commandes pour réservation ${req.params.reservationId}:`,
-				orders.length
-			);
+			console.log(`[DEBUG] Nb commandes trouvées: ${orders.length}`);
+			if (orders.length === 0) {
+				console.log("[DEBUG] Aucune commande trouvée pour cette réservation.");
+			} else {
+				orders.forEach((order, idx) => {
+					console.log(`[DEBUG] Order[${idx}]:`, {
+						_id: order._id,
+						tableId: order.tableId,
+						reservationId: order.reservationId,
+						status: order.status,
+						paid: order.paid,
+						items: order.items?.length,
+					});
+				});
+			}
 			res.json(orders);
 		} catch (err) {
 			console.error("❌ Erreur récupération commandes par réservation:", err);
