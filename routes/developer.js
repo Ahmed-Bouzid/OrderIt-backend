@@ -17,7 +17,7 @@ router.get("/restaurants", auth, checkDeveloper, async (req, res) => {
 	try {
 		const restaurants = await Restaurant.find()
 			.select(
-				"_id name email phone address createdAt turnoverTime active subscriptionPlan"
+				"_id name email phone address createdAt turnoverTime active subscriptionPlan styleKey",
 			)
 			.lean();
 
@@ -41,7 +41,7 @@ router.get("/restaurants", auth, checkDeveloper, async (req, res) => {
 						servers: serverCount,
 					},
 				};
-			})
+			}),
 		);
 
 		res.json({
@@ -166,7 +166,7 @@ router.post("/import-menu", auth, checkDeveloper, async (req, res) => {
 		}
 
 		console.log(
-			`📸 Import menu pour ${restaurant.name} (${restaurant_id}) - ${menu.length} catégories`
+			`📸 Import menu pour ${restaurant.name} (${restaurant_id}) - ${menu.length} catégories`,
 		);
 
 		// Fonction pour normaliser les catégories (éviter les doublons)
@@ -206,7 +206,7 @@ router.post("/import-menu", auth, checkDeveloper, async (req, res) => {
 		});
 
 		console.log(
-			`📂 ${existingCategories.length} catégories existantes, ${newCategories.size} nouvelles`
+			`📂 ${existingCategories.length} catégories existantes, ${newCategories.size} nouvelles`,
 		);
 		if (newCategories.size > 0) {
 			console.log("🆕 Nouvelles catégories:", [...newCategories].join(", "));
@@ -215,7 +215,7 @@ router.post("/import-menu", auth, checkDeveloper, async (req, res) => {
 		// Archiver l'ancien menu (soft delete)
 		const archivedCount = await Product.updateMany(
 			{ restaurantId: restaurant_id },
-			{ $set: { archived: true, available: false } }
+			{ $set: { archived: true, available: false } },
 		);
 
 		console.log(`🗄️ ${archivedCount.modifiedCount} produits archivés`);
@@ -428,7 +428,7 @@ router.patch(
 			console.log(
 				`🔄 Restaurant ${restaurant.name} ${
 					restaurant.active ? "activé" : "désactivé"
-				}`
+				}`,
 			);
 
 			res.json({
@@ -450,7 +450,7 @@ router.patch(
 				error: error.message,
 			});
 		}
-	}
+	},
 );
 
 /**
@@ -476,7 +476,7 @@ router.delete(
 			const result = await Table.deleteMany({ restaurantId: id });
 
 			console.log(
-				`🗑️ Developer: Suppression de ${result.deletedCount} tables du restaurant ${restaurant.name}`
+				`🗑️ Developer: Suppression de ${result.deletedCount} tables du restaurant ${restaurant.name}`,
 			);
 
 			res.json({
@@ -493,7 +493,7 @@ router.delete(
 				error: error.message,
 			});
 		}
-	}
+	},
 );
 
 /**
@@ -519,7 +519,7 @@ router.delete(
 			const result = await Server.deleteMany({ restaurantId: id });
 
 			console.log(
-				`🗑️ Developer: Suppression de ${result.deletedCount} employés du restaurant ${restaurant.name}`
+				`🗑️ Developer: Suppression de ${result.deletedCount} employés du restaurant ${restaurant.name}`,
 			);
 
 			res.json({
@@ -536,7 +536,7 @@ router.delete(
 				error: error.message,
 			});
 		}
-	}
+	},
 );
 
 /**
@@ -562,7 +562,7 @@ router.delete(
 			const result = await Product.deleteMany({ restaurantId: id });
 
 			console.log(
-				`🗑️ Developer: Suppression de ${result.deletedCount} produits du restaurant ${restaurant.name}`
+				`🗑️ Developer: Suppression de ${result.deletedCount} produits du restaurant ${restaurant.name}`,
 			);
 
 			res.json({
@@ -579,7 +579,7 @@ router.delete(
 				error: error.message,
 			});
 		}
-	}
+	},
 );
 
 /**
@@ -950,7 +950,7 @@ router.post("/apply-style", auth, checkDeveloper, async (req, res) => {
 		await restaurant.save();
 
 		console.log(
-			`🎨 Style '${style.name}' appliqué au restaurant ${restaurant.name}`
+			`🎨 Style '${style.name}' appliqué au restaurant ${restaurant.name}`,
 		);
 
 		res.json({

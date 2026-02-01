@@ -77,7 +77,7 @@ const styleSchema = new mongoose.Schema(
 	},
 	{
 		timestamps: true, // Gère automatiquement createdAt et updatedAt
-	}
+	},
 );
 
 // Index pour recherche rapide
@@ -92,7 +92,7 @@ styleSchema.statics.findActive = function () {
 // Méthode statique pour récupérer un style par sa clé
 styleSchema.statics.findByKey = function (key) {
 	return this.findOne({ key: key.toLowerCase(), active: true }).maxTimeMS(
-		10000
+		10000,
 	);
 };
 

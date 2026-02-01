@@ -144,7 +144,9 @@ async function initStyles() {
 					console.log(`🔄 Style mis à jour: ${styleData.name}`);
 					updated++;
 				} else {
-					console.log(`⏭️  Style personnalisé existant, non modifié: ${styleData.name}`);
+					console.log(
+						`⏭️  Style personnalisé existant, non modifié: ${styleData.name}`,
+					);
 				}
 			} else {
 				// Créer nouveau style

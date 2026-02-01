@@ -48,13 +48,13 @@ router.post(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server." });
 		}
-	}
+	},
 );
 // 🏪 GET /restaurants/:id/info - Récupérer les infos publiques d'un restaurant (category, name)
 router.get("/:id/info", validateObjectIds(["id"]), async (req, res) => {
 	try {
 		const restaurant = await Restaurant.findById(req.params.id).select(
-			"name category"
+			"name category",
 		);
 
 		if (!restaurant) {
@@ -75,7 +75,7 @@ router.get("/:id/info", validateObjectIds(["id"]), async (req, res) => {
 router.get("/:id/config", validateObjectIds(["id"]), async (req, res) => {
 	try {
 		const restaurant = await Restaurant.findById(req.params.id).select(
-			"name category styleKey"
+			"name category styleKey",
 		);
 
 		if (!restaurant) {
@@ -89,7 +89,7 @@ router.get("/:id/config", validateObjectIds(["id"]), async (req, res) => {
 		// Si le style n'existe pas, utiliser premium par défaut
 		let styleConfig = null;
 		let styleName = "Style Premium";
-		
+
 		if (style) {
 			styleConfig = style.config;
 			styleName = style.name;
@@ -182,7 +182,7 @@ router.post(
 			console.error(err);
 			res.status(500).json({ message: "Erreur lors de l'ajout du server." });
 		}
-	}
+	},
 );
 
 // Liste de tous les restaurants
@@ -207,7 +207,7 @@ router.get(
 		try {
 			const restaurantId = req.params.id;
 			const servers = await Server.find({ restaurantId }).select(
-				"-passwordHash"
+				"-passwordHash",
 			);
 			res.json(servers);
 		} catch (err) {
@@ -216,7 +216,7 @@ router.get(
 				message: "Erreur server lors de la récupération des servers.",
 			});
 		}
-	}
+	},
 );
 
 // Détails d’un restaurant
@@ -229,7 +229,7 @@ router.get(
 	async (req, res) => {
 		try {
 			const restaurant = await Restaurant.findById(req.params.id).select(
-				"-passwordHash"
+				"-passwordHash",
 			);
 			if (!restaurant)
 				return res.status(404).json({ message: "Restaurant non trouvé." });
@@ -238,7 +238,7 @@ router.get(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server." });
 		}
-	}
+	},
 );
 
 // Modifier un restaurant
@@ -255,7 +255,7 @@ router.put(
 
 			// 🧼 On filtre les champs présents dans req.body
 			const updates = Object.fromEntries(
-				Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
+				Object.entries(req.body).filter(([key]) => allowedFields.includes(key)),
 			);
 
 			// 🔐 Si mot de passe modifié, on le hash puis on supprime l’ancien champ
@@ -268,7 +268,7 @@ router.put(
 			const updated = await Restaurant.findByIdAndUpdate(
 				req.params.id,
 				updates,
-				{ new: true }
+				{ new: true },
 			).select("-passwordHash"); // On ne retourne jamais le hash au client
 
 			// 📭 Vérifie si le restaurant existe
@@ -282,7 +282,7 @@ router.put(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server." });
 		}
-	}
+	},
 );
 
 // Supprimer un restaurant
@@ -303,7 +303,7 @@ router.delete(
 				restaurantId: req.params.id,
 			});
 			console.log(
-				`🗑️ ${deletedProducts.deletedCount} produits supprimés pour le restaurant ${restaurant.name}`
+				`🗑️ ${deletedProducts.deletedCount} produits supprimés pour le restaurant ${restaurant.name}`,
 			);
 
 			// 🗑️ Supprimer tous les serveurs du restaurant
@@ -311,7 +311,7 @@ router.delete(
 				restaurantId: req.params.id,
 			});
 			console.log(
-				`🗑️ ${deletedServers.deletedCount} serveurs supprimés pour le restaurant ${restaurant.name}`
+				`🗑️ ${deletedServers.deletedCount} serveurs supprimés pour le restaurant ${restaurant.name}`,
 			);
 
 			// 🗑️ Supprimer le restaurant
@@ -326,7 +326,7 @@ router.delete(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server." });
 		}
-	}
+	},
 );
 
 // Créer un produit
@@ -369,7 +369,7 @@ router.post(
 				.status(500)
 				.json({ message: "Erreur lors de la création du produit." });
 		}
-	}
+	},
 );
 
 // Liste des produits d’un restaurant
@@ -391,7 +391,7 @@ router.get(
 				.status(500)
 				.json({ message: "Erreur lors du chargement des produits." });
 		}
-	}
+	},
 );
 
 // Modifier un produit
@@ -433,14 +433,14 @@ router.put(
 
 			// On filtre req.body
 			const updates = Object.fromEntries(
-				Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
+				Object.entries(req.body).filter(([key]) => allowedFields.includes(key)),
 			);
 
 			// Mise à jour
 			const updated = await Product.findByIdAndUpdate(
 				req.params.productId,
 				updates,
-				{ new: true }
+				{ new: true },
 			);
 
 			res.json({ message: "Produit modifié.", product: updated });
@@ -450,7 +450,7 @@ router.put(
 				.status(500)
 				.json({ message: "Erreur lors de la modification du produit." });
 		}
-	}
+	},
 );
 
 // Supprimer un produit
@@ -486,7 +486,7 @@ router.delete(
 			console.error(err);
 			res.status(500).json({ message: "Erreur lors de la suppression." });
 		}
-	}
+	},
 );
 
 // 🗑️ Supprimer uniquement les tables d'un restaurant (mode développeur)
@@ -507,7 +507,7 @@ router.delete(
 			});
 
 			console.log(
-				`🗑️ ${deletedTables.deletedCount} tables supprimées pour ${restaurant.name}`
+				`🗑️ ${deletedTables.deletedCount} tables supprimées pour ${restaurant.name}`,
 			);
 
 			res.json({
@@ -518,7 +518,7 @@ router.delete(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server." });
 		}
-	}
+	},
 );
 
 // 🗑️ Supprimer uniquement les serveurs d'un restaurant (mode développeur)
@@ -538,7 +538,7 @@ router.delete(
 			});
 
 			console.log(
-				`🗑️ ${deletedServers.deletedCount} serveurs supprimés pour ${restaurant.name}`
+				`🗑️ ${deletedServers.deletedCount} serveurs supprimés pour ${restaurant.name}`,
 			);
 
 			res.json({
@@ -549,7 +549,7 @@ router.delete(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server." });
 		}
-	}
+	},
 );
 
 // 🗑️ Supprimer uniquement les produits d'un restaurant (mode développeur)
@@ -574,7 +574,7 @@ router.delete(
 			});
 
 			console.log(
-				`🗑️ ${deletedProducts.deletedCount} produits supprimés pour ${restaurant.name}`
+				`🗑️ ${deletedProducts.deletedCount} produits supprimés pour ${restaurant.name}`,
 			);
 
 			res.json({
@@ -585,7 +585,7 @@ router.delete(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server." });
 		}
-	}
+	},
 );
 
 module.exports = router;
