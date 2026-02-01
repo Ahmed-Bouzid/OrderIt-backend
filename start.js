@@ -19,7 +19,7 @@ const io = new Server(server, {
 					credentials: true,
 					methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 					allowedHeaders: ["Content-Type", "Authorization"],
-			  }
+				}
 			: {
 					// Production : CORS STRICT (liste blanche)
 					origin: [
@@ -30,7 +30,7 @@ const io = new Server(server, {
 					credentials: true,
 					methods: ["GET", "POST"],
 					allowedHeaders: ["Content-Type", "Authorization"],
-			  },
+				},
 	transports: ["websocket", "polling"], // Important : polling en fallback
 	allowUpgrades: true,
 	pingTimeout: 60000, // Augmente pour Render
@@ -65,48 +65,195 @@ io.use((socket, next) => {
 
 // ⭐ Stockage global des sockets connectées par restaurant
 const restaurantConnections = new Map();
+const tableConnections = new Map(); // Connexions par table
+const missedEvents = new Map(); // Événements manqués par client (replay après reconnexion)
+
+// ⭐ Helper : Enregistrer un événement manqué pour replay
+const storeMissedEvent = (socketId, event, data) => {
+	if (!missedEvents.has(socketId)) {
+		missedEvents.set(socketId, []);
+	}
+	const events = missedEvents.get(socketId);
+	events.push({ event, data, timestamp: Date.now() });
+
+	// Limiter à 50 événements max par client
+	if (events.length > 50) {
+		events.shift();
+	}
+};
+
+// ⭐ Helper : Replay des événements manqués
+const replayMissedEvents = (socket) => {
+	const events = missedEvents.get(socket.id);
+	if (!events || events.length === 0) return;
+
+	console.log(
+		`📼 Replay de ${events.length} événements manqués pour ${socket.id}`,
+	);
+	events.forEach(({ event, data }) => {
+		socket.emit(event, data);
+	});
+	missedEvents.delete(socket.id);
+};
 
 // ⭐ Gestion des connexions
 io.on("connection", (socket) => {
 	console.log(
-		`✅ Client connecté via Socket.io: ${socket.id} (User: ${socket.userId}, Restaurant: ${socket.restaurantId})`
+		`✅ Client connecté via Socket.io: ${socket.id} (User: ${socket.userId}, Restaurant: ${socket.restaurantId})`,
 	);
 
-	// Ping/pong keep-alive agressif pour Render (ancien système)
+	// ============ HEARTBEAT ============
 	socket.on("ping", (cb) => {
 		if (typeof cb === "function") cb();
 	});
 
-	// ⭐ Nouveau heartbeat custom du client pour maintenir la connexion active
 	socket.on("client-ping", (data) => {
-		// Répondre au client avec un pong (optionnel, pour monitoring)
 		socket.emit("server-pong", {
 			timestamp: Date.now(),
 			clientTimestamp: data?.timestamp,
 		});
-
-		// Log silencieux (décommenter pour debug)
-		// console.log(`💓 Heartbeat reçu de ${socket.id} (Restaurant: ${socket.restaurantId})`);
 	});
 
-	// Joindre la room du restaurant
-	socket.join(`restaurant-${socket.restaurantId}`);
+	// ============ GESTION DES ROOMS ============
 
-	if (!restaurantConnections.has(socket.restaurantId)) {
-		restaurantConnections.set(socket.restaurantId, []);
+	// Joindre la room du restaurant automatiquement
+	if (socket.restaurantId) {
+		socket.join(`restaurant-${socket.restaurantId}`);
+		console.log(
+			`🏠 Socket ${socket.id} rejoint room restaurant-${socket.restaurantId}`,
+		);
+
+		if (!restaurantConnections.has(socket.restaurantId)) {
+			restaurantConnections.set(socket.restaurantId, []);
+		}
+		restaurantConnections.get(socket.restaurantId).push(socket.id);
 	}
-	restaurantConnections.get(socket.restaurantId).push(socket.id);
 
-	// Déconnexion
-	socket.on("disconnect", (reason) => {
-		console.log(`❌ Client déconnecté: ${socket.id} Reason: ${reason}`);
-		const connections = restaurantConnections.get(socket.restaurantId);
+	// Joindre une room de restaurant (manuel avec ACK)
+	socket.on("join-restaurant", (data, callback) => {
+		const { restaurantId } = data;
+		if (!restaurantId) {
+			if (callback)
+				callback({ success: false, error: "restaurantId manquant" });
+			return;
+		}
+
+		socket.join(`restaurant-${restaurantId}`);
+		socket.restaurantId = restaurantId; // Mise à jour
+		console.log(
+			`🏠 Socket ${socket.id} rejoint room restaurant-${restaurantId}`,
+		);
+
+		if (!restaurantConnections.has(restaurantId)) {
+			restaurantConnections.set(restaurantId, []);
+		}
+		if (!restaurantConnections.get(restaurantId).includes(socket.id)) {
+			restaurantConnections.get(restaurantId).push(socket.id);
+		}
+
+		// Replay des événements manqués
+		replayMissedEvents(socket);
+
+		if (callback) callback({ success: true, restaurantId });
+	});
+
+	// Quitter une room de restaurant
+	socket.on("leave-restaurant", (data) => {
+		const { restaurantId } = data;
+		if (!restaurantId) return;
+
+		socket.leave(`restaurant-${restaurantId}`);
+		console.log(
+			`👋 Socket ${socket.id} quitte room restaurant-${restaurantId}`,
+		);
+
+		const connections = restaurantConnections.get(restaurantId);
 		if (connections) {
 			const index = connections.indexOf(socket.id);
 			if (index > -1) {
 				connections.splice(index, 1);
 			}
 		}
+	});
+
+	// Joindre une room de table (avec ACK)
+	socket.on("join-table", (data, callback) => {
+		const { restaurantId, tableId } = data;
+		if (!restaurantId || !tableId) {
+			if (callback)
+				callback({ success: false, error: "restaurantId ou tableId manquant" });
+			return;
+		}
+
+		const roomName = `table-${restaurantId}-${tableId}`;
+		socket.join(roomName);
+		socket.tableId = tableId; // Mise à jour
+		console.log(`🪑 Socket ${socket.id} rejoint room ${roomName}`);
+
+		const key = `${restaurantId}-${tableId}`;
+		if (!tableConnections.has(key)) {
+			tableConnections.set(key, []);
+		}
+		if (!tableConnections.get(key).includes(socket.id)) {
+			tableConnections.get(key).push(socket.id);
+		}
+
+		if (callback) callback({ success: true, tableId });
+	});
+
+	// Quitter une room de table
+	socket.on("leave-table", (data) => {
+		const { restaurantId, tableId } = data;
+		if (!restaurantId || !tableId) return;
+
+		const roomName = `table-${restaurantId}-${tableId}`;
+		socket.leave(roomName);
+		console.log(`👋 Socket ${socket.id} quitte room ${roomName}`);
+
+		const key = `${restaurantId}-${tableId}`;
+		const connections = tableConnections.get(key);
+		if (connections) {
+			const index = connections.indexOf(socket.id);
+			if (index > -1) {
+				connections.splice(index, 1);
+			}
+		}
+	});
+
+	// ============ DÉCONNEXION ============
+	socket.on("disconnect", (reason) => {
+		console.log(`❌ Client déconnecté: ${socket.id} Reason: ${reason}`);
+
+		// Nettoyer les connexions restaurant
+		if (socket.restaurantId) {
+			const connections = restaurantConnections.get(socket.restaurantId);
+			if (connections) {
+				const index = connections.indexOf(socket.id);
+				if (index > -1) {
+					connections.splice(index, 1);
+				}
+			}
+		}
+
+		// Nettoyer les connexions table
+		if (socket.tableId && socket.restaurantId) {
+			const key = `${socket.restaurantId}-${socket.tableId}`;
+			const connections = tableConnections.get(key);
+			if (connections) {
+				const index = connections.indexOf(socket.id);
+				if (index > -1) {
+					connections.splice(index, 1);
+				}
+			}
+		}
+
+		// Garder les événements manqués pendant 5 minutes max
+		setTimeout(
+			() => {
+				missedEvents.delete(socket.id);
+			},
+			5 * 60 * 1000,
+		);
 	});
 });
 

@@ -2,8 +2,11 @@ const express = require("express");
 const router = express.Router();
 const PredefinedMessage = require("../models/PredefinedMessage");
 const ClientMessage = require("../models/ClientMessage");
+const ServerResponse = require("../models/ServerResponse");
+const PredefinedServerResponse = require("../models/PredefinedServerResponse");
 const Reservation = require("../models/Reservation");
 const Table = require("../models/Table");
+const Restaurant = require("../models/Restaurant");
 const validateObjectIds = require("../middlewares/validateObjectId");
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -395,6 +398,270 @@ router.delete("/predefined/:messageId", async (req, res) => {
 		});
 	} catch (error) {
 		console.error("❌ Erreur suppression message prédéfini:", error);
+		res.status(500).json({
+			success: false,
+			message: "Erreur serveur",
+		});
+	}
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// 💬 MESSAGERIE BIDIRECTIONNELLE (Conversation)
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * GET /client-messages/conversation/:reservationId
+ * Récupère la conversation complète (messages client + réponses serveur)
+ * Route publique pour afficher le thread de conversation
+ */
+router.get("/conversation/:reservationId", async (req, res) => {
+	try {
+		const { reservationId } = req.params;
+
+		// Récupérer messages clients
+		const clientMessages = await ClientMessage.find({
+			reservationId,
+			status: { $ne: "cancelled" },
+		})
+			.select("messageText createdAt status")
+			.lean();
+
+		// Récupérer réponses serveur
+		const serverResponses = await ServerResponse.find({
+			reservationId,
+		})
+			.select("responseText serverName createdAt status")
+			.lean();
+
+		// Fusionner et trier chronologiquement
+		const conversation = [
+			...clientMessages.map((m) => ({
+				...m,
+				type: "client",
+				text: m.messageText,
+			})),
+			...serverResponses.map((r) => ({
+				...r,
+				type: "server",
+				text: r.responseText,
+			})),
+		].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+		res.json({
+			success: true,
+			conversation,
+			totalMessages: conversation.length,
+		});
+	} catch (error) {
+		console.error("❌ Erreur récupération conversation:", error);
+		res.status(500).json({
+			success: false,
+			message: "Erreur serveur",
+		});
+	}
+});
+
+/**
+ * GET /client-messages/server-responses/predefined/:restaurantId
+ * Récupère les réponses serveur prédéfinies
+ * Route protégée (serveur/admin uniquement)
+ */
+router.get("/server-responses/predefined/:restaurantId", async (req, res) => {
+	try {
+		const { restaurantId } = req.params;
+
+		// Récupérer réponses spécifiques restaurant + globales
+		const responses = await PredefinedServerResponse.find({
+			$or: [{ restaurantId }, { restaurantId: null }],
+			isActive: true,
+		})
+			.sort({ order: 1, createdAt: 1 })
+			.select("text category icon order");
+
+		res.json({
+			success: true,
+			responses,
+		});
+	} catch (error) {
+		console.error("❌ Erreur récupération réponses prédéfinies:", error);
+		res.status(500).json({
+			success: false,
+			message: "Erreur serveur",
+		});
+	}
+});
+
+/**
+ * POST /client-messages/server-responses/send
+ * Envoie une réponse serveur au client
+ * Route protégée (serveur/admin uniquement)
+ */
+router.post("/server-responses/send", async (req, res) => {
+	try {
+		const {
+			clientMessageId,
+			responseText,
+			reservationId,
+			serverId,
+			serverName,
+		} = req.body;
+
+		// Validation
+		if (!clientMessageId || !responseText || !reservationId || !serverId) {
+			return res.status(400).json({
+				success: false,
+				message:
+					"Champs requis manquants: clientMessageId, responseText, reservationId, serverId",
+			});
+		}
+
+		// Vérifier que le message client existe
+		const clientMessage = await ClientMessage.findById(clientMessageId);
+		if (!clientMessage) {
+			return res.status(404).json({
+				success: false,
+				message: "Message client non trouvé",
+			});
+		}
+
+		// Créer la réponse serveur
+		const serverResponse = new ServerResponse({
+			clientMessageId,
+			responseText,
+			reservationId,
+			restaurantId: clientMessage.restaurantId,
+			serverId,
+			serverName: serverName || "Serveur",
+			status: "sent",
+		});
+
+		await serverResponse.save();
+
+		// Marquer le message client comme lu
+		if (clientMessage.status === "sent") {
+			clientMessage.status = "read";
+			clientMessage.readAt = new Date();
+			await clientMessage.save();
+		}
+
+		// Émettre événement WebSocket pour notifier le client
+		const io = req.app.get("io");
+		if (io) {
+			io.to(`restaurant-${clientMessage.restaurantId}`).emit("server-response", {
+				type: "new-response",
+				data: {
+					responseId: serverResponse._id,
+					responseText: serverResponse.responseText,
+					serverName: serverResponse.serverName,
+					clientMessageId,
+					reservationId,
+					timestamp: serverResponse.createdAt,
+				},
+				timestamp: new Date().toISOString(),
+			});
+
+			console.log(
+				`📤 Réponse serveur envoyée: "${responseText}" → Réservation ${reservationId}`
+			);
+		}
+
+		res.status(201).json({
+			success: true,
+			message: "Réponse envoyée avec succès",
+			data: {
+				responseId: serverResponse._id,
+				responseText: serverResponse.responseText,
+				sentAt: serverResponse.createdAt,
+			},
+		});
+	} catch (error) {
+		console.error("❌ Erreur envoi réponse serveur:", error);
+		res.status(500).json({
+			success: false,
+			message: "Erreur serveur lors de l'envoi de la réponse",
+		});
+	}
+});
+
+/**
+ * PUT /client-messages/toggle-messaging/:restaurantId
+ * Active/Désactive la messagerie pour un restaurant
+ * Route protégée (admin/manager uniquement)
+ */
+router.put("/toggle-messaging/:restaurantId", async (req, res) => {
+	try {
+		const { restaurantId } = req.params;
+		const { isEnabled } = req.body;
+
+		if (typeof isEnabled !== "boolean") {
+			return res.status(400).json({
+				success: false,
+				message: "isEnabled doit être un boolean",
+			});
+		}
+
+		const restaurant = await Restaurant.findByIdAndUpdate(
+			restaurantId,
+			{ isMessagingEnabled: isEnabled },
+			{ new: true }
+		).select("isMessagingEnabled");
+
+		if (!restaurant) {
+			return res.status(404).json({
+				success: false,
+				message: "Restaurant non trouvé",
+			});
+		}
+
+		// Notifier via WebSocket que la messagerie a été activée/désactivée
+		const io = req.app.get("io");
+		if (io) {
+			io.to(`restaurant-${restaurantId}`).emit("messaging-status-changed", {
+				isEnabled,
+				timestamp: new Date().toISOString(),
+			});
+		}
+
+		res.json({
+			success: true,
+			message: `Messagerie ${isEnabled ? "activée" : "désactivée"}`,
+			isMessagingEnabled: restaurant.isMessagingEnabled,
+		});
+	} catch (error) {
+		console.error("❌ Erreur toggle messagerie:", error);
+		res.status(500).json({
+			success: false,
+			message: "Erreur serveur",
+		});
+	}
+});
+
+/**
+ * GET /client-messages/messaging-status/:restaurantId
+ * Récupère le statut de la messagerie pour un restaurant
+ * Route publique
+ */
+router.get("/messaging-status/:restaurantId", async (req, res) => {
+	try {
+		const { restaurantId } = req.params;
+
+		const restaurant = await Restaurant.findById(restaurantId).select(
+			"isMessagingEnabled"
+		);
+
+		if (!restaurant) {
+			return res.status(404).json({
+				success: false,
+				message: "Restaurant non trouvé",
+			});
+		}
+
+		res.json({
+			success: true,
+			isMessagingEnabled: restaurant.isMessagingEnabled,
+		});
+	} catch (error) {
+		console.error("❌ Erreur récupération statut messagerie:", error);
 		res.status(500).json({
 			success: false,
 			message: "Erreur serveur",

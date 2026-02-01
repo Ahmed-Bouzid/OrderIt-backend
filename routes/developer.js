@@ -953,6 +953,21 @@ router.post("/apply-style", auth, checkDeveloper, async (req, res) => {
 			`🎨 Style '${style.name}' appliqué au restaurant ${restaurant.name}`,
 		);
 
+		// ⭐ NOUVEAU : Émettre un événement WebSocket pour notifier tous les clients connectés
+		const { emitStyleAppliedEvent } = require("../utils/socketEmitter");
+		const io = req.app.locals.io;
+		if (io) {
+			emitStyleAppliedEvent(
+				io,
+				restaurant._id.toString(),
+				style.key,
+				style.config,
+				req.user.id, // ID du développeur qui a appliqué le style
+			);
+		} else {
+			console.warn("⚠️ Instance Socket.io non disponible, événement non émis");
+		}
+
 		res.json({
 			status: "success",
 			message: `Style '${style.name}' appliqué au restaurant '${restaurant.name}'`,

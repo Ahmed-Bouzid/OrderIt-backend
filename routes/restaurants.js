@@ -118,10 +118,7 @@ router.get("/:id/config", validateObjectIds(["id"]), async (req, res) => {
 				name: styleName,
 				config: styleConfig,
 			},
-			categories: categories.map((cat) => ({
-				name: cat,
-				visible: true,
-			})),
+			categories: categories, // ✅ Retourner juste les noms, le client gérera le mapping
 			menuLayout: styleConfig?.menuLayout || "grid",
 		});
 	} catch (err) {

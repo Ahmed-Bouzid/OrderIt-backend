@@ -36,6 +36,12 @@ const restaurantSchema = new mongoose.Schema({
 		enum: ["free", "starter", "pro", "enterprise"],
 		default: "free",
 	},
+	// 💬 Activation de la messagerie client-serveur
+	isMessagingEnabled: {
+		type: Boolean,
+		default: true,
+		index: true,
+	},
 });
 
 // Middleware to handle category changes
