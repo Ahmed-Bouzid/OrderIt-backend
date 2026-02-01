@@ -62,9 +62,8 @@ router.post("/send", async (req, res) => {
 		}
 
 		// Récupérer le message prédéfini
-		const predefinedMessage = await PredefinedMessage.findById(
-			predefinedMessageId
-		);
+		const predefinedMessage =
+			await PredefinedMessage.findById(predefinedMessageId);
 		if (!predefinedMessage) {
 			return res.status(404).json({
 				success: false,
@@ -104,7 +103,7 @@ router.post("/send", async (req, res) => {
 		if (io) {
 			// Récupérer les infos de la table pour la notification
 			const table = await Table.findById(reservation.tableId._id).select(
-				"number"
+				"number",
 			);
 
 			io.to(`restaurant-${reservation.restaurantId}`).emit("client-message", {
@@ -123,7 +122,7 @@ router.post("/send", async (req, res) => {
 				timestamp: new Date().toISOString(),
 			});
 			console.log(
-				`📡 Message client envoyé: Table ${table?.number} - "${predefinedMessage.text}"`
+				`📡 Message client envoyé: Table ${table?.number} - "${predefinedMessage.text}"`,
 			);
 		}
 
@@ -224,7 +223,7 @@ router.put("/:messageId/read", async (req, res) => {
 				status: "read",
 				readAt: new Date(),
 			},
-			{ new: true }
+			{ new: true },
 		);
 
 		if (!message) {
@@ -276,7 +275,7 @@ router.put("/read-all/:tableId", async (req, res) => {
 			{
 				status: "read",
 				readAt: new Date(),
-			}
+			},
 		);
 
 		res.json({
@@ -347,7 +346,7 @@ router.put("/predefined/:messageId", async (req, res) => {
 		const message = await PredefinedMessage.findByIdAndUpdate(
 			messageId,
 			{ text, category, icon, order, isActive },
-			{ new: true, runValidators: true }
+			{ new: true, runValidators: true },
 		);
 
 		if (!message) {
@@ -382,7 +381,7 @@ router.delete("/predefined/:messageId", async (req, res) => {
 		const message = await PredefinedMessage.findByIdAndUpdate(
 			messageId,
 			{ isActive: false },
-			{ new: true }
+			{ new: true },
 		);
 
 		if (!message) {
@@ -547,21 +546,24 @@ router.post("/server-responses/send", async (req, res) => {
 		// Émettre événement WebSocket pour notifier le client
 		const io = req.app.get("io");
 		if (io) {
-			io.to(`restaurant-${clientMessage.restaurantId}`).emit("server-response", {
-				type: "new-response",
-				data: {
-					responseId: serverResponse._id,
-					responseText: serverResponse.responseText,
-					serverName: serverResponse.serverName,
-					clientMessageId,
-					reservationId,
-					timestamp: serverResponse.createdAt,
+			io.to(`restaurant-${clientMessage.restaurantId}`).emit(
+				"server-response",
+				{
+					type: "new-response",
+					data: {
+						responseId: serverResponse._id,
+						responseText: serverResponse.responseText,
+						serverName: serverResponse.serverName,
+						clientMessageId,
+						reservationId,
+						timestamp: serverResponse.createdAt,
+					},
+					timestamp: new Date().toISOString(),
 				},
-				timestamp: new Date().toISOString(),
-			});
+			);
 
 			console.log(
-				`📤 Réponse serveur envoyée: "${responseText}" → Réservation ${reservationId}`
+				`📤 Réponse serveur envoyée: "${responseText}" → Réservation ${reservationId}`,
 			);
 		}
 
@@ -603,7 +605,7 @@ router.put("/toggle-messaging/:restaurantId", async (req, res) => {
 		const restaurant = await Restaurant.findByIdAndUpdate(
 			restaurantId,
 			{ isMessagingEnabled: isEnabled },
-			{ new: true }
+			{ new: true },
 		).select("isMessagingEnabled");
 
 		if (!restaurant) {
@@ -645,9 +647,8 @@ router.get("/messaging-status/:restaurantId", async (req, res) => {
 	try {
 		const { restaurantId } = req.params;
 
-		const restaurant = await Restaurant.findById(restaurantId).select(
-			"isMessagingEnabled"
-		);
+		const restaurant =
+			await Restaurant.findById(restaurantId).select("isMessagingEnabled");
 
 		if (!restaurant) {
 			return res.status(404).json({

@@ -170,9 +170,15 @@ const emitServerResponseEvent = (io, restaurantId, eventName, data) => {
  * 🔧 Événement changement statut messagerie
  */
 const emitMessagingStatusChanged = (io, restaurantId, isEnabled) => {
-	return emitEvent(io, restaurantId, "messaging-status-changed", "status_changed", {
-		isEnabled,
-	});
+	return emitEvent(
+		io,
+		restaurantId,
+		"messaging-status-changed",
+		"status_changed",
+		{
+			isEnabled,
+		},
+	);
 };
 
 /**

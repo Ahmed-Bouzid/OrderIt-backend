@@ -84,14 +84,14 @@ const DEFAULT_RESPONSES = [
 async function initResponses() {
 	try {
 		// Connexion MongoDB
-		await mongoose.connect(process.env.MONGODB_URI);
+		await mongoose.connect(process.env.MONGO_URI);
 		console.log("✅ Connecté à MongoDB");
 
 		const restaurantId = process.argv[2] || null;
 
 		if (restaurantId) {
 			console.log(
-				`📝 Création des réponses pour le restaurant: ${restaurantId}`
+				`📝 Création des réponses pour le restaurant: ${restaurantId}`,
 			);
 		} else {
 			console.log("📝 Création des réponses globales (restaurantId: null)");

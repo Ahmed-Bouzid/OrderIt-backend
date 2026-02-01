@@ -45,21 +45,29 @@ const io = new Server(server, {
 io.engine.on("connection", (socket) => {
 	console.log("🔄 Socket.io engine connection");
 });
-// ⭐ Middleware d'authentification Socket.io
+// ⭐ Middleware d'authentification Socket.io (optionnel pour clients publics)
 io.use((socket, next) => {
 	const token = socket.handshake.auth.token;
+	
+	// ✅ Si pas de token, c'est un client public (non authentifié)
 	if (!token) {
-		return next(new Error("Token manquant"));
+		console.log("🔓 Connexion Socket client public (sans token)");
+		socket.isPublicClient = true; // Marquer comme client public
+		return next();
 	}
 
+	// ✅ Si token présent, vérifier et authentifier
 	try {
 		const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
 		socket.userId = decoded.id;
 		socket.restaurantId = decoded.restaurantId;
 		socket.userType = decoded.userType;
+		socket.isPublicClient = false;
+		console.log(`🔐 Connexion Socket authentifiée: ${decoded.userType} (${decoded.id})`);
 		next();
 	} catch (err) {
-		next(new Error("Token invalide"));
+		console.error("❌ Token Socket invalide:", err.message);
+		return next(new Error("Token invalide"));
 	}
 });
 
