@@ -10,6 +10,7 @@ const checkRoles = require("../middlewares/checkRoles");
 const Restaurant = require("../models/Restaurant");
 const Product = require("../models/Product");
 const Server = require("../models/Server");
+const Style = require("../models/Style");
 const auth = require("../middlewares/auth");
 const productValidationRules = require("../middlewares/productValidationRules");
 const router = express.Router();
@@ -66,6 +67,65 @@ router.get("/:id/info", validateObjectIds(["id"]), async (req, res) => {
 		});
 	} catch (err) {
 		console.error("Erreur récupération info restaurant:", err);
+		res.status(500).json({ message: "Erreur serveur" });
+	}
+});
+
+// 🎨 GET /restaurants/:id/config - Récupérer la configuration complète (style + catégories)
+router.get("/:id/config", validateObjectIds(["id"]), async (req, res) => {
+	try {
+		const restaurant = await Restaurant.findById(req.params.id).select(
+			"name category styleKey"
+		);
+
+		if (!restaurant) {
+			return res.status(404).json({ message: "Restaurant non trouvé" });
+		}
+
+		// Récupérer le style appliqué (ou le style par défaut)
+		const styleKey = restaurant.styleKey || "premium";
+		const style = await Style.findByKey(styleKey);
+
+		// Si le style n'existe pas, utiliser premium par défaut
+		let styleConfig = null;
+		let styleName = "Style Premium";
+		
+		if (style) {
+			styleConfig = style.config;
+			styleName = style.name;
+		} else {
+			// Fallback vers premium si le style n'existe pas
+			const premiumStyle = await Style.findByKey("premium");
+			if (premiumStyle) {
+				styleConfig = premiumStyle.config;
+				styleName = premiumStyle.name;
+			}
+		}
+
+		// Récupérer les catégories de produits disponibles
+		const categories = await Product.distinct("category", {
+			restaurantId: req.params.id,
+			archived: false,
+			available: true,
+		});
+
+		res.json({
+			restaurant_id: req.params.id,
+			restaurant_name: restaurant.name,
+			category: restaurant.category || "restaurant",
+			style: {
+				key: styleKey,
+				name: styleName,
+				config: styleConfig,
+			},
+			categories: categories.map((cat) => ({
+				name: cat,
+				visible: true,
+			})),
+			menuLayout: styleConfig?.menuLayout || "grid",
+		});
+	} catch (err) {
+		console.error("Erreur récupération config restaurant:", err);
 		res.status(500).json({ message: "Erreur serveur" });
 	}
 });

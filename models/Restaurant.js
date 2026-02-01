@@ -17,6 +17,12 @@ const restaurantSchema = new mongoose.Schema({
 		enum: ["restaurant", "foodtruck", "snack", "cafe", "boulangerie", "bar"],
 		default: "restaurant",
 	},
+	// 🎨 Clé du style appliqué (référence vers la table Style)
+	styleKey: {
+		type: String,
+		default: "premium", // Style par défaut
+		index: true,
+	},
 	servers: [{ type: mongoose.Schema.Types.ObjectId, ref: "Server" }],
 	createdAt: { type: Date, default: Date.now },
 	products: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
@@ -31,5 +37,17 @@ const restaurantSchema = new mongoose.Schema({
 		default: "free",
 	},
 });
+
+// Middleware to handle category changes
+// Removed as per user request
+// restaurantSchema.pre("save", function (next) {
+// 	if (this.isModified("category") && this.category !== "restaurant") {
+// 		// Remove "entrée" and "dessert" categories if a new category is added and it's not "restaurant"
+// 		this.products = this.products.filter((product) => {
+// 			return product.category !== "entrée" && product.category !== "dessert";
+// 		});
+// 	}
+// 	next();
+// });
 
 module.exports = mongoose.model("Restaurant", restaurantSchema);

@@ -75,7 +75,7 @@ router.post(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server" });
 		}
-	}
+	},
 );
 
 // ⭐ GET /restaurant/:restaurantId/available - Tables avec disponibilité calculée
@@ -104,7 +104,7 @@ router.get(
 			// Si pas de date/heure, retourner toutes les tables comme disponibles
 			if (!date || !time) {
 				console.log(
-					"⚠️ [TABLES] Pas de date/heure - toutes tables disponibles"
+					"⚠️ [TABLES] Pas de date/heure - toutes tables disponibles",
 				);
 				const enrichedTables = tables.map((t) => ({
 					...t.toObject(),
@@ -125,7 +125,7 @@ router.get(
 			// Enrichir les tables avec leur disponibilité
 			const enrichedTables = enrichTablesWithAvailability(
 				tables,
-				occupiedTableIds
+				occupiedTableIds,
 			);
 
 			console.log(`✅ [TABLES] ${tables.length} tables retournées`);
@@ -136,7 +136,7 @@ router.get(
 				.status(500)
 				.json({ message: "Erreur serveur lors du calcul de disponibilité" });
 		}
-	}
+	},
 );
 
 // GET /restaurant/:restaurantId - lister tables
@@ -163,7 +163,7 @@ router.get(
 				.status(500)
 				.json({ message: "Erreur serveur lors du fetch des tables" });
 		}
-	}
+	},
 );
 
 router.get(
@@ -191,7 +191,7 @@ router.get(
 				.status(500)
 				.json({ message: "Erreur lors du chargement des commandes." });
 		}
-	}
+	},
 );
 
 // PUT /:id - modifier table (admin)
@@ -206,7 +206,7 @@ router.put(
 		console.log("📋 [TABLE UPDATE] ID table:", req.params.id);
 		console.log(
 			"📦 [TABLE UPDATE] Body reçu:",
-			JSON.stringify(req.body, null, 2)
+			JSON.stringify(req.body, null, 2),
 		);
 		console.log("👤 [TABLE UPDATE] User:", req.user?.email || req.user?.id);
 
@@ -214,7 +214,7 @@ router.put(
 		if (!errors.isEmpty()) {
 			console.log(
 				"❌ [TABLE UPDATE] Erreurs de validation:",
-				JSON.stringify(errors.array(), null, 2)
+				JSON.stringify(errors.array(), null, 2),
 			);
 			return res.status(400).json({ errors: errors.array() });
 		}
@@ -229,12 +229,12 @@ router.put(
 			"size",
 		];
 		const updates = Object.fromEntries(
-			Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
+			Object.entries(req.body).filter(([key]) => allowedFields.includes(key)),
 		);
 
 		console.log(
 			"🔧 [TABLE UPDATE] Champs filtrés pour update:",
-			JSON.stringify(updates, null, 2)
+			JSON.stringify(updates, null, 2),
 		);
 
 		// Validation du status si fourni
@@ -245,7 +245,7 @@ router.put(
 			console.log("❌ [TABLE UPDATE] Statut invalide:", updates.status);
 			return res.status(400).json({
 				message: `Statut invalide. Valeurs autorisées: ${Object.values(
-					TABLE_STATUS
+					TABLE_STATUS,
 				).join(", ")}`,
 			});
 		}
@@ -281,7 +281,7 @@ router.put(
 			if (updates.number && updates.number !== existingTable.number) {
 				console.log(
 					"🔍 [TABLE UPDATE] Vérification unicité du nouveau numéro:",
-					updates.number
+					updates.number,
 				);
 				const duplicateTable = await Table.findOne({
 					restaurantId: existingTable.restaurantId,
@@ -293,7 +293,7 @@ router.put(
 						"❌ [TABLE UPDATE] Numéro déjà utilisé:",
 						updates.number,
 						"par table:",
-						duplicateTable._id
+						duplicateTable._id,
 					);
 					return res.status(400).json({
 						message: `Le numéro ${updates.number} est déjà utilisé par une autre table.`,
@@ -310,7 +310,7 @@ router.put(
 			if (!updated) {
 				console.log(
 					"❌ [TABLE UPDATE] Table non trouvée après update (ne devrait pas arriver):",
-					req.params.id
+					req.params.id,
 				);
 				return res.status(404).json({ message: "Table non trouvée." });
 			}
@@ -331,13 +331,13 @@ router.put(
 						io,
 						updated.restaurantId,
 						"updated",
-						updated.toObject()
+						updated.toObject(),
 					);
 				}
 			} catch (wsError) {
 				console.error(
 					"⚠️ [TABLE UPDATE] Erreur WebSocket (non bloquant):",
-					wsError.message
+					wsError.message,
 				);
 			}
 
@@ -350,7 +350,7 @@ router.put(
 			if (err.name === "ValidationError") {
 				console.error(
 					"❌ [TABLE UPDATE] Erreur de validation Mongoose:",
-					err.message
+					err.message,
 				);
 				return res.status(400).json({
 					message: "Erreur de validation",
@@ -364,7 +364,7 @@ router.put(
 			if (err.code === 11000) {
 				console.error(
 					"❌ [TABLE UPDATE] Erreur d'unicité (duplicate key):",
-					err.message
+					err.message,
 				);
 				return res.status(400).json({
 					message: "Ce numéro de table existe déjà pour ce restaurant.",
@@ -374,7 +374,7 @@ router.put(
 
 			res.status(500).json({ message: "Erreur serveur", error: err.message });
 		}
-	}
+	},
 );
 
 // DELETE /:id - supprimer table (admin)
@@ -426,7 +426,7 @@ router.delete(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server" });
 		}
-	}
+	},
 );
 
 // ⭐ PATCH /fusion - Fusionner deux tables
@@ -498,7 +498,7 @@ router.patch(
 					io,
 					targetTable.restaurantId,
 					"merged",
-					targetTable.toObject()
+					targetTable.toObject(),
 				);
 				emitTableEvent(io, targetTable.restaurantId, "deleted", {
 					_id: sourceId,
@@ -513,7 +513,7 @@ router.patch(
 			console.error("Erreur fusion tables:", err);
 			res.status(500).json({ message: "Erreur serveur" });
 		}
-	}
+	},
 );
 
 module.exports = router;

@@ -7,6 +7,7 @@ const Table = require("../models/Table");
 const Reservation = require("../models/Reservation");
 const Product = require("../models/Product");
 const Server = require("../models/Server");
+const Style = require("../models/Style");
 
 /**
  * GET /developer/restaurants
@@ -629,6 +630,346 @@ router.delete("/restaurants/:id", auth, checkDeveloper, async (req, res) => {
 		});
 	} catch (error) {
 		console.error("❌ Erreur suppression restaurant:", error);
+		res.status(500).json({
+			status: "error",
+			message: "Erreur serveur",
+			error: error.message,
+		});
+	}
+});
+
+// ════════════════════════════════════════════════════════════════════════════════
+// 🎨 GESTION DES STYLES (Solution 1 - Configuration JSON dynamique)
+// ════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * GET /developer/styles
+ * Liste tous les styles disponibles (réservé au développeur)
+ */
+router.get("/styles", auth, checkDeveloper, async (req, res) => {
+	try {
+		const styles = await Style.findActive();
+
+		res.json({
+			status: "success",
+			count: styles.length,
+			styles: styles.map((style) => ({
+				id: style._id,
+				name: style.name,
+				key: style.key,
+				description: style.description,
+				suitableFor: style.suitableFor,
+				config: style.config,
+				isSystem: style.isSystem,
+				active: style.active,
+				createdAt: style.createdAt,
+				updatedAt: style.updatedAt,
+			})),
+		});
+	} catch (error) {
+		console.error("❌ Erreur GET /developer/styles:", error);
+		res.status(500).json({
+			status: "error",
+			message: "Erreur serveur",
+			error: error.message,
+		});
+	}
+});
+
+/**
+ * GET /developer/styles/:key
+ * Récupère un style spécifique par sa clé
+ */
+router.get("/styles/:key", auth, checkDeveloper, async (req, res) => {
+	try {
+		const { key } = req.params;
+		const style = await Style.findByKey(key);
+
+		if (!style) {
+			return res.status(404).json({
+				status: "error",
+				message: `Style '${key}' introuvable`,
+			});
+		}
+
+		res.json({
+			status: "success",
+			style: {
+				id: style._id,
+				name: style.name,
+				key: style.key,
+				description: style.description,
+				suitableFor: style.suitableFor,
+				config: style.config,
+				isSystem: style.isSystem,
+				active: style.active,
+				createdAt: style.createdAt,
+				updatedAt: style.updatedAt,
+			},
+		});
+	} catch (error) {
+		console.error("❌ Erreur GET /developer/styles/:key:", error);
+		res.status(500).json({
+			status: "error",
+			message: "Erreur serveur",
+			error: error.message,
+		});
+	}
+});
+
+/**
+ * POST /developer/styles
+ * Crée un nouveau style personnalisé (réservé au développeur)
+ * Body: { name, key, description, config, suitableFor }
+ */
+router.post("/styles", auth, checkDeveloper, async (req, res) => {
+	try {
+		const { name, key, description, config, suitableFor } = req.body;
+
+		// Validation
+		if (!name || !key || !description || !config) {
+			return res.status(400).json({
+				status: "error",
+				message: "name, key, description et config sont requis",
+			});
+		}
+
+		// Vérifier si la clé existe déjà
+		const existingStyle = await Style.findOne({
+			key: key.toLowerCase().trim(),
+		});
+		if (existingStyle) {
+			return res.status(409).json({
+				status: "error",
+				message: `Un style avec la clé '${key}' existe déjà`,
+			});
+		}
+
+		// Créer le style
+		const style = await Style.create({
+			name: name.trim(),
+			key: key.toLowerCase().trim(),
+			description: description.trim(),
+			config: config,
+			suitableFor: suitableFor || [],
+			isSystem: false, // Style personnalisé
+			active: true,
+		});
+
+		console.log(`✨ Style créé: ${style.name} (${style.key})`);
+
+		res.status(201).json({
+			status: "success",
+			message: "Style créé avec succès",
+			style: {
+				id: style._id,
+				name: style.name,
+				key: style.key,
+				description: style.description,
+				suitableFor: style.suitableFor,
+				config: style.config,
+				isSystem: style.isSystem,
+			},
+		});
+	} catch (error) {
+		console.error("❌ Erreur POST /developer/styles:", error);
+
+		// Gérer les erreurs de duplication MongoDB
+		if (error.code === 11000) {
+			return res.status(409).json({
+				status: "error",
+				message: "Un style avec cette clé existe déjà",
+			});
+		}
+
+		res.status(500).json({
+			status: "error",
+			message: "Erreur serveur lors de la création",
+			error: error.message,
+		});
+	}
+});
+
+/**
+ * PUT /developer/styles/:key
+ * Met à jour un style existant (réservé au développeur)
+ * Les styles système (isSystem: true) ne peuvent pas être modifiés
+ */
+router.put("/styles/:key", auth, checkDeveloper, async (req, res) => {
+	try {
+		const { key } = req.params;
+		const { name, description, config, suitableFor, active } = req.body;
+
+		const style = await Style.findOne({ key: key.toLowerCase() });
+
+		if (!style) {
+			return res.status(404).json({
+				status: "error",
+				message: `Style '${key}' introuvable`,
+			});
+		}
+
+		// Interdire la modification des styles système
+		if (style.isSystem) {
+			return res.status(403).json({
+				status: "error",
+				message:
+					"Les styles système ne peuvent pas être modifiés. Créez un nouveau style personnalisé.",
+			});
+		}
+
+		// Mettre à jour les champs fournis
+		if (name) style.name = name.trim();
+		if (description) style.description = description.trim();
+		if (config) style.config = config;
+		if (suitableFor !== undefined) style.suitableFor = suitableFor;
+		if (active !== undefined) style.active = active;
+
+		await style.save();
+
+		console.log(`🔄 Style mis à jour: ${style.name} (${style.key})`);
+
+		res.json({
+			status: "success",
+			message: "Style mis à jour avec succès",
+			style: {
+				id: style._id,
+				name: style.name,
+				key: style.key,
+				description: style.description,
+				suitableFor: style.suitableFor,
+				config: style.config,
+				isSystem: style.isSystem,
+				active: style.active,
+			},
+		});
+	} catch (error) {
+		console.error("❌ Erreur PUT /developer/styles/:key:", error);
+		res.status(500).json({
+			status: "error",
+			message: "Erreur serveur",
+			error: error.message,
+		});
+	}
+});
+
+/**
+ * DELETE /developer/styles/:key
+ * Supprime un style personnalisé (réservé au développeur)
+ * Les styles système ne peuvent pas être supprimés
+ */
+router.delete("/styles/:key", auth, checkDeveloper, async (req, res) => {
+	try {
+		const { key } = req.params;
+
+		const style = await Style.findOne({ key: key.toLowerCase() });
+
+		if (!style) {
+			return res.status(404).json({
+				status: "error",
+				message: `Style '${key}' introuvable`,
+			});
+		}
+
+		// Interdire la suppression des styles système
+		if (style.isSystem) {
+			return res.status(403).json({
+				status: "error",
+				message: "Les styles système ne peuvent pas être supprimés",
+			});
+		}
+
+		// Vérifier si des restaurants utilisent ce style
+		const restaurantsUsingStyle = await Restaurant.countDocuments({
+			styleKey: key,
+		});
+
+		if (restaurantsUsingStyle > 0) {
+			return res.status(409).json({
+				status: "error",
+				message: `${restaurantsUsingStyle} restaurant(s) utilisent encore ce style. Changez leur style avant de le supprimer.`,
+				restaurantsCount: restaurantsUsingStyle,
+			});
+		}
+
+		await Style.findByIdAndDelete(style._id);
+
+		console.log(`🗑️ Style supprimé: ${style.name} (${style.key})`);
+
+		res.json({
+			status: "success",
+			message: `Style '${style.name}' supprimé avec succès`,
+		});
+	} catch (error) {
+		console.error("❌ Erreur DELETE /developer/styles/:key:", error);
+		res.status(500).json({
+			status: "error",
+			message: "Erreur serveur",
+			error: error.message,
+		});
+	}
+});
+
+/**
+ * POST /developer/apply-style
+ * Applique un style à un restaurant (réservé au développeur)
+ * Body: { restaurant_id, style_key }
+ */
+router.post("/apply-style", auth, checkDeveloper, async (req, res) => {
+	try {
+		const { restaurant_id, style_key } = req.body;
+
+		// Validation
+		if (!restaurant_id || !style_key) {
+			return res.status(400).json({
+				status: "error",
+				message: "restaurant_id et style_key sont requis",
+			});
+		}
+
+		// Vérifier que le restaurant existe
+		const restaurant = await Restaurant.findById(restaurant_id);
+		if (!restaurant) {
+			return res.status(404).json({
+				status: "error",
+				message: "Restaurant introuvable",
+			});
+		}
+
+		// Vérifier que le style existe
+		const style = await Style.findByKey(style_key);
+		if (!style) {
+			return res.status(404).json({
+				status: "error",
+				message: `Style '${style_key}' introuvable`,
+			});
+		}
+
+		// Appliquer le style au restaurant
+		restaurant.styleKey = style.key;
+		await restaurant.save();
+
+		console.log(
+			`🎨 Style '${style.name}' appliqué au restaurant ${restaurant.name}`
+		);
+
+		res.json({
+			status: "success",
+			message: `Style '${style.name}' appliqué au restaurant '${restaurant.name}'`,
+			restaurant: {
+				id: restaurant._id,
+				name: restaurant.name,
+				styleKey: restaurant.styleKey,
+			},
+			style: {
+				id: style._id,
+				name: style.name,
+				key: style.key,
+				description: style.description,
+			},
+		});
+	} catch (error) {
+		console.error("❌ Erreur POST /developer/apply-style:", error);
 		res.status(500).json({
 			status: "error",
 			message: "Erreur serveur",
