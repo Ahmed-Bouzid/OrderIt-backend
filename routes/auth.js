@@ -342,10 +342,10 @@ router.post(
 // 🔐 POST /google-login - Authentification via Google OAuth
 router.post("/google-login", loginLimiter, async (req, res) => {
 	try {
-		const { idToken } = req.body;
+		const { idToken, code } = req.body;
 
-		if (!idToken) {
-			return res.status(400).json({ message: "Token Google manquant" });
+		if (!idToken && !code) {
+			return res.status(400).json({ message: "Token ou code Google manquant" });
 		}
 
 		// Vérifier le token Google
@@ -359,11 +359,30 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 		let payload;
 
 		try {
-			const ticket = await client.verifyIdToken({
-				idToken,
-				audience: googleClientId,
-			});
-			payload = ticket.getPayload();
+			// Si on reçoit un code d'autorisation, l'échanger contre un token
+			if (code && !idToken) {
+				console.log("🔐 [GOOGLE AUTH] Échange du code d'autorisation...");
+				const { tokens } = await client.getToken({
+					code,
+					redirect_uri: "https://auth.expo.io/sunnygo",
+				});
+				console.log("✅ [GOOGLE AUTH] Token obtenu via code exchange");
+				
+				// Vérifier le id_token obtenu
+				const ticket = await client.verifyIdToken({
+					idToken: tokens.id_token,
+					audience: googleClientId,
+				});
+				payload = ticket.getPayload();
+			} else {
+				// Vérifier directement l'id_token reçu
+				console.log("🔐 [GOOGLE AUTH] Vérification directe de l'id_token...");
+				const ticket = await client.verifyIdToken({
+					idToken,
+					audience: googleClientId,
+				});
+				payload = ticket.getPayload();
+			}
 		} catch (verifyError) {
 			console.error("❌ Token Google invalide:", verifyError.message);
 			return res.status(401).json({ message: "Token Google invalide" });
