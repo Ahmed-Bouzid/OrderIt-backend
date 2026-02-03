@@ -264,6 +264,42 @@ const emitNotification = (
 	);
 };
 
+/**
+ * 💳 Événement de paiement complété
+ * Émet une notification vers le dashboard serveur
+ */
+const emitPaymentCompleted = (
+	io,
+	restaurantId,
+	{ tableNumber, guestName, amount, orderId, tableId },
+) => {
+	if (!io) {
+		console.warn("⚠️ Socket.io non disponible pour payment-completed");
+		return false;
+	}
+
+	const roomName = `restaurant-${restaurantId}`;
+	const payload = {
+		type: "payment_completed",
+		data: {
+			tableNumber,
+			guestName: guestName || "Client",
+			amount,
+			orderId,
+			tableId,
+		},
+		timestamp: new Date().toISOString(),
+		restaurant_id: restaurantId,
+	};
+
+	io.to(roomName).emit("payment-completed", payload);
+	console.log(
+		`📡 [payment-completed] Table ${tableNumber} - ${amount}€ → room ${roomName}`,
+	);
+
+	return true;
+};
+
 module.exports = {
 	emitReservationEvent,
 	emitTableEvent,
@@ -275,4 +311,5 @@ module.exports = {
 	emitStyleAppliedEvent,
 	emitStockUpdatedEvent,
 	emitNotification,
+	emitPaymentCompleted, // 🔔 NOUVEAU: Notification paiement
 };

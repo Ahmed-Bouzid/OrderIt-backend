@@ -61,6 +61,13 @@ const tableSchema = new mongoose.Schema(
 		// Rétrocompatibilité : isAvailable calculé depuis status
 		isAvailable: { type: Boolean, default: true },
 
+		// 🎯 Marqueur pour tables temporaires (snack)
+		isTemporary: {
+			type: Boolean,
+			default: false,
+			index: true,
+		},
+
 		// Liste des invités (ordre d'arrivée)
 		guests: [{ type: String }],
 
@@ -74,7 +81,7 @@ const tableSchema = new mongoose.Schema(
 		toJSON: { virtuals: true },
 		toObject: { virtuals: true },
 		timestamps: true,
-	}
+	},
 );
 
 // Middleware pre-save pour synchroniser isAvailable avec status
@@ -106,7 +113,7 @@ tableSchema.index(
 			"position.x": { $exists: true },
 			"position.y": { $exists: true },
 		},
-	}
+	},
 );
 
 // Méthode statique pour récupérer toutes les tables d'un restaurant

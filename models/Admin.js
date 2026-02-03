@@ -21,7 +21,20 @@ const adminSchema = new mongoose.Schema({
 	},
 	passwordHash: {
 		type: String,
-		required: true,
+		required: function () {
+			return this.authProvider === "local";
+		},
+	},
+	// 🔐 OAuth Google
+	authProvider: {
+		type: String,
+		enum: ["local", "google"],
+		default: "local",
+	},
+	googleId: {
+		type: String,
+		unique: true,
+		sparse: true, // permet null/undefined sans conflit unique
 	},
 	role: {
 		type: String,

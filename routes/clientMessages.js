@@ -670,4 +670,132 @@ router.get("/messaging-status/:restaurantId", async (req, res) => {
 	}
 });
 
+// ═══════════════════════════════════════════════════════════════════════
+// 🔔 ROUTE NOTIFICATIONS (Pour l'inbox serveur)
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * GET /client-messages/notifications/:restaurantId
+ * Récupère les notifications avec temps écoulé calculé
+ * Pour alimenter l'inbox de notifications du dashboard serveur
+ */
+router.get("/notifications/:restaurantId", async (req, res) => {
+	try {
+		const { restaurantId } = req.params;
+		const { limit = 50, unreadOnly = false } = req.query;
+
+		// Construire le filtre
+		const filter = {
+			restaurantId,
+		};
+
+		if (unreadOnly === "true") {
+			filter.status = "sent"; // Non lu = statut "sent"
+		}
+
+		const messages = await ClientMessage.find(filter)
+			.populate("tableId", "number")
+			.populate("predefinedMessageId", "icon category")
+			.sort({ createdAt: -1 })
+			.limit(parseInt(limit, 10));
+
+		// Calculer le temps écoulé pour chaque notification
+		const now = new Date();
+		const notifications = messages.map((msg) => {
+			const createdAt = new Date(msg.createdAt);
+			const elapsedMs = now - createdAt;
+			const elapsedSeconds = Math.floor(elapsedMs / 1000);
+			const minutes = Math.floor(elapsedSeconds / 60);
+			const seconds = elapsedSeconds % 60;
+
+			// Format mm:ss
+			const elapsedTime = `${minutes.toString().padStart(2, "0")}:${seconds
+				.toString()
+				.padStart(2, "0")}`;
+
+			return {
+				id: msg._id,
+				type: "MESSAGE",
+				title: `Table ${msg.tableId?.number || "?"}`,
+				message: msg.messageText,
+				category: msg.predefinedMessageId?.category || "general",
+				icon: msg.predefinedMessageId?.icon,
+				tableNumber: msg.tableId?.number,
+				tableId: msg.tableId?._id,
+				clientName: msg.clientName,
+				reservationId: msg.reservationId,
+				read: msg.status === "read",
+				timestamp: msg.createdAt,
+				elapsedTime,
+				elapsedMs,
+			};
+		});
+
+		// Compter les non lus
+		const unreadCount = await ClientMessage.countDocuments({
+			restaurantId,
+			status: "sent",
+		});
+
+		res.json({
+			success: true,
+			notifications,
+			unreadCount,
+			total: notifications.length,
+		});
+	} catch (error) {
+		console.error("❌ Erreur récupération notifications:", error);
+		res.status(500).json({
+			success: false,
+			message: "Erreur serveur lors de la récupération des notifications",
+		});
+	}
+});
+
+/**
+ * PUT /client-messages/notifications/mark-all-read/:restaurantId
+ * Marque toutes les notifications d'un restaurant comme lues
+ */
+router.put("/notifications/mark-all-read/:restaurantId", async (req, res) => {
+	try {
+		const { restaurantId } = req.params;
+
+		const result = await ClientMessage.updateMany(
+			{
+				restaurantId,
+				status: "sent",
+			},
+			{
+				status: "read",
+				readAt: new Date(),
+			},
+		);
+
+		// Notifier via WebSocket
+		const io = req.app.get("io");
+		if (io) {
+			io.to(`restaurant-${restaurantId}`).emit("client-message", {
+				type: "all-messages-read",
+				data: {
+					restaurantId,
+					count: result.modifiedCount,
+				},
+				timestamp: new Date().toISOString(),
+			});
+		}
+
+		res.json({
+			success: true,
+			message: `${result.modifiedCount} notification(s) marquée(s) comme lue(s)`,
+			modifiedCount: result.modifiedCount,
+		});
+	} catch (error) {
+		console.error("❌ Erreur marquage toutes notifications lues:", error);
+		res.status(500).json({
+			success: false,
+			message: "Erreur serveur",
+		});
+	}
+});
+
 module.exports = router;

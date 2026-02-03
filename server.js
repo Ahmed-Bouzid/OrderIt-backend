@@ -31,7 +31,7 @@ app.use(
 					credentials: true,
 					methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 					allowedHeaders: ["Content-Type", "Authorization"],
-			  }
+				}
 			: {
 					origin: [
 						"http://localhost:8081",
@@ -43,8 +43,8 @@ app.use(
 					credentials: true,
 					methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 					allowedHeaders: ["Content-Type", "Authorization"],
-			  }
-	)
+				},
+	),
 );
 
 app.use(express.json({ limit: "10mb" }));
@@ -83,6 +83,7 @@ app.use("/allergens", require("./routes/allergens")); // ⭐ Routes allergènes
 app.use("/payments", auth, require("./routes/payments")); // 💳 Routes Stripe
 app.use("/feedback", require("./routes/feedback")); // 🛠️ Routes feedback utilisateurs
 app.use("/mfa", require("./routes/mfa")); // 🔐 Routes MFA (Multi-Factor Authentication)
+app.use("/api/feature-levels", auth, require("./routes/featureLevels")); // 🎚️ Routes niveaux fonctionnels
 app.use("/client/token", clientTokenRoutes);
 app.use("/client/products", clientProductsRoutes);
 

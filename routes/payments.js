@@ -6,7 +6,10 @@ const Order = require("../models/Order");
 const auth = require("../middlewares/auth");
 const checkRoles = require("../middlewares/checkRoles");
 const { body, validationResult } = require("express-validator");
-const { emitOrderEvent } = require("../utils/socketEmitter");
+const {
+	emitOrderEvent,
+	emitPaymentCompleted,
+} = require("../utils/socketEmitter");
 
 // ════════════════════════════════════════════════════════════════════════════
 // ROUTE: POST /payments/create-intent
@@ -50,7 +53,7 @@ router.post(
 			console.log(
 				`💳 Création PaymentIntent - Order: ${orderId}, Amount: ${
 					amount / 100
-				}€, Tip: ${tipAmount / 100}€`
+				}€, Tip: ${tipAmount / 100}€`,
 			);
 
 			// Vérifier que Stripe est configuré
@@ -102,7 +105,7 @@ router.post(
 				message: err.message,
 			});
 		}
-	}
+	},
 );
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -130,7 +133,7 @@ router.post(
 
 			const paymentIntent = await stripeService.confirmPaymentIntent(
 				paymentIntentId,
-				paymentMethodId
+				paymentMethodId,
 			);
 
 			res.json({
@@ -145,7 +148,7 @@ router.post(
 				message: err.message,
 			});
 		}
-	}
+	},
 );
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -169,9 +172,8 @@ router.post(
 
 			console.log(`🧪 Confirmation avec carte test 4242: ${paymentIntentId}`);
 
-			const paymentIntent = await stripeService.confirmWithTestCard(
-				paymentIntentId
-			);
+			const paymentIntent =
+				await stripeService.confirmWithTestCard(paymentIntentId);
 
 			res.json({
 				success: true,
@@ -186,7 +188,7 @@ router.post(
 				message: err.message,
 			});
 		}
-	}
+	},
 );
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -210,9 +212,8 @@ router.post(
 
 			console.log(`🚫 Annulation PaymentIntent: ${paymentIntentId}`);
 
-			const paymentIntent = await stripeService.cancelPaymentIntent(
-				paymentIntentId
-			);
+			const paymentIntent =
+				await stripeService.cancelPaymentIntent(paymentIntentId);
 
 			res.json({
 				success: true,
@@ -225,7 +226,7 @@ router.post(
 				message: err.message,
 			});
 		}
-	}
+	},
 );
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -236,7 +237,7 @@ router.post(
 router.get("/:paymentId/status", auth, async (req, res) => {
 	try {
 		const payment = await Payment.findById(req.params.paymentId).select(
-			"status stripePaymentIntentId amount currency createdAt updatedAt"
+			"status stripePaymentIntentId amount currency createdAt updatedAt",
 		);
 
 		if (!payment) {
@@ -247,7 +248,7 @@ router.get("/:paymentId/status", auth, async (req, res) => {
 		if (payment.status === "pending" && payment.stripePaymentIntentId) {
 			try {
 				const stripePI = await stripeService.getPaymentIntent(
-					payment.stripePaymentIntentId
+					payment.stripePaymentIntentId,
 				);
 
 				// Mettre à jour le statut local si changé
@@ -395,7 +396,7 @@ router.get(
 			console.error("❌ Erreur récupération paiements restaurant:", err);
 			res.status(500).json({ error: "Erreur serveur" });
 		}
-	}
+	},
 );
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -436,24 +437,43 @@ router.post(
 			console.log(
 				`🎭 Création paiement FAKE - Order: ${orderId}, Amount: ${
 					amount / 100
-				}€`
+				}€`,
 			);
 
 			const result = await stripeService.createFakePayment(
 				orderId,
 				amount,
-				tipAmount
+				tipAmount,
 			);
 
-			// Émettre événement WebSocket
+			// Émettre événement WebSocket pour mise à jour commande
 			const io = req.app.locals.io;
 			if (io && result.order.restaurantId) {
 				emitOrderEvent(
 					io,
 					result.order.restaurantId.toString(),
 					"updated",
-					result.order.toObject()
+					result.order.toObject(),
 				);
+
+				// 🔔 Émettre notification de paiement complété
+				// Récupérer les infos de table pour la notification
+				const Table = require("../models/Table");
+				const Reservation = require("../models/Reservation");
+				const table = await Table.findById(result.order.tableId).select(
+					"number",
+				);
+				const reservation = await Reservation.findById(
+					result.order.reservationId,
+				).select("guestName");
+
+				emitPaymentCompleted(io, result.order.restaurantId.toString(), {
+					tableNumber: table?.number || "?",
+					guestName: reservation?.guestName || "Client",
+					amount: amount / 100, // Convertir en euros
+					orderId: result.order._id,
+					tableId: result.order.tableId,
+				});
 			}
 
 			res.json({
@@ -470,7 +490,7 @@ router.post(
 				message: err.message,
 			});
 		}
-	}
+	},
 );
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -501,7 +521,7 @@ router.post(
 				result.orderId
 			) {
 				const order = await Order.findById(result.orderId).populate(
-					"restaurantId"
+					"restaurantId",
 				);
 
 				if (order) {
@@ -511,11 +531,27 @@ router.post(
 							io,
 							order.restaurantId._id.toString(),
 							"payment_succeeded",
-							order.toObject()
+							order.toObject(),
 						);
 
+						// 🔔 Émettre notification de paiement complété
+						const Table = require("../models/Table");
+						const Reservation = require("../models/Reservation");
+						const table = await Table.findById(order.tableId).select("number");
+						const reservation = await Reservation.findById(
+							order.reservationId,
+						).select("guestName");
+
+						emitPaymentCompleted(io, order.restaurantId._id.toString(), {
+							tableNumber: table?.number || "?",
+							guestName: reservation?.guestName || "Client",
+							amount: order.total / 100, // Convertir en euros
+							orderId: order._id,
+							tableId: order.tableId,
+						});
+
 						console.log(
-							`📡 WebSocket émis: payment_succeeded pour order ${order._id}`
+							`📡 WebSocket émis: payment_succeeded + payment-completed pour order ${order._id}`,
 						);
 					}
 				}
@@ -526,7 +562,7 @@ router.post(
 			console.error("❌ Erreur webhook Stripe:", err);
 			res.status(400).send(`Webhook Error: ${err.message}`);
 		}
-	}
+	},
 );
 
 module.exports = router;
