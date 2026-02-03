@@ -376,14 +376,19 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 		}
 
 		console.log(`🔐 [GOOGLE AUTH] Tentative connexion: ${email}`);
+		console.log(`🔐 [GOOGLE AUTH] GoogleId reçu: ${googleId}`);
+		console.log(`🔐 [GOOGLE AUTH] Nom reçu: ${name}`);
 
 		// Chercher user existant (Admin ou Server) par googleId ou email
 		let user = await Admin.findOne({ $or: [{ googleId }, { email }] });
+		console.log(`🔍 [GOOGLE AUTH] Admin trouvé par googleId/email:`, user ? 'OUI' : 'NON');
+		
 		let userType = "admin";
 
 		if (!user) {
 			user = await Server.findOne({ $or: [{ googleId }, { email }] });
 			userType = "server";
+			console.log(`🔍 [GOOGLE AUTH] Server trouvé par googleId/email:`, user ? 'OUI' : 'NON');
 		}
 
 		// Si user existe avec email mais pas googleId, lier le compte
