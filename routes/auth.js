@@ -9,6 +9,7 @@ const jwtBlacklist = require("../utils/jwtBlacklist");
 const auth = require("../middlewares/auth");
 const { loginLimiter, strictLimiter } = require("../middlewares/rateLimiter");
 const validatePasswordComplexity = require("../middlewares/validatePasswordComplexity");
+const { OAuth2Client } = require("google-auth-library");
 
 // POST /login - Authentification + génération tokens (PROTECTION BRUTE-FORCE)
 router.post("/login", loginLimiter, async (req, res) => {
@@ -337,5 +338,151 @@ router.post(
 		}
 	}
 );
+
+// 🔐 POST /google-login - Authentification via Google OAuth
+router.post("/google-login", loginLimiter, async (req, res) => {
+	try {
+		const { idToken } = req.body;
+
+		if (!idToken) {
+			return res.status(400).json({ message: "Token Google manquant" });
+		}
+
+		// Vérifier le token Google
+		const googleClientId = process.env.GOOGLE_CLIENT_ID;
+		if (!googleClientId) {
+			console.error("❌ GOOGLE_CLIENT_ID non configuré");
+			return res.status(500).json({ message: "Configuration OAuth manquante" });
+		}
+
+		const client = new OAuth2Client(googleClientId);
+		let payload;
+
+		try {
+			const ticket = await client.verifyIdToken({
+				idToken,
+				audience: googleClientId,
+			});
+			payload = ticket.getPayload();
+		} catch (verifyError) {
+			console.error("❌ Token Google invalide:", verifyError.message);
+			return res.status(401).json({ message: "Token Google invalide" });
+		}
+
+		const { sub: googleId, email, name } = payload;
+
+		if (!email) {
+			return res.status(400).json({ message: "Email Google manquant" });
+		}
+
+		console.log(`🔐 [GOOGLE AUTH] Tentative connexion: ${email}`);
+
+		// Chercher user existant (Admin ou Server) par googleId ou email
+		let user = await Admin.findOne({ $or: [{ googleId }, { email }] });
+		let userType = "admin";
+
+		if (!user) {
+			user = await Server.findOne({ $or: [{ googleId }, { email }] });
+			userType = "server";
+		}
+
+		// Si user existe avec email mais pas googleId, lier le compte
+		if (user && !user.googleId) {
+			user.googleId = googleId;
+			user.authProvider = "google";
+			await user.save();
+			console.log(`🔗 [GOOGLE AUTH] Compte lié: ${email}`);
+		}
+
+		// Si user n'existe pas, créer un nouveau compte Admin
+		if (!user) {
+			// Générer serverId unique pour nouvel admin
+			const lastAdmin = await Admin.findOne()
+				.sort({ serverId: -1 })
+				.select("serverId");
+			const lastId = lastAdmin
+				? parseInt(lastAdmin.serverId.replace("S", ""))
+				: 0;
+			const newServerId = `S${String(lastId + 1).padStart(4, "0")}`;
+
+			user = await Admin.create({
+				serverId: newServerId,
+				name: name || email.split("@")[0],
+				email,
+				googleId,
+				authProvider: "google",
+				role: "admin",
+				// passwordHash non requis pour OAuth
+			});
+
+			userType = "admin";
+			console.log(`✅ [GOOGLE AUTH] Nouveau compte créé: ${email}`);
+		}
+
+		// Récupérer catégorie restaurant si applicable
+		let restaurantCategory = "restaurant";
+		if (user.role !== "developer" && user.restaurantId) {
+			const Restaurant = require("../models/Restaurant");
+			const restaurant = await Restaurant.findById(user.restaurantId);
+
+			if (restaurant && !restaurant.active) {
+				console.log(
+					`🚫 Connexion refusée - Restaurant désactivé: ${restaurant.name}`
+				);
+				return res.status(403).json({
+					message: "Restaurant désactivé",
+					code: "RESTAURANT_DISABLED",
+					restaurantName: restaurant.name,
+				});
+			}
+
+			if (restaurant) {
+				restaurantCategory = restaurant.category || "restaurant";
+			}
+		}
+
+		// Générer JWT OrderIt
+		const jwtPayload = {
+			id: user._id,
+			email: user.email,
+			role: user.role,
+			userType,
+			restaurantId: user.restaurantId || null,
+			category: restaurantCategory,
+		};
+
+		const jwtSecret = process.env.JWT_SECRET;
+		if (!jwtSecret || jwtSecret.trim() === "") {
+			console.error("❌ CRITICAL: JWT_SECRET is empty or undefined!");
+			return res
+				.status(500)
+				.json({ message: "Configuration serveur manquante" });
+		}
+
+		const accessToken = jwt.sign(jwtPayload, jwtSecret, { expiresIn: "1h" });
+		const refreshToken = jwt.sign(jwtPayload, jwtSecret, { expiresIn: "7d" });
+
+		await RefreshTokenStore.add(refreshToken);
+
+		console.log(`✅ [GOOGLE AUTH] Connexion réussie: ${email}`);
+
+		res.status(200).json({
+			message: "Connexion Google réussie",
+			accessToken,
+			refreshToken,
+			user: {
+				id: user._id,
+				email: user.email,
+				name: user.name,
+				role: user.role,
+				restaurantId: user.restaurantId,
+				category: restaurantCategory,
+			},
+		});
+	} catch (err) {
+		console.error("❌ [GOOGLE AUTH] Erreur:", err);
+		res.status(500).json({ message: "Erreur serveur" });
+	}
+});
 
 module.exports = router;
