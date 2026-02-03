@@ -68,7 +68,7 @@ async function testFeedback() {
 
 // Connexion à MongoDB
 const MONGODB_URI =
-	process.env.MONGODB_URI || "mongodb://localhost:27017/orderit";
+	process.env.MONGODB_URI || "mongodb://localhost:27017/sunnygo";
 
 mongoose
 	.connect(MONGODB_URI, {

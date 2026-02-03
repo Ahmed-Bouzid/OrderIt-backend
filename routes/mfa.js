@@ -38,8 +38,8 @@ router.post("/setup", auth, async (req, res) => {
 
 		// Générer un nouveau secret TOTP
 		const secret = speakeasy.generateSecret({
-			name: `OrderIt (${user.email})`,
-			issuer: "OrderIt Restaurant",
+			name: `SunnyGo (${user.email})`,
+			issuer: "SunnyGo Restaurant",
 			length: 32,
 		});
 

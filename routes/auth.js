@@ -42,7 +42,7 @@ router.post("/login", loginLimiter, async (req, res) => {
 
 			if (restaurant && !restaurant.active) {
 				console.log(
-					`🚫 Connexion refusée - Restaurant désactivé: ${restaurant.name} (${user.email})`
+					`🚫 Connexion refusée - Restaurant désactivé: ${restaurant.name} (${user.email})`,
 				);
 				return res.status(403).json({
 					message:
@@ -59,7 +59,7 @@ router.post("/login", loginLimiter, async (req, res) => {
 					"🍔 [AUTH] Category extraite du restaurant:",
 					restaurantCategory,
 					"pour restaurant:",
-					restaurant.name
+					restaurant.name,
 				);
 			}
 		}
@@ -155,7 +155,7 @@ router.post("/login", loginLimiter, async (req, res) => {
 			"role:",
 			response.role,
 			"restaurantId:",
-			response.restaurantId
+			response.restaurantId,
 		);
 		return res.json(response);
 	} catch (err) {
@@ -203,7 +203,7 @@ router.post("/refresh", strictLimiter, async (req, res) => {
 				const newRefreshToken = jwt.sign(
 					payload,
 					process.env.REFRESH_TOKEN_SECRET,
-					{ expiresIn: "7d" }
+					{ expiresIn: "7d" },
 				);
 
 				// Supprime l'ancien refresh token et ajoute le nouveau
@@ -223,7 +223,7 @@ router.post("/refresh", strictLimiter, async (req, res) => {
 					accessToken: newAccessToken,
 					refreshToken: newRefreshToken,
 				});
-			}
+			},
 		);
 	} catch (err) {
 		console.error("Erreur refresh token:", err);
@@ -261,7 +261,7 @@ router.post("/logout", async (req, res) => {
 				} else {
 					console.error(
 						"Erreur lors de la vérification du JWT dans logout :",
-						err
+						err,
 					);
 				}
 			}
@@ -315,7 +315,7 @@ router.post(
 			// Vérifier le mot de passe actuel
 			const validPassword = await bcrypt.compare(
 				currentPassword,
-				user.passwordHash
+				user.passwordHash,
 			);
 			if (!validPassword) {
 				return res
@@ -336,7 +336,7 @@ router.post(
 			console.error("Erreur change-password:", err);
 			res.status(500).json({ message: "Erreur serveur." });
 		}
-	}
+	},
 );
 
 // 🔐 POST /google-login - Authentification via Google OAuth
@@ -427,7 +427,7 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 
 			if (restaurant && !restaurant.active) {
 				console.log(
-					`🚫 Connexion refusée - Restaurant désactivé: ${restaurant.name}`
+					`🚫 Connexion refusée - Restaurant désactivé: ${restaurant.name}`,
 				);
 				return res.status(403).json({
 					message: "Restaurant désactivé",
@@ -441,7 +441,7 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 			}
 		}
 
-		// Générer JWT OrderIt
+		// Générer JWT SunnyGo
 		const jwtPayload = {
 			id: user._id,
 			email: user.email,

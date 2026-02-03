@@ -10,7 +10,7 @@ async function updateGrillz() {
 	try {
 		// Connexion MongoDB
 		const mongoUri =
-			process.env.MONGODB_URI || "mongodb://localhost:27017/orderit";
+			process.env.MONGODB_URI || "mongodb://localhost:27017/sunnygo";
 		await mongoose.connect(mongoUri);
 		console.log("✅ Connecté à MongoDB");
 

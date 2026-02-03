@@ -16,7 +16,7 @@ const {
 	LEVELS,
 	SELF_LEVEL_CONFIG,
 	SERVICE_LEVEL_CONFIG,
-} = require("../../shared-api/config/featureLevels");
+} = require("../config/featureLevels");
 
 /**
  * GET /api/feature-levels/:restaurantId

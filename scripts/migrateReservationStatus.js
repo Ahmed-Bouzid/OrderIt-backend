@@ -13,7 +13,7 @@ require("dotenv").config();
 
 // URI MongoDB (à adapter selon votre configuration)
 const MONGODB_URI =
-	process.env.MONGODB_URI || "mongodb://localhost:27017/orderit";
+	process.env.MONGODB_URI || "mongodb://localhost:27017/sunnygo";
 
 async function migrateReservationStatus() {
 	console.log("🔄 Connexion à MongoDB...");
