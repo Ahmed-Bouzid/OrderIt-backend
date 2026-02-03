@@ -8,7 +8,7 @@
 const express = require("express");
 const router = express.Router();
 const Restaurant = require("../models/Restaurant");
-const { auth } = require("../middlewares/auth");
+const auth = require("../middlewares/auth");
 const checkAdmin = require("../middlewares/checkAdmin");
 const {
 	getLevelFromCategory,
