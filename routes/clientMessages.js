@@ -100,13 +100,15 @@ router.post("/send", async (req, res) => {
 
 		// Émettre l'événement WebSocket pour notifier le serveur
 		const io = req.app.get("io");
+		console.log("🔍 [DEBUG] io instance:", !!io);
 		if (io) {
 			// Récupérer les infos de la table pour la notification
 			const table = await Table.findById(reservation.tableId._id).select(
 				"number",
 			);
 
-			io.to(`restaurant-${reservation.restaurantId}`).emit("client-message", {
+			const roomName = `restaurant-${reservation.restaurantId}`;
+			const payload = {
 				type: "new-message",
 				data: {
 					messageId: clientMessage._id,
@@ -120,10 +122,19 @@ router.post("/send", async (req, res) => {
 					timestamp: clientMessage.createdAt,
 				},
 				timestamp: new Date().toISOString(),
-			});
+			};
+			
+			console.log(`🔍 [DEBUG] Émission vers room "${roomName}"`);
+			console.log(`🔍 [DEBUG] Payload:`, JSON.stringify(payload, null, 2));
+			console.log(`🔍 [DEBUG] Sockets dans la room:`, io.sockets.adapter.rooms.get(roomName)?.size || 0);
+			
+			io.to(roomName).emit("client-message", payload);
+			
 			console.log(
-				`📡 Message client envoyé: Table ${table?.number} - "${predefinedMessage.text}"`,
+				`📡 Message client envoyé vers room ${roomName}: Table ${table?.number} - "${predefinedMessage.text}"`,
 			);
+		} else {
+			console.error("❌ [DEBUG] io instance non disponible!");
 		}
 
 		res.status(201).json({
@@ -235,9 +246,15 @@ router.put("/:messageId/read", async (req, res) => {
 
 		// Notifier via WebSocket que le message a été lu
 		const io = req.app.get("io");
+		console.log("🔍 [DEBUG VALIDATION] io instance:", !!io);
+		console.log("🔍 [DEBUG VALIDATION] message.reservationId:", message.reservationId);
 		if (io) {
 			// Notifier le frontend (serveur/restaurateur)
-			io.to(`restaurant-${message.restaurantId}`).emit("client-message", {
+			const frontendRoom = `restaurant-${message.restaurantId}`;
+			console.log(`🔍 [DEBUG VALIDATION] Émission vers frontend room: ${frontendRoom}`);
+			console.log(`🔍 [DEBUG VALIDATION] Sockets dans ${frontendRoom}:`, io.sockets.adapter.rooms.get(frontendRoom)?.size || 0);
+			
+			io.to(frontendRoom).emit("client-message", {
 				type: "message-read",
 				data: {
 					messageId: message._id,
@@ -248,7 +265,8 @@ router.put("/:messageId/read", async (req, res) => {
 
 			// Notifier le client (CLIENT-end) via reservationId
 			if (message.reservationId) {
-				io.to(`reservation-${message.reservationId}`).emit("message-status", {
+				const clientRoom = `reservation-${message.reservationId}`;
+				const clientPayload = {
 					type: "read",
 					data: {
 						messageId: message._id,
@@ -256,8 +274,20 @@ router.put("/:messageId/read", async (req, res) => {
 						status: "read",
 					},
 					timestamp: new Date().toISOString(),
-				});
+				};
+				
+				console.log(`🔍 [DEBUG VALIDATION] Émission vers client room: ${clientRoom}`);
+				console.log(`🔍 [DEBUG VALIDATION] Payload:`, JSON.stringify(clientPayload, null, 2));
+				console.log(`🔍 [DEBUG VALIDATION] Sockets dans ${clientRoom}:`, io.sockets.adapter.rooms.get(clientRoom)?.size || 0);
+				
+				io.to(clientRoom).emit("message-status", clientPayload);
+				
+				console.log(`✅ [DEBUG VALIDATION] Événement message-status émis vers ${clientRoom}`);
+			} else {
+				console.warn("⚠️ [DEBUG VALIDATION] message.reservationId est null, pas d'émission vers client");
 			}
+		} else {
+			console.error("❌ [DEBUG VALIDATION] io instance non disponible!");
 		}
 
 		res.json({

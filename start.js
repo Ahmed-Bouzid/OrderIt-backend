@@ -230,6 +230,35 @@ io.on("connection", (socket) => {
 		}
 	});
 
+	// Joindre une room de réservation (pour recevoir les mises à jour de messages)
+	socket.on("join-reservation", (data, callback) => {
+		const { reservationId } = data;
+		console.log(`🔍 [DEBUG] join-reservation appelé avec:`, data);
+		if (!reservationId) {
+			console.warn("⚠️ join-reservation sans reservationId");
+			if (callback) callback({ success: false, error: "reservationId manquant" });
+			return;
+		}
+
+		const roomName = `reservation-${reservationId}`;
+		socket.join(roomName);
+		socket.reservationId = reservationId;
+		console.log(`📝 Socket ${socket.id} rejoint room ${roomName}`);
+		console.log(`🔍 [DEBUG] Total sockets dans ${roomName}:`, io.sockets.adapter.rooms.get(roomName)?.size || 0);
+
+		if (callback) callback({ success: true, reservationId });
+	});
+
+	// Quitter une room de réservation
+	socket.on("leave-reservation", (data) => {
+		const { reservationId } = data;
+		if (!reservationId) return;
+
+		const roomName = `reservation-${reservationId}`;
+		socket.leave(roomName);
+		console.log(`👋 Socket ${socket.id} quitte room ${roomName}`);
+	});
+
 	// ============ DÉCONNEXION ============
 	socket.on("disconnect", (reason) => {
 		console.log(`❌ Client déconnecté: ${socket.id} Reason: ${reason}`);
