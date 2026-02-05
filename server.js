@@ -83,7 +83,7 @@ app.use("/allergens", require("./routes/allergens")); // ⭐ Routes allergènes
 app.use("/payments", auth, require("./routes/payments")); // 💳 Routes Stripe
 app.use("/feedback", require("./routes/feedback")); // 🛠️ Routes feedback utilisateurs
 app.use("/mfa", require("./routes/mfa")); // 🔐 Routes MFA (Multi-Factor Authentication)
-// app.use("/api/feature-levels", auth, require("./routes/featureLevels")); // 🎚️ Routes niveaux fonctionnels (DÉSACTIVÉ - fichier vide)
+app.use("/api/feature-levels", auth, require("./routes/featureLevels")); // 🎚️ Routes niveaux fonctionnels
 app.use("/client/token", clientTokenRoutes);
 app.use("/client/products", clientProductsRoutes);
 
