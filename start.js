@@ -48,7 +48,7 @@ io.engine.on("connection", (socket) => {
 // ⭐ Middleware d'authentification Socket.io (optionnel pour clients publics)
 io.use((socket, next) => {
 	const token = socket.handshake.auth.token;
-	
+
 	// ✅ Si pas de token, c'est un client public (non authentifié)
 	if (!token) {
 		console.log("🔓 Connexion Socket client public (sans token)");
@@ -63,7 +63,9 @@ io.use((socket, next) => {
 		socket.restaurantId = decoded.restaurantId;
 		socket.userType = decoded.userType;
 		socket.isPublicClient = false;
-		console.log(`🔐 Connexion Socket authentifiée: ${decoded.userType} (${decoded.id})`);
+		console.log(
+			`🔐 Connexion Socket authentifiée: ${decoded.userType} (${decoded.id})`,
+		);
 		next();
 	} catch (err) {
 		console.error("❌ Token Socket invalide:", err.message);
@@ -273,6 +275,7 @@ app.locals.restaurantConnections = restaurantConnections;
 module.exports.io = io;
 
 const os = require("os");
+const { initEmailService } = require("./services/emailService");
 
 function getLocalIp() {
 	const interfaces = os.networkInterfaces();
@@ -291,8 +294,12 @@ mongoose
 		serverSelectionTimeoutMS: 10000,
 		socketTimeoutMS: 15000,
 	})
-	.then(() => {
+	.then(async () => {
 		console.log("✅ MongoDB connecté");
+
+		// 📧 Initialiser le service email (optionnel, ne bloque pas le démarrage)
+		await initEmailService();
+
 		server.listen(port, "0.0.0.0", () => {
 			const localIp = getLocalIp();
 			console.log(`🚀 Server EasyQR démarré sur http://0.0.0.0:${port}`);

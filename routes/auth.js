@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const Admin = require("../models/Admin");
 const Server = require("../models/Server");
+const PasswordReset = require("../models/PasswordReset");
 const RefreshTokenStore = require("../utils/RefreshTokenStore");
 const router = express.Router();
 const jwtBlacklist = require("../utils/jwtBlacklist");
@@ -10,6 +11,7 @@ const auth = require("../middlewares/auth");
 const { loginLimiter, strictLimiter } = require("../middlewares/rateLimiter");
 const validatePasswordComplexity = require("../middlewares/validatePasswordComplexity");
 const { OAuth2Client } = require("google-auth-library");
+const { sendPasswordResetEmail } = require("../services/emailService");
 
 // POST /login - Authentification + génération tokens (PROTECTION BRUTE-FORCE)
 router.post("/login", loginLimiter, async (req, res) => {
@@ -342,10 +344,10 @@ router.post(
 // 🔐 POST /google-login - Authentification via Google OAuth
 router.post("/google-login", loginLimiter, async (req, res) => {
 	try {
-		const { idToken, code } = req.body;
+		const { idToken } = req.body;
 
-		if (!idToken && !code) {
-			return res.status(400).json({ message: "Token ou code Google manquant" });
+		if (!idToken) {
+			return res.status(400).json({ message: "Token Google manquant" });
 		}
 
 		// Vérifier le token Google
@@ -359,30 +361,11 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 		let payload;
 
 		try {
-			// Si on reçoit un code d'autorisation, l'échanger contre un token
-			if (code && !idToken) {
-				console.log("🔐 [GOOGLE AUTH] Échange du code d'autorisation...");
-				const { tokens } = await client.getToken({
-					code,
-					redirect_uri: "https://auth.expo.io/sunnygo",
-				});
-				console.log("✅ [GOOGLE AUTH] Token obtenu via code exchange");
-				
-				// Vérifier le id_token obtenu
-				const ticket = await client.verifyIdToken({
-					idToken: tokens.id_token,
-					audience: googleClientId,
-				});
-				payload = ticket.getPayload();
-			} else {
-				// Vérifier directement l'id_token reçu
-				console.log("🔐 [GOOGLE AUTH] Vérification directe de l'id_token...");
-				const ticket = await client.verifyIdToken({
-					idToken,
-					audience: googleClientId,
-				});
-				payload = ticket.getPayload();
-			}
+			const ticket = await client.verifyIdToken({
+				idToken,
+				audience: googleClientId,
+			});
+			payload = ticket.getPayload();
 		} catch (verifyError) {
 			console.error("❌ Token Google invalide:", verifyError.message);
 			return res.status(401).json({ message: "Token Google invalide" });
@@ -395,19 +378,14 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 		}
 
 		console.log(`🔐 [GOOGLE AUTH] Tentative connexion: ${email}`);
-		console.log(`🔐 [GOOGLE AUTH] GoogleId reçu: ${googleId}`);
-		console.log(`🔐 [GOOGLE AUTH] Nom reçu: ${name}`);
 
 		// Chercher user existant (Admin ou Server) par googleId ou email
 		let user = await Admin.findOne({ $or: [{ googleId }, { email }] });
-		console.log(`🔍 [GOOGLE AUTH] Admin trouvé par googleId/email:`, user ? 'OUI' : 'NON');
-		
 		let userType = "admin";
 
 		if (!user) {
 			user = await Server.findOne({ $or: [{ googleId }, { email }] });
 			userType = "server";
-			console.log(`🔍 [GOOGLE AUTH] Server trouvé par googleId/email:`, user ? 'OUI' : 'NON');
 		}
 
 		// Si user existe avec email mais pas googleId, lier le compte
@@ -505,6 +483,176 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 		});
 	} catch (err) {
 		console.error("❌ [GOOGLE AUTH] Erreur:", err);
+		res.status(500).json({ message: "Erreur serveur" });
+	}
+});
+
+// 📧 POST /forgot-password - Demande de réinitialisation de mot de passe
+router.post("/forgot-password", strictLimiter, async (req, res) => {
+	try {
+		const { email } = req.body;
+
+		if (!email) {
+			return res.status(400).json({ message: "Email requis" });
+		}
+
+		const normalizedEmail = email.toLowerCase().trim();
+		console.log(`🔐 [FORGOT-PASSWORD] Demande pour: ${normalizedEmail}`);
+
+		// Chercher l'utilisateur (Admin ou Server)
+		let user = await Admin.findOne({ email: normalizedEmail });
+		let userType = "admin";
+
+		if (!user) {
+			user = await Server.findOne({ email: normalizedEmail });
+			userType = "server";
+		}
+
+		// SÉCURITÉ: Toujours répondre succès même si email non trouvé (anti-énumération)
+		if (!user) {
+			console.log(`⚠️ [FORGOT-PASSWORD] Email non trouvé: ${normalizedEmail}`);
+			return res.status(200).json({
+				message:
+					"Si cet email existe, un code de réinitialisation a été envoyé.",
+			});
+		}
+
+		// Vérifier si l'utilisateur utilise OAuth (pas de mot de passe)
+		if (user.authProvider === "google" && !user.passwordHash) {
+			console.log(`⚠️ [FORGOT-PASSWORD] Compte OAuth: ${normalizedEmail}`);
+			return res.status(200).json({
+				message:
+					"Si cet email existe, un code de réinitialisation a été envoyé.",
+			});
+		}
+
+		// Créer le token de reset
+		const resetDoc = await PasswordReset.createResetToken(
+			normalizedEmail,
+			user._id,
+			userType,
+		);
+
+		console.log(`✅ [FORGOT-PASSWORD] Token généré pour: ${normalizedEmail}`);
+
+		// Envoyer l'email
+		const emailResult = await sendPasswordResetEmail(
+			normalizedEmail,
+			resetDoc.token,
+		);
+
+		if (!emailResult.success) {
+			console.error(
+				`❌ [FORGOT-PASSWORD] Échec envoi email: ${emailResult.error}`,
+			);
+			// Ne pas exposer l'erreur au client
+		}
+
+		res.status(200).json({
+			message: "Si cet email existe, un code de réinitialisation a été envoyé.",
+		});
+	} catch (err) {
+		console.error("❌ [FORGOT-PASSWORD] Erreur:", err);
+		res.status(500).json({ message: "Erreur serveur" });
+	}
+});
+
+// 🔐 POST /reset-password - Réinitialiser le mot de passe avec le code
+router.post(
+	"/reset-password",
+	strictLimiter,
+	validatePasswordComplexity,
+	async (req, res) => {
+		try {
+			const { email, token, newPassword } = req.body;
+
+			if (!email || !token || !newPassword) {
+				return res.status(400).json({
+					message: "Email, code et nouveau mot de passe requis",
+				});
+			}
+
+			const normalizedEmail = email.toLowerCase().trim();
+			console.log(`🔐 [RESET-PASSWORD] Tentative pour: ${normalizedEmail}`);
+
+			// Vérifier le token
+			const verification = await PasswordReset.verifyToken(
+				normalizedEmail,
+				token,
+			);
+
+			if (!verification.valid) {
+				// Incrémenter les tentatives échouées
+				await PasswordReset.incrementAttempts(normalizedEmail);
+				console.log(
+					`⚠️ [RESET-PASSWORD] Token invalide pour: ${normalizedEmail}`,
+				);
+				return res.status(400).json({ message: verification.error });
+			}
+
+			// Trouver l'utilisateur
+			let user;
+			if (verification.userType === "admin") {
+				user = await Admin.findById(verification.userId);
+			} else {
+				user = await Server.findById(verification.userId);
+			}
+
+			if (!user) {
+				return res.status(404).json({ message: "Utilisateur non trouvé" });
+			}
+
+			// Hasher et sauvegarder le nouveau mot de passe
+			const salt = await bcrypt.genSalt(10);
+			user.passwordHash = await bcrypt.hash(newPassword, salt);
+			await user.save();
+
+			// Marquer le token comme utilisé
+			await PasswordReset.markAsUsed(normalizedEmail, token);
+
+			// Supprimer tous les tokens de reset pour cet email
+			await PasswordReset.deleteMany({ email: normalizedEmail });
+
+			console.log(
+				`✅ [RESET-PASSWORD] Mot de passe réinitialisé pour: ${normalizedEmail}`,
+			);
+
+			res.status(200).json({
+				message:
+					"Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter.",
+			});
+		} catch (err) {
+			console.error("❌ [RESET-PASSWORD] Erreur:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
+
+// 🔍 POST /verify-reset-token - Vérifier si un token est valide (optionnel, pour UX)
+router.post("/verify-reset-token", strictLimiter, async (req, res) => {
+	try {
+		const { email, token } = req.body;
+
+		if (!email || !token) {
+			return res.status(400).json({ message: "Email et code requis" });
+		}
+
+		const normalizedEmail = email.toLowerCase().trim();
+		const verification = await PasswordReset.verifyToken(
+			normalizedEmail,
+			token,
+		);
+
+		if (!verification.valid) {
+			await PasswordReset.incrementAttempts(normalizedEmail);
+			return res
+				.status(400)
+				.json({ valid: false, message: verification.error });
+		}
+
+		res.status(200).json({ valid: true, message: "Code valide" });
+	} catch (err) {
+		console.error("❌ [VERIFY-RESET-TOKEN] Erreur:", err);
 		res.status(500).json({ message: "Erreur serveur" });
 	}
 });

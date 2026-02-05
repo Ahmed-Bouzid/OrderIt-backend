@@ -236,6 +236,7 @@ router.put("/:messageId/read", async (req, res) => {
 		// Notifier via WebSocket que le message a été lu
 		const io = req.app.get("io");
 		if (io) {
+			// Notifier le frontend (serveur/restaurateur)
 			io.to(`restaurant-${message.restaurantId}`).emit("client-message", {
 				type: "message-read",
 				data: {
@@ -244,6 +245,19 @@ router.put("/:messageId/read", async (req, res) => {
 				},
 				timestamp: new Date().toISOString(),
 			});
+
+			// Notifier le client (CLIENT-end) via reservationId
+			if (message.reservationId) {
+				io.to(`reservation-${message.reservationId}`).emit("message-status", {
+					type: "read",
+					data: {
+						messageId: message._id,
+						readAt: message.readAt,
+						status: "read",
+					},
+					timestamp: new Date().toISOString(),
+				});
+			}
 		}
 
 		res.json({
