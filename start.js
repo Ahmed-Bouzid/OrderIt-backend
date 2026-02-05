@@ -41,6 +41,9 @@ const io = new Server(server, {
 	perMessageDeflate: false,
 });
 
+// ⭐ Enregistrer io dans l'app Express (CRUCIAL pour les routes)
+app.set("io", io);
+
 // ⭐ AJOUTE CE LOG IMPORTANT
 io.engine.on("connection", (socket) => {
 	console.log("🔄 Socket.io engine connection");
