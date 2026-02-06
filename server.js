@@ -78,6 +78,7 @@ app.use("/assistant", require("./routes/assistant")); // ⭐ Assistant intellige
 app.use("/developer", require("./routes/developer")); // 🔧 Routes développeur
 app.use("/products", auth, require("./routes/products"));
 app.use("/products", auth, require("./routes/productOptions")); // ⭐ Routes options produits
+app.use("/accounting", require("./routes/accounting")); // 💼 Routes comptabilité admin
 app.use("/products", auth, require("./routes/productAllergens")); // ⭐ Routes allergènes produits
 app.use("/allergens", require("./routes/allergens")); // ⭐ Routes allergènes
 app.use("/payments", auth, require("./routes/payments")); // 💳 Routes Stripe

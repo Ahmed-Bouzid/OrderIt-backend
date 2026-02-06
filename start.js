@@ -239,7 +239,8 @@ io.on("connection", (socket) => {
 		console.log(`🔍 [DEBUG] join-reservation appelé avec:`, data);
 		if (!reservationId) {
 			console.warn("⚠️ join-reservation sans reservationId");
-			if (callback) callback({ success: false, error: "reservationId manquant" });
+			if (callback)
+				callback({ success: false, error: "reservationId manquant" });
 			return;
 		}
 
@@ -247,7 +248,10 @@ io.on("connection", (socket) => {
 		socket.join(roomName);
 		socket.reservationId = reservationId;
 		console.log(`📝 Socket ${socket.id} rejoint room ${roomName}`);
-		console.log(`🔍 [DEBUG] Total sockets dans ${roomName}:`, io.sockets.adapter.rooms.get(roomName)?.size || 0);
+		console.log(
+			`🔍 [DEBUG] Total sockets dans ${roomName}:`,
+			io.sockets.adapter.rooms.get(roomName)?.size || 0,
+		);
 
 		if (callback) callback({ success: true, reservationId });
 	});
