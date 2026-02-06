@@ -258,4 +258,20 @@ router.delete(
 	}
 );
 
+// TEMPORAIRE - Test accounting dans servers.js
+router.get("/accounting-test", auth, async (req, res) => {
+	try {
+		console.log("🧪 [SERVERS] Test accounting endpoint appelé");
+		res.json({
+			success: true,
+			message: "Test accounting depuis servers.js",
+			user: req.user.email,
+			timestamp: new Date()
+		});
+	} catch (error) {
+		console.error("❌ [SERVERS] Erreur test accounting:", error);
+		res.status(500).json({ success: false, error: error.message });
+	}
+});
+
 module.exports = router;
