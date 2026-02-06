@@ -416,4 +416,157 @@ router.get(
 	},
 );
 
+// ═══════════════════════════════════════════════════════════════════════
+// 📥 GET /accounting/export - Export CSV des données comptables
+// ═══════════════════════════════════════════════════════════════════════
+router.get(
+	"/export",
+	auth,
+	checkRoles(["admin", "developer"]),
+	async (req, res) => {
+		try {
+			const { restaurantId, restaurantName = "Restaurant" } = req.user;
+			const { period = "month", startDate: customStart, endDate: customEnd, format = "csv" } = req.query;
+
+			console.log(`📤 [ACCOUNTING] Export demandé pour ${req.user.email}, période: ${period}`);
+
+			const { startDate, endDate } = getPeriodDates(period, customStart, customEnd);
+
+			// Récupération données complètes
+			const orders = await Order.find({
+				restaurantId: restaurantId,
+				createdAt: { $gte: startDate, $lt: endDate },
+				status: { $ne: "cancelled" },
+			}).sort({ createdAt: -1 });
+
+			// ═══ CALCULS GLOBAUX ═══
+			const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+			const revenueHT = totalRevenue / 1.20;
+			const tvaCalculations = calculateTVA(revenueHT, 0.20);
+			const marginCalculations = calculateMargins(revenueHT, 0.30);
+
+			// ═══ ANALYSIS PRODUITS ═══
+			const productStats = {};
+			orders.forEach((order) => {
+				order.items?.forEach((item) => {
+					const productName = item.productName || item.name || "Produit inconnu";
+					const quantity = item.quantity || 1;
+					const revenue = (item.price || 0) * quantity;
+
+					if (!productStats[productName]) {
+						productStats[productName] = { quantity: 0, revenue: 0, orders: new Set() };
+					}
+					
+					productStats[productName].quantity += quantity;
+					productStats[productName].revenue += revenue;
+					productStats[productName].orders.add(order._id.toString());
+				});
+			});
+
+			// ═══ GÉNÉRATION CSV ═══
+			let csvContent = "";
+
+			// Header du rapport
+			csvContent += `RAPPORT COMPTABLE - ${restaurantName}\n`;
+			csvContent += `Période;${startDate.toISOString().split('T')[0]};${endDate.toISOString().split('T')[0]}\n`;
+			csvContent += `Généré le;${new Date().toLocaleString('fr-FR')}\n\n`;
+
+			// Résumé financier
+			csvContent += `RÉSUMÉ FINANCIER\n`;
+			csvContent += `Chiffre d'Affaires TTC;€${totalRevenue.toFixed(2)}\n`;
+			csvContent += `Chiffre d'Affaires HT;€${tvaCalculations.amountHT}\n`;
+			csvContent += `TVA Collectée (20%);€${tvaCalculations.tva}\n`;
+			csvContent += `Coûts Estimés;€${marginCalculations.costs}\n`;
+			csvContent += `Marge Brute;€${marginCalculations.grossMargin}\n`;
+			csvContent += `Taux de Marge;${marginCalculations.marginPercent}%\n`;
+			csvContent += `Nombre de Commandes;${orders.length}\n`;
+			csvContent += `Panier Moyen;€${orders.length > 0 ? (totalRevenue / orders.length).toFixed(2) : "0.00"}\n\n`;
+
+			// Détail des commandes
+			csvContent += `DÉTAIL DES COMMANDES\n`;
+			csvContent += `Date;Heure;ID Commande;Table;Montant TTC;Montant HT;TVA;Statut\n`;
+			
+			orders.forEach((order) => {
+				const orderDate = new Date(order.createdAt);
+				const orderHT = (order.total || 0) / 1.20;
+				const orderTVA = (order.total || 0) - orderHT;
+				
+				csvContent += `${orderDate.toLocaleDateString('fr-FR')};`;
+				csvContent += `${orderDate.toLocaleTimeString('fr-FR')};`;
+				csvContent += `${order._id};`;
+				csvContent += `${order.tableId || 'N/A'};`;
+				csvContent += `€${(order.total || 0).toFixed(2)};`;
+				csvContent += `€${orderHT.toFixed(2)};`;
+				csvContent += `€${orderTVA.toFixed(2)};`;
+				csvContent += `${order.status}\n`;
+			});
+
+			csvContent += `\n`;
+
+			// Top produits
+			csvContent += `ANALYSE DES PRODUITS\n`;
+			csvContent += `Produit;Quantité Vendue;Chiffre d'Affaires;Nombre de Commandes;CA Moyen\n`;
+			
+			Object.entries(productStats)
+				.sort(([,a], [,b]) => b.revenue - a.revenue)
+				.forEach(([productName, stats]) => {
+					const avgRevenue = stats.orders.size > 0 ? stats.revenue / stats.orders.size : 0;
+					csvContent += `${productName};`;
+					csvContent += `${stats.quantity};`;
+					csvContent += `€${stats.revenue.toFixed(2)};`;
+					csvContent += `${stats.orders.size};`;
+					csvContent += `€${avgRevenue.toFixed(2)}\n`;
+				});
+
+			csvContent += `\n`;
+
+			// Analyse quotidienne
+			const dailyStats = {};
+			orders.forEach((order) => {
+				const dateKey = new Date(order.createdAt).toISOString().split('T')[0];
+				if (!dailyStats[dateKey]) {
+					dailyStats[dateKey] = { revenue: 0, orders: 0 };
+				}
+				dailyStats[dateKey].revenue += order.total || 0;
+				dailyStats[dateKey].orders += 1;
+			});
+
+			csvContent += `ÉVOLUTION QUOTIDIENNE\n`;
+			csvContent += `Date;Chiffre d'Affaires;Nombre de Commandes;Panier Moyen\n`;
+			
+			Object.entries(dailyStats)
+				.sort(([a], [b]) => a.localeCompare(b))
+				.forEach(([date, stats]) => {
+					const avgOrder = stats.orders > 0 ? stats.revenue / stats.orders : 0;
+					csvContent += `${date};`;
+					csvContent += `€${stats.revenue.toFixed(2)};`;
+					csvContent += `${stats.orders};`;
+					csvContent += `€${avgOrder.toFixed(2)}\n`;
+				});
+
+			// Configuration response
+			const filename = `comptabilite-${restaurantName.replace(/[^a-zA-Z0-9]/g, '')}-${period}-${new Date().toISOString().split('T')[0]}.csv`;
+			
+			res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+			res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+			res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+			
+			// BOM UTF-8 pour Excel
+			res.write('\ufeff');
+			res.write(csvContent);
+			res.end();
+
+			console.log(`✅ [ACCOUNTING] Export généré: ${filename}`);
+
+		} catch (error) {
+			console.error("❌ [ACCOUNTING] Erreur génération export:", error);
+			res.status(500).json({
+				success: false,
+				message: "Erreur lors de la génération de l'export",
+				error: error.message,
+			});
+		}
+	},
+);
+
 module.exports = router;
