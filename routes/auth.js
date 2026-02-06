@@ -657,4 +657,36 @@ router.post("/verify-reset-token", strictLimiter, async (req, res) => {
 	}
 });
 
+// TEMPORAIRE - GET /auth/accounting-summary pour test
+router.get("/accounting-summary", auth, async (req, res) => {
+	try {
+		console.log("💰 [TEMP-ACCOUNTING] Test endpoint appelé");
+		
+		// Données de test basiques pour valider que l'endpoint fonctionne
+		const testData = {
+			success: true,
+			data: {
+				totalRevenue: 1234.56,
+				totalOrders: 28,
+				averageOrderValue: 44.09,
+				topProduct: "Pizza Margherita",
+				monthlyRevenue: 15678.90,
+				period: "today",
+				date: new Date().toISOString().split('T')[0]
+			}
+		};
+
+		console.log("✅ [TEMP-ACCOUNTING] Données test retournées");
+		res.json(testData);
+
+	} catch (error) {
+		console.error("❌ [TEMP-ACCOUNTING] Erreur:", error);
+		res.status(500).json({
+			success: false,
+			message: "Erreur temporaire",
+			error: error.message
+		});
+	}
+});
+
 module.exports = router;
