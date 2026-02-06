@@ -82,12 +82,12 @@ router.post("/login", async (req, res) => {
 				restaurantId: user.restaurantId || null,
 			},
 			process.env.JWT_SECRET,
-			{ expiresIn: "2h" } // ⭐ Augmenté de 15m à 2h pour cohérence avec /auth/login
+			{ expiresIn: "2h" }, // ⭐ Augmenté de 15m à 2h pour cohérence avec /auth/login
 		); // Refresh token (long)
 		const refreshToken = jwt.sign(
 			{ id: user._id },
 			process.env.REFRESH_TOKEN_SECRET,
-			{ expiresIn: "7d" }
+			{ expiresIn: "7d" },
 		);
 
 		// Envoi refreshToken dans cookie HttpOnly
@@ -168,7 +168,7 @@ router.post(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server." });
 		}
-	}
+	},
 );
 
 // === Liste des servers d’un restaurant (admin uniquement) ===
@@ -188,7 +188,7 @@ router.get(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server." });
 		}
-	}
+	},
 );
 
 // === Modification d’un server (admin uniquement) ===
@@ -211,8 +211,8 @@ router.put(
 			const allowedFields = ["name", "email", "role", "serverId"];
 			const filteredUpdates = Object.fromEntries(
 				Object.entries(updateData).filter(([key]) =>
-					allowedFields.includes(key)
-				)
+					allowedFields.includes(key),
+				),
 			);
 
 			// Si mot de passe modifié, re-hasher
@@ -223,7 +223,7 @@ router.put(
 			const updatedServer = await Server.findByIdAndUpdate(
 				req.params.serverId,
 				filteredUpdates,
-				{ new: true }
+				{ new: true },
 			).select("-passwordHash");
 
 			if (!updatedServer) {
@@ -235,7 +235,7 @@ router.put(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server." });
 		}
-	}
+	},
 );
 
 // === Suppression d’un server (admin uniquement) ===
@@ -255,23 +255,7 @@ router.delete(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server." });
 		}
-	}
+	},
 );
-
-// TEMPORAIRE - Test accounting dans servers.js
-router.get("/accounting-test", auth, async (req, res) => {
-	try {
-		console.log("🧪 [SERVERS] Test accounting endpoint appelé");
-		res.json({
-			success: true,
-			message: "Test accounting depuis servers.js",
-			user: req.user.email,
-			timestamp: new Date()
-		});
-	} catch (error) {
-		console.error("❌ [SERVERS] Erreur test accounting:", error);
-		res.status(500).json({ success: false, error: error.message });
-	}
-});
 
 module.exports = router;
