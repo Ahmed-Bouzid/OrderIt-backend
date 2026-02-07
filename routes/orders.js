@@ -17,7 +17,7 @@ router.post(
 	async (req, res) => {
 		console.log(
 			"📥 POST /orders - Body reçu:",
-			JSON.stringify(req.body, null, 2)
+			JSON.stringify(req.body, null, 2),
 		);
 		console.log("📥 POST /orders - User:", req.user);
 		const { role, tableId: clientTableId } = req.user; // token limité pour client ou token serveur/admin
@@ -51,9 +51,8 @@ router.post(
 			// 🔍 Si reservationId fourni et pas de serverId, récupérer depuis la réservation
 			if (reservationId && !serverId) {
 				const Reservation = require("../models/Reservation");
-				const reservation = await Reservation.findById(reservationId).select(
-					"serverId"
-				);
+				const reservation =
+					await Reservation.findById(reservationId).select("serverId");
 				if (reservation && reservation.serverId) {
 					serverId = reservation.serverId;
 					console.log("✅ ServerId récupéré depuis réservation:", serverId);
@@ -70,38 +69,43 @@ router.post(
 				items.map(async (item) => {
 					if (item.productId) {
 						const product = await Product.findById(item.productId).select(
-							"category"
+							"category",
 						);
 						if (product && product.category) {
 							// Normaliser la catégorie pour éviter les erreurs de validation
 							let category = product.category.toLowerCase().trim();
-							
+
 							// Mapper les variations communes vers des catégories standards
 							const categoryMapping = {
-								'nouveautés': 'nouveautes',
-								'nouveautes tiramisu': 'nouveautes',
-								'nouveautés tiramisu': 'nouveautes', 
-								'entrée': 'entree',
-								'entrées': 'entree',
-								'boissons': 'boisson',
-								'desserts': 'dessert',
-								'plats': 'plat',
-								'principal': 'plat',
-								'main': 'plat'
+								nouveautés: "nouveautes",
+								"nouveautes tiramisu": "nouveautes",
+								"nouveautés tiramisu": "nouveautes",
+								entrée: "entree",
+								entrées: "entree",
+								boissons: "boisson",
+								desserts: "dessert",
+								plats: "plat",
+								principal: "plat",
+								main: "plat",
 							};
-							
+
 							// Appliquer le mapping si trouvé
 							if (categoryMapping[category]) {
 								category = categoryMapping[category];
 							}
-							
-							console.log(`🔄 Catégorie normalisée: ${product.category} → ${category}`);
+
+							console.log(
+								`🔄 Catégorie normalisée: ${product.category} → ${category}`,
+							);
 							return { ...item, category };
 						}
 					}
 					// Si pas de productId ou produit introuvable, utiliser "autre" par défaut
-					return { ...item, category: item.category?.toLowerCase()?.trim() || 'autre' };
-				})
+					return {
+						...item,
+						category: item.category?.toLowerCase()?.trim() || "autre",
+					};
+				}),
 			);
 
 			console.log("🔍 Items enrichis avec catégories:", enrichedItems);
@@ -109,7 +113,7 @@ router.post(
 			// Vérification du total
 			const calculatedTotal = enrichedItems.reduce(
 				(sum, i) => sum + i.price * i.quantity,
-				0
+				0,
 			);
 			if (total !== calculatedTotal) {
 				return res
@@ -142,7 +146,7 @@ router.post(
 				stack: err.stack, // optionnel : détail complet pour le dev
 			});
 		}
-	}
+	},
 );
 
 // GET /api/orders - Récupérer les commandes avec filtres (restaurantId, status)
@@ -207,7 +211,7 @@ router.get(
 				.status(500)
 				.json({ message: "Erreur lors du chargement des commandes." });
 		}
-	}
+	},
 );
 
 // ⭐ NOUVELLE ROUTE : Récupérer les commandes d'une réservation spécifique
@@ -219,7 +223,7 @@ router.get(
 		try {
 			console.log(
 				"[DEBUG] GET /reservation/:reservationId",
-				req.params.reservationId
+				req.params.reservationId,
 			);
 			// Log user info
 			if (req.user) {
@@ -259,7 +263,7 @@ router.get(
 				.status(500)
 				.json({ message: "Erreur lors du chargement des commandes." });
 		}
-	}
+	},
 );
 
 router.get(
@@ -279,7 +283,7 @@ router.get(
 				.status(500)
 				.json({ message: "Erreur lors du chargement des commandes." });
 		}
-	}
+	},
 );
 
 // PUT /orders/:orderId - Modifier une commande
@@ -299,7 +303,7 @@ router.put(
 			// Si on veut valider uniquement certains champs (ex: status, paid)
 			const allowedUpdates = ["status", "paid", "tip"];
 			const isValidUpdate = Object.keys(updateFields).every((field) =>
-				allowedUpdates.includes(field)
+				allowedUpdates.includes(field),
 			);
 			if (!isValidUpdate) {
 				return res.status(400).json({ message: "Mise à jour invalide." });
@@ -312,7 +316,7 @@ router.put(
 				{
 					new: true,
 					runValidators: true,
-				}
+				},
 			);
 
 			if (!updatedOrder) {
@@ -324,7 +328,7 @@ router.put(
 			console.error(err);
 			res.status(500).json({ message: "Erreur lors de la mise à jour." });
 		}
-	}
+	},
 );
 
 // routes/orders.js
@@ -360,7 +364,7 @@ router.get("/active", auth, async (req, res) => {
 			console.log(
 				`   ${i + 1}. ID: ${order._id}, paid: ${order.paid}, table: ${
 					order.tableId
-				}`
+				}`,
 			);
 		});
 
@@ -429,7 +433,7 @@ router.put(
 			if (!status || !validStatuses.includes(status)) {
 				return res.status(400).json({
 					message: `Statut invalide. Valeurs acceptées: ${validStatuses.join(
-						", "
+						", ",
 					)}`,
 				});
 			}
@@ -489,7 +493,7 @@ router.put(
 				error: err.message,
 			});
 		}
-	}
+	},
 );
 
 // PUT /orders/reservation/:reservationId/finalize-items - Mettre à jour tous les items non finalisés
@@ -546,7 +550,7 @@ router.put(
 			}
 
 			console.log(
-				`✅ [FINALIZE] ${totalUpdated} items mis à jour en "${status}" pour réservation ${reservationId}`
+				`✅ [FINALIZE] ${totalUpdated} items mis à jour en "${status}" pour réservation ${reservationId}`,
 			);
 
 			res.json({
@@ -561,7 +565,7 @@ router.put(
 				error: err.message,
 			});
 		}
-	}
+	},
 );
 
 // DELETE /orders/:orderId - Supprimer une commande (optionnel)
@@ -580,7 +584,7 @@ router.delete(
 				.status(500)
 				.json({ message: "Erreur lors de la suppression de la commande." });
 		}
-	}
+	},
 );
 
 module.exports = router;

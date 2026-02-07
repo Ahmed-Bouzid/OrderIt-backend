@@ -74,14 +74,14 @@ const orderSchema = new mongoose.Schema(
 					required: true,
 					trim: true,
 					lowercase: true, // Normaliser les catégories
-					default: 'autre',
+					default: "autre",
 					validate: {
-						validator: function(value) {
+						validator: function (value) {
 							// Validation simple : accepter toute chaîne non vide
 							return value && value.trim().length > 0;
 						},
-						message: 'La catégorie ne peut pas être vide'
-					}
+						message: "La catégorie ne peut pas être vide",
+					},
 				},
 				// ⭐⭐ Statut de l'article pour la cuisine (ajout de "confirmed")
 				itemStatus: {
@@ -206,7 +206,7 @@ const orderSchema = new mongoose.Schema(
 		timestamps: true,
 		toJSON: { virtuals: true },
 		toObject: { virtuals: true },
-	}
+	},
 );
 
 // ⭐⭐ VIRTUEL : Récupérer la réservation associée
@@ -237,7 +237,7 @@ orderSchema.pre("save", function (next) {
 	if (this.isModified("items") && this.items.length > 0) {
 		const calculatedTotal = this.items.reduce(
 			(sum, item) => sum + item.price * item.quantity,
-			0
+			0,
 		);
 
 		// Mettre à jour le totalAmount
@@ -302,7 +302,7 @@ orderSchema.post("save", async function (doc) {
 				// Sauvegarder la réservation (le middleware pre('save') de Reservation calculera automatiquement totalAmount)
 				await reservation.save();
 				console.log(
-					`✅ Réservation ${reservation._id} mise à jour avec commande ${doc._id}, totalAmount: ${reservation.totalAmount}€`
+					`✅ Réservation ${reservation._id} mise à jour avec commande ${doc._id}, totalAmount: ${reservation.totalAmount}€`,
 				);
 
 				// ⭐ Émettre événement WebSocket pour notifier les clients
@@ -313,7 +313,7 @@ orderSchema.post("save", async function (doc) {
 						io,
 						reservation.restaurantId.toString(),
 						"updated",
-						reservation
+						reservation,
 					);
 				}
 			}
@@ -327,7 +327,7 @@ orderSchema.post("save", async function (doc) {
 orderSchema.methods.addPayment = function (
 	amount,
 	method = "cash",
-	paidBy = null
+	paidBy = null,
 ) {
 	this.paidAmount += amount;
 
@@ -356,27 +356,27 @@ orderSchema.methods.getRemainingAmount = function () {
 };
 
 // ⭐⭐ MIDDLEWARE : Normaliser les catégories avant sauvegarde
-orderSchema.pre('save', async function(next) {
+orderSchema.pre("save", async function (next) {
 	if (this.items && this.items.length > 0) {
 		for (let item of this.items) {
 			if (item.category) {
 				// Normaliser la catégorie
 				item.category = item.category.toLowerCase().trim();
-				
+
 				// Mapper les variations communes
 				const categoryMapping = {
-					'nouveautés': 'nouveautes',
-					'nouveautes tiramisu': 'nouveautes',
-					'nouveautés tiramisu': 'nouveautes', 
-					'entrée': 'entree',
-					'entrées': 'entree',
-					'boissons': 'boisson',
-					'desserts': 'dessert',
-					'plats': 'plat',
-					'principal': 'plat',
-					'main': 'plat'
+					nouveautés: "nouveautes",
+					"nouveautes tiramisu": "nouveautes",
+					"nouveautés tiramisu": "nouveautes",
+					entrée: "entree",
+					entrées: "entree",
+					boissons: "boisson",
+					desserts: "dessert",
+					plats: "plat",
+					principal: "plat",
+					main: "plat",
 				};
-				
+
 				// Appliquer le mapping si trouvé
 				if (categoryMapping[item.category]) {
 					item.category = categoryMapping[item.category];
@@ -389,22 +389,22 @@ orderSchema.pre('save', async function(next) {
 
 // ⭐⭐ MÉTHODE STATIQUE : Récupérer toutes les catégories d'un restaurant
 orderSchema.statics.getRestaurantCategories = async function (restaurantId) {
-	const Product = mongoose.model('Product');
-	
+	const Product = mongoose.model("Product");
+
 	try {
-		const categories = await Product.distinct('category', { 
+		const categories = await Product.distinct("category", {
 			restaurantId: restaurantId,
-			isAvailable: true 
+			isAvailable: true,
 		});
-		
+
 		// Ajouter les catégories de base si elles n'existent pas
-		const baseCategories = ['autre', 'boisson', 'entree', 'plat', 'dessert'];
+		const baseCategories = ["autre", "boisson", "entree", "plat", "dessert"];
 		const allCategories = [...new Set([...categories, ...baseCategories])];
-		
-		return allCategories.filter(cat => cat && cat.trim() !== '');
+
+		return allCategories.filter((cat) => cat && cat.trim() !== "");
 	} catch (error) {
-		console.error('❌ Erreur récupération catégories restaurant:', error);
-		return ['autre', 'boisson', 'entree', 'plat', 'dessert'];
+		console.error("❌ Erreur récupération catégories restaurant:", error);
+		return ["autre", "boisson", "entree", "plat", "dessert"];
 	}
 };
 
