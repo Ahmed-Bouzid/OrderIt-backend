@@ -24,7 +24,11 @@ function getPeriodDates(period, customStart = null, customEnd = null) {
 		case "week":
 			// Lundi de cette semaine
 			const dayOfWeek = now.getDay() || 7; // Dimanche = 7
-			startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (dayOfWeek - 1));
+			startDate = new Date(
+				now.getFullYear(),
+				now.getMonth(),
+				now.getDate() - (dayOfWeek - 1),
+			);
 			endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
 			break;
 
@@ -39,7 +43,9 @@ function getPeriodDates(period, customStart = null, customEnd = null) {
 			break;
 
 		case "custom":
-			startDate = customStart ? new Date(customStart) : new Date(now.getFullYear(), now.getMonth(), now.getDate());
+			startDate = customStart
+				? new Date(customStart)
+				: new Date(now.getFullYear(), now.getMonth(), now.getDate());
 			endDate = customEnd ? new Date(customEnd) : new Date();
 			break;
 
@@ -54,21 +60,21 @@ function getPeriodDates(period, customStart = null, customEnd = null) {
 /**
  * Calcule la TVA (20% par défaut pour la France)
  */
-function calculateTVA(amountHT, tvaRate = 0.20) {
+function calculateTVA(amountHT, tvaRate = 0.2) {
 	const tva = amountHT * tvaRate;
 	const amountTTC = amountHT + tva;
 	return {
 		amountHT: Number(amountHT.toFixed(2)),
 		tva: Number(tva.toFixed(2)),
 		amountTTC: Number(amountTTC.toFixed(2)),
-		tvaRate: tvaRate
+		tvaRate: tvaRate,
 	};
 }
 
 /**
  * Calcule les marges (supposant 30% de coût des matières premières)
  */
-function calculateMargins(revenue, costRatio = 0.30) {
+function calculateMargins(revenue, costRatio = 0.3) {
 	const costs = revenue * costRatio;
 	const grossMargin = revenue - costs;
 	const marginPercent = revenue > 0 ? (grossMargin / revenue) * 100 : 0;
@@ -77,7 +83,7 @@ function calculateMargins(revenue, costRatio = 0.30) {
 		revenue: Number(revenue.toFixed(2)),
 		costs: Number(costs.toFixed(2)),
 		grossMargin: Number(grossMargin.toFixed(2)),
-		marginPercent: Number(marginPercent.toFixed(1))
+		marginPercent: Number(marginPercent.toFixed(1)),
 	};
 }
 
@@ -90,15 +96,28 @@ router.get(
 	checkRoles(["admin", "manager", "developer"]),
 	async (req, res) => {
 		try {
-			console.log("💰 [ACCOUNTING] Génération résumé comptable pour:", req.user.email);
+			console.log(
+				"💰 [ACCOUNTING] Génération résumé comptable pour:",
+				req.user.email,
+			);
 
 			const { restaurantId } = req.user;
-			const { period = "today", startDate: customStart, endDate: customEnd } = req.query;
+			const {
+				period = "today",
+				startDate: customStart,
+				endDate: customEnd,
+			} = req.query;
 
 			// Calcul des dates selon la période
-			const { startDate, endDate } = getPeriodDates(period, customStart, customEnd);
+			const { startDate, endDate } = getPeriodDates(
+				period,
+				customStart,
+				customEnd,
+			);
 
-			console.log(`📅 [ACCOUNTING] Période: ${period}, du ${startDate.toISOString()} au ${endDate.toISOString()}`);
+			console.log(
+				`📅 [ACCOUNTING] Période: ${period}, du ${startDate.toISOString()} au ${endDate.toISOString()}`,
+			);
 
 			// Récupération des commandes de la période
 			const orders = await Order.find({
@@ -110,9 +129,13 @@ router.get(
 			console.log(`📊 [ACCOUNTING] Commandes trouvées: ${orders.length}`);
 
 			// ═══ CALCULS DE BASE ═══
-			const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+			const totalRevenue = orders.reduce(
+				(sum, order) => sum + (order.total || 0),
+				0,
+			);
 			const totalOrders = orders.length;
-			const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+			const averageOrderValue =
+				totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
 			// ═══ PRODUITS POPULAIRES ═══
 			const itemCounts = {};
@@ -120,35 +143,38 @@ router.get(
 
 			orders.forEach((order) => {
 				order.items?.forEach((item) => {
-					const productName = item.productName || item.name || "Produit inconnu";
+					const productName =
+						item.productName || item.name || "Produit inconnu";
 					const quantity = item.quantity || 1;
 					const itemPrice = item.price || 0;
 
 					itemCounts[productName] = (itemCounts[productName] || 0) + quantity;
-					itemRevenues[productName] = (itemRevenues[productName] || 0) + (itemPrice * quantity);
+					itemRevenues[productName] =
+						(itemRevenues[productName] || 0) + itemPrice * quantity;
 				});
 			});
 
-			const topProduct = Object.keys(itemCounts).length > 0
-				? Object.keys(itemCounts).reduce((a, b) =>
-					itemCounts[a] > itemCounts[b] ? a : b
-				)
-				: "Aucun produit";
+			const topProduct =
+				Object.keys(itemCounts).length > 0
+					? Object.keys(itemCounts).reduce((a, b) =>
+							itemCounts[a] > itemCounts[b] ? a : b,
+						)
+					: "Aucun produit";
 
 			const topProducts = Object.entries(itemCounts)
-				.sort(([,a], [,b]) => b - a)
+				.sort(([, a], [, b]) => b - a)
 				.slice(0, 5)
 				.map(([name, count]) => ({
 					name,
 					quantity: count,
-					revenue: itemRevenues[name] || 0
+					revenue: itemRevenues[name] || 0,
 				}));
 
 			// ═══ CALCULS COMPTABLES AVANCÉS ═══
 			// Supposons 83.33% HT (TVA 20%)
-			const revenueHT = totalRevenue / 1.20;
-			const tvaCalculations = calculateTVA(revenueHT, 0.20);
-			const marginCalculations = calculateMargins(revenueHT, 0.30); // 30% de coûts
+			const revenueHT = totalRevenue / 1.2;
+			const tvaCalculations = calculateTVA(revenueHT, 0.2);
+			const marginCalculations = calculateMargins(revenueHT, 0.3); // 30% de coûts
 
 			// ═══ COMPARAISON PÉRIODE PRÉCÉDENTE ═══
 			let previousPeriodStart, previousPeriodEnd;
@@ -156,16 +182,28 @@ router.get(
 
 			switch (period) {
 				case "today":
-					previousPeriodStart = new Date(startDate.getTime() - 24 * 60 * 60 * 1000);
+					previousPeriodStart = new Date(
+						startDate.getTime() - 24 * 60 * 60 * 1000,
+					);
 					previousPeriodEnd = new Date(startDate);
 					break;
 				case "week":
-					previousPeriodStart = new Date(startDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+					previousPeriodStart = new Date(
+						startDate.getTime() - 7 * 24 * 60 * 60 * 1000,
+					);
 					previousPeriodEnd = new Date(startDate);
 					break;
 				case "month":
-					previousPeriodStart = new Date(startDate.getFullYear(), startDate.getMonth() - 1, 1);
-					previousPeriodEnd = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+					previousPeriodStart = new Date(
+						startDate.getFullYear(),
+						startDate.getMonth() - 1,
+						1,
+					);
+					previousPeriodEnd = new Date(
+						startDate.getFullYear(),
+						startDate.getMonth(),
+						1,
+					);
 					break;
 				case "year":
 					previousPeriodStart = new Date(startDate.getFullYear() - 1, 0, 1);
@@ -182,11 +220,21 @@ router.get(
 				status: { $ne: "cancelled" },
 			});
 
-			const previousRevenue = previousOrders.reduce((sum, order) => sum + (order.total || 0), 0);
-			const growthRate = previousRevenue > 0 ? ((totalRevenue - previousRevenue) / previousRevenue) * 100 : 0;
+			const previousRevenue = previousOrders.reduce(
+				(sum, order) => sum + (order.total || 0),
+				0,
+			);
+			const growthRate =
+				previousRevenue > 0
+					? ((totalRevenue - previousRevenue) / previousRevenue) * 100
+					: 0;
 
 			// ═══ DONNÉES POUR GRAPHIQUES ═══
-			const dailyRevenues = await getDailyRevenues(restaurantId, startDate, endDate);
+			const dailyRevenues = await getDailyRevenues(
+				restaurantId,
+				startDate,
+				endDate,
+			);
 
 			// ═══ RÉSULTAT FINAL ═══
 			const result = {
@@ -194,41 +242,40 @@ router.get(
 				data: {
 					// Infos générales
 					period: period,
-					startDate: startDate.toISOString().split('T')[0],
-					endDate: endDate.toISOString().split('T')[0],
-					
+					startDate: startDate.toISOString().split("T")[0],
+					endDate: endDate.toISOString().split("T")[0],
+
 					// Métriques de base
 					totalRevenue: Number(totalRevenue.toFixed(2)),
 					totalOrders: totalOrders,
 					averageOrderValue: Number(averageOrderValue.toFixed(2)),
-					
+
 					// Comptabilité avancée
 					revenueHT: tvaCalculations.amountHT,
 					revenueTTC: tvaCalculations.amountTTC,
 					tvaCollected: tvaCalculations.tva,
-					
+
 					// Marges et coûts
 					costs: marginCalculations.costs,
 					grossMargin: marginCalculations.grossMargin,
 					marginPercent: marginCalculations.marginPercent,
 					netResult: marginCalculations.grossMargin, // Simplifié
-					
+
 					// Évolution
 					previousPeriodRevenue: Number(previousRevenue.toFixed(2)),
 					growthRate: Number(growthRate.toFixed(1)),
-					
+
 					// Produits
 					topProduct: topProduct,
 					topProducts: topProducts,
-					
+
 					// Données graphiques
-					dailyRevenues: dailyRevenues
+					dailyRevenues: dailyRevenues,
 				},
 			};
 
 			console.log("✅ [ACCOUNTING] Résumé généré avec succès");
 			res.json(result);
-
 		} catch (error) {
 			console.error("❌ [ACCOUNTING] Erreur génération résumé:", error);
 			res.status(500).json({
@@ -246,28 +293,31 @@ router.get(
 async function getDailyRevenues(restaurantId, startDate, endDate) {
 	const revenues = [];
 	const currentDate = new Date(startDate);
-	
+
 	while (currentDate < endDate) {
 		const dayStart = new Date(currentDate);
 		const dayEnd = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000);
-		
+
 		const dayOrders = await Order.find({
 			restaurantId: restaurantId,
 			createdAt: { $gte: dayStart, $lt: dayEnd },
 			status: { $ne: "cancelled" },
 		});
-		
-		const dayRevenue = dayOrders.reduce((sum, order) => sum + (order.total || 0), 0);
-		
+
+		const dayRevenue = dayOrders.reduce(
+			(sum, order) => sum + (order.total || 0),
+			0,
+		);
+
 		revenues.push({
-			date: currentDate.toISOString().split('T')[0],
+			date: currentDate.toISOString().split("T")[0],
 			revenue: Number(dayRevenue.toFixed(2)),
-			orders: dayOrders.length
+			orders: dayOrders.length,
 		});
-		
+
 		currentDate.setDate(currentDate.getDate() + 1);
 	}
-	
+
 	return revenues;
 }
 
@@ -289,16 +339,35 @@ router.get(
 
 			switch (type) {
 				case "revenue":
-					chartData = await getRevenueChartData(restaurantId, startDate, endDate, period);
+					chartData = await getRevenueChartData(
+						restaurantId,
+						startDate,
+						endDate,
+						period,
+					);
 					break;
 				case "orders":
-					chartData = await getOrdersChartData(restaurantId, startDate, endDate, period);
+					chartData = await getOrdersChartData(
+						restaurantId,
+						startDate,
+						endDate,
+						period,
+					);
 					break;
 				case "products":
-					chartData = await getTopProductsChartData(restaurantId, startDate, endDate);
+					chartData = await getTopProductsChartData(
+						restaurantId,
+						startDate,
+						endDate,
+					);
 					break;
 				default:
-					chartData = await getRevenueChartData(restaurantId, startDate, endDate, period);
+					chartData = await getRevenueChartData(
+						restaurantId,
+						startDate,
+						endDate,
+						period,
+					);
 			}
 
 			res.json({
@@ -306,10 +375,9 @@ router.get(
 				data: {
 					period,
 					type,
-					chartData
-				}
+					chartData,
+				},
 			});
-
 		} catch (error) {
 			console.error("❌ [ACCOUNTING] Erreur génération graphiques:", error);
 			res.status(500).json({
@@ -327,9 +395,9 @@ async function getRevenueChartData(restaurantId, startDate, endDate, period) {
 
 async function getOrdersChartData(restaurantId, startDate, endDate, period) {
 	const dailyData = await getDailyRevenues(restaurantId, startDate, endDate);
-	return dailyData.map(day => ({
+	return dailyData.map((day) => ({
 		date: day.date,
-		value: day.orders
+		value: day.orders,
 	}));
 }
 
@@ -341,7 +409,7 @@ async function getTopProductsChartData(restaurantId, startDate, endDate) {
 	});
 
 	const productStats = {};
-	
+
 	orders.forEach((order) => {
 		order.items?.forEach((item) => {
 			const productName = item.productName || item.name || "Produit inconnu";
@@ -351,19 +419,19 @@ async function getTopProductsChartData(restaurantId, startDate, endDate) {
 			if (!productStats[productName]) {
 				productStats[productName] = { quantity: 0, revenue: 0 };
 			}
-			
+
 			productStats[productName].quantity += quantity;
 			productStats[productName].revenue += revenue;
 		});
 	});
 
 	return Object.entries(productStats)
-		.sort(([,a], [,b]) => b.revenue - a.revenue)
+		.sort(([, a], [, b]) => b.revenue - a.revenue)
 		.slice(0, 10)
 		.map(([name, stats]) => ({
 			name,
 			quantity: stats.quantity,
-			revenue: Number(stats.revenue.toFixed(2))
+			revenue: Number(stats.revenue.toFixed(2)),
 		}));
 }
 
@@ -377,9 +445,17 @@ router.get(
 	async (req, res) => {
 		try {
 			const { restaurantId } = req.user;
-			const { period = "today", startDate: customStart, endDate: customEnd } = req.query;
+			const {
+				period = "today",
+				startDate: customStart,
+				endDate: customEnd,
+			} = req.query;
 
-			const { startDate, endDate } = getPeriodDates(period, customStart, customEnd);
+			const { startDate, endDate } = getPeriodDates(
+				period,
+				customStart,
+				customEnd,
+			);
 
 			const orders = await Order.find({
 				restaurantId: restaurantId,
@@ -426,11 +502,22 @@ router.get(
 	async (req, res) => {
 		try {
 			const { restaurantId, restaurantName = "Restaurant" } = req.user;
-			const { period = "month", startDate: customStart, endDate: customEnd, format = "csv" } = req.query;
+			const {
+				period = "month",
+				startDate: customStart,
+				endDate: customEnd,
+				format = "csv",
+			} = req.query;
 
-			console.log(`📤 [ACCOUNTING] Export demandé pour ${req.user.email}, période: ${period}`);
+			console.log(
+				`📤 [ACCOUNTING] Export demandé pour ${req.user.email}, période: ${period}`,
+			);
 
-			const { startDate, endDate } = getPeriodDates(period, customStart, customEnd);
+			const { startDate, endDate } = getPeriodDates(
+				period,
+				customStart,
+				customEnd,
+			);
 
 			// Récupération données complètes
 			const orders = await Order.find({
@@ -440,23 +527,31 @@ router.get(
 			}).sort({ createdAt: -1 });
 
 			// ═══ CALCULS GLOBAUX ═══
-			const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
-			const revenueHT = totalRevenue / 1.20;
-			const tvaCalculations = calculateTVA(revenueHT, 0.20);
-			const marginCalculations = calculateMargins(revenueHT, 0.30);
+			const totalRevenue = orders.reduce(
+				(sum, order) => sum + (order.total || 0),
+				0,
+			);
+			const revenueHT = totalRevenue / 1.2;
+			const tvaCalculations = calculateTVA(revenueHT, 0.2);
+			const marginCalculations = calculateMargins(revenueHT, 0.3);
 
 			// ═══ ANALYSIS PRODUITS ═══
 			const productStats = {};
 			orders.forEach((order) => {
 				order.items?.forEach((item) => {
-					const productName = item.productName || item.name || "Produit inconnu";
+					const productName =
+						item.productName || item.name || "Produit inconnu";
 					const quantity = item.quantity || 1;
 					const revenue = (item.price || 0) * quantity;
 
 					if (!productStats[productName]) {
-						productStats[productName] = { quantity: 0, revenue: 0, orders: new Set() };
+						productStats[productName] = {
+							quantity: 0,
+							revenue: 0,
+							orders: new Set(),
+						};
 					}
-					
+
 					productStats[productName].quantity += quantity;
 					productStats[productName].revenue += revenue;
 					productStats[productName].orders.add(order._id.toString());
@@ -468,8 +563,8 @@ router.get(
 
 			// Header du rapport
 			csvContent += `RAPPORT COMPTABLE - ${restaurantName}\n`;
-			csvContent += `Période;${startDate.toISOString().split('T')[0]};${endDate.toISOString().split('T')[0]}\n`;
-			csvContent += `Généré le;${new Date().toLocaleString('fr-FR')}\n\n`;
+			csvContent += `Période;${startDate.toISOString().split("T")[0]};${endDate.toISOString().split("T")[0]}\n`;
+			csvContent += `Généré le;${new Date().toLocaleString("fr-FR")}\n\n`;
 
 			// Résumé financier
 			csvContent += `RÉSUMÉ FINANCIER\n`;
@@ -485,16 +580,16 @@ router.get(
 			// Détail des commandes
 			csvContent += `DÉTAIL DES COMMANDES\n`;
 			csvContent += `Date;Heure;ID Commande;Table;Montant TTC;Montant HT;TVA;Statut\n`;
-			
+
 			orders.forEach((order) => {
 				const orderDate = new Date(order.createdAt);
-				const orderHT = (order.total || 0) / 1.20;
+				const orderHT = (order.total || 0) / 1.2;
 				const orderTVA = (order.total || 0) - orderHT;
-				
-				csvContent += `${orderDate.toLocaleDateString('fr-FR')};`;
-				csvContent += `${orderDate.toLocaleTimeString('fr-FR')};`;
+
+				csvContent += `${orderDate.toLocaleDateString("fr-FR")};`;
+				csvContent += `${orderDate.toLocaleTimeString("fr-FR")};`;
 				csvContent += `${order._id};`;
-				csvContent += `${order.tableId || 'N/A'};`;
+				csvContent += `${order.tableId || "N/A"};`;
 				csvContent += `€${(order.total || 0).toFixed(2)};`;
 				csvContent += `€${orderHT.toFixed(2)};`;
 				csvContent += `€${orderTVA.toFixed(2)};`;
@@ -506,11 +601,12 @@ router.get(
 			// Top produits
 			csvContent += `ANALYSE DES PRODUITS\n`;
 			csvContent += `Produit;Quantité Vendue;Chiffre d'Affaires;Nombre de Commandes;CA Moyen\n`;
-			
+
 			Object.entries(productStats)
-				.sort(([,a], [,b]) => b.revenue - a.revenue)
+				.sort(([, a], [, b]) => b.revenue - a.revenue)
 				.forEach(([productName, stats]) => {
-					const avgRevenue = stats.orders.size > 0 ? stats.revenue / stats.orders.size : 0;
+					const avgRevenue =
+						stats.orders.size > 0 ? stats.revenue / stats.orders.size : 0;
 					csvContent += `${productName};`;
 					csvContent += `${stats.quantity};`;
 					csvContent += `€${stats.revenue.toFixed(2)};`;
@@ -523,7 +619,7 @@ router.get(
 			// Analyse quotidienne
 			const dailyStats = {};
 			orders.forEach((order) => {
-				const dateKey = new Date(order.createdAt).toISOString().split('T')[0];
+				const dateKey = new Date(order.createdAt).toISOString().split("T")[0];
 				if (!dailyStats[dateKey]) {
 					dailyStats[dateKey] = { revenue: 0, orders: 0 };
 				}
@@ -533,7 +629,7 @@ router.get(
 
 			csvContent += `ÉVOLUTION QUOTIDIENNE\n`;
 			csvContent += `Date;Chiffre d'Affaires;Nombre de Commandes;Panier Moyen\n`;
-			
+
 			Object.entries(dailyStats)
 				.sort(([a], [b]) => a.localeCompare(b))
 				.forEach(([date, stats]) => {
@@ -545,19 +641,21 @@ router.get(
 				});
 
 			// Configuration response
-			const filename = `comptabilite-${restaurantName.replace(/[^a-zA-Z0-9]/g, '')}-${period}-${new Date().toISOString().split('T')[0]}.csv`;
-			
-			res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-			res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-			res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
-			
+			const filename = `comptabilite-${restaurantName.replace(/[^a-zA-Z0-9]/g, "")}-${period}-${new Date().toISOString().split("T")[0]}.csv`;
+
+			res.setHeader("Content-Type", "text/csv; charset=utf-8");
+			res.setHeader(
+				"Content-Disposition",
+				`attachment; filename="${filename}"`,
+			);
+			res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
+
 			// BOM UTF-8 pour Excel
-			res.write('\ufeff');
+			res.write("\ufeff");
 			res.write(csvContent);
 			res.end();
 
 			console.log(`✅ [ACCOUNTING] Export généré: ${filename}`);
-
 		} catch (error) {
 			console.error("❌ [ACCOUNTING] Erreur génération export:", error);
 			res.status(500).json({

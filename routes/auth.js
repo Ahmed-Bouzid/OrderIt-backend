@@ -661,7 +661,7 @@ router.post("/verify-reset-token", strictLimiter, async (req, res) => {
 router.get("/accounting-summary", auth, async (req, res) => {
 	try {
 		console.log("💰 [TEMP-ACCOUNTING] Test endpoint appelé");
-		
+
 		// Données de test basiques pour valider que l'endpoint fonctionne
 		const testData = {
 			success: true,
@@ -670,23 +670,27 @@ router.get("/accounting-summary", auth, async (req, res) => {
 				totalOrders: 28,
 				averageOrderValue: 44.09,
 				topProduct: "Pizza Margherita",
-				monthlyRevenue: 15678.90,
+				monthlyRevenue: 15678.9,
 				period: "today",
-				date: new Date().toISOString().split('T')[0]
-			}
+				date: new Date().toISOString().split("T")[0],
+			},
 		};
 
 		console.log("✅ [TEMP-ACCOUNTING] Données test retournées");
 		res.json(testData);
-
 	} catch (error) {
 		console.error("❌ [TEMP-ACCOUNTING] Erreur:", error);
 		res.status(500).json({
 			success: false,
 			message: "Erreur temporaire",
-			error: error.message
+			error: error.message,
 		});
 	}
+});
+
+// Test endpoint simple
+router.get("/test-simple", (req, res) => {
+	res.json({ message: "Test simple fonctionne", timestamp: new Date() });
 });
 
 module.exports = router;

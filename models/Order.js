@@ -68,11 +68,20 @@ const orderSchema = new mongoose.Schema(
 					type: String,
 					default: "",
 				},
-				// ⭐⭐ Catégorie de l'item pour le plan de salle
+				// ⭐⭐ Catégorie de l'item pour le plan de salle (dynamique)
 				category: {
 					type: String,
-					enum: ["boisson", "entree", "entrée", "plat", "dessert", "autre"],
-					default: "autre",
+					required: true,
+					trim: true,
+					lowercase: true, // Normaliser les catégories
+					default: 'autre',
+					validate: {
+						validator: function(value) {
+							// Validation simple : accepter toute chaîne non vide
+							return value && value.trim().length > 0;
+						},
+						message: 'La catégorie ne peut pas être vide'
+					}
 				},
 				// ⭐⭐ Statut de l'article pour la cuisine (ajout de "confirmed")
 				itemStatus: {
@@ -344,6 +353,59 @@ orderSchema.methods.isFullyPaid = function () {
 // ⭐⭐ MÉTHODE : Récupérer le montant restant à payer
 orderSchema.methods.getRemainingAmount = function () {
 	return Math.max(0, this.totalAmount - this.paidAmount);
+};
+
+// ⭐⭐ MIDDLEWARE : Normaliser les catégories avant sauvegarde
+orderSchema.pre('save', async function(next) {
+	if (this.items && this.items.length > 0) {
+		for (let item of this.items) {
+			if (item.category) {
+				// Normaliser la catégorie
+				item.category = item.category.toLowerCase().trim();
+				
+				// Mapper les variations communes
+				const categoryMapping = {
+					'nouveautés': 'nouveautes',
+					'nouveautes tiramisu': 'nouveautes',
+					'nouveautés tiramisu': 'nouveautes', 
+					'entrée': 'entree',
+					'entrées': 'entree',
+					'boissons': 'boisson',
+					'desserts': 'dessert',
+					'plats': 'plat',
+					'principal': 'plat',
+					'main': 'plat'
+				};
+				
+				// Appliquer le mapping si trouvé
+				if (categoryMapping[item.category]) {
+					item.category = categoryMapping[item.category];
+				}
+			}
+		}
+	}
+	next();
+});
+
+// ⭐⭐ MÉTHODE STATIQUE : Récupérer toutes les catégories d'un restaurant
+orderSchema.statics.getRestaurantCategories = async function (restaurantId) {
+	const Product = mongoose.model('Product');
+	
+	try {
+		const categories = await Product.distinct('category', { 
+			restaurantId: restaurantId,
+			isAvailable: true 
+		});
+		
+		// Ajouter les catégories de base si elles n'existent pas
+		const baseCategories = ['autre', 'boisson', 'entree', 'plat', 'dessert'];
+		const allCategories = [...new Set([...categories, ...baseCategories])];
+		
+		return allCategories.filter(cat => cat && cat.trim() !== '');
+	} catch (error) {
+		console.error('❌ Erreur récupération catégories restaurant:', error);
+		return ['autre', 'boisson', 'entree', 'plat', 'dessert'];
+	}
 };
 
 // ⭐⭐ MÉTHODE STATIQUE : Trouver les commandes d'une réservation

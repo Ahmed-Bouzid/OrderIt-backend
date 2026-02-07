@@ -65,7 +65,7 @@ router.post(
 				return res.status(400).json({ message: "Aucun produit sélectionné" });
 			}
 
-			// 🔍 Enrichir les items avec les données produit (catégorie)
+			// 🔍 Enrichir les items avec les données produit (catégorie normalisée)
 			const enrichedItems = await Promise.all(
 				items.map(async (item) => {
 					if (item.productId) {
@@ -73,12 +73,34 @@ router.post(
 							"category"
 						);
 						if (product && product.category) {
-							// Convertir en minuscule pour correspondre à l'enum Order
-							const category = product.category.toLowerCase();
+							// Normaliser la catégorie pour éviter les erreurs de validation
+							let category = product.category.toLowerCase().trim();
+							
+							// Mapper les variations communes vers des catégories standards
+							const categoryMapping = {
+								'nouveautés': 'nouveautes',
+								'nouveautes tiramisu': 'nouveautes',
+								'nouveautés tiramisu': 'nouveautes', 
+								'entrée': 'entree',
+								'entrées': 'entree',
+								'boissons': 'boisson',
+								'desserts': 'dessert',
+								'plats': 'plat',
+								'principal': 'plat',
+								'main': 'plat'
+							};
+							
+							// Appliquer le mapping si trouvé
+							if (categoryMapping[category]) {
+								category = categoryMapping[category];
+							}
+							
+							console.log(`🔄 Catégorie normalisée: ${product.category} → ${category}`);
 							return { ...item, category };
 						}
 					}
-					return item; // Si pas de productId ou produit introuvable, on garde l'item tel quel
+					// Si pas de productId ou produit introuvable, utiliser "autre" par défaut
+					return { ...item, category: item.category?.toLowerCase()?.trim() || 'autre' };
 				})
 			);
 
