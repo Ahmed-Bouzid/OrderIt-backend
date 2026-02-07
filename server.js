@@ -83,6 +83,7 @@ app.use("/products", auth, require("./routes/productAllergens")); // ⭐ Routes 
 app.use("/allergens", require("./routes/allergens")); // ⭐ Routes allergènes
 app.use("/payments", auth, require("./routes/payments")); // 💳 Routes Stripe
 app.use("/feedback", require("./routes/feedback")); // 🛠️ Routes feedback utilisateurs
+app.use("/client-feedback", require("./routes/api/clientFeedback")); // 🌟 Routes feedback clients & avis Google
 app.use("/mfa", require("./routes/mfa")); // 🔐 Routes MFA (Multi-Factor Authentication)
 app.use("/api/feature-levels", auth, require("./routes/featureLevels")); // 🎚️ Routes niveaux fonctionnels
 app.use("/client/token", clientTokenRoutes);
