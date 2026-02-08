@@ -74,8 +74,7 @@ app.use(
 		credentials: true,
 		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 		allowedHeaders: ["Content-Type", "Authorization", "stripe-signature"],
-	}),
-);
+	});
 
 app.use(express.json({ limit: "10mb" }));
 // Pour les formulaires (si jamais utilisé)
