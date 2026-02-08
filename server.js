@@ -7,6 +7,10 @@ const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
 const xss = require("xss-clean");
 const auth = require("./middlewares/auth");
+const {
+	secureErrorHandler,
+	notFoundHandler,
+} = require("./middlewares/secureErrorHandler");
 const clientTokenRoutes = require("./routes/clientToken");
 const clientProductsRoutes = require("./routes/clientProducts");
 const enforceHttps = require("./middlewares/enforceHttps");
@@ -23,28 +27,49 @@ app.set("trust proxy", 1);
 app.use(enforceHttps);
 
 // CORS strict pour Expo, localhost, Render, Vercel
+const corsOrigins =
+	process.env.NODE_ENV !== "production"
+		? [
+				/^http:\/\/localhost:\d+$/, // Port dynamique localhost
+				/^exp:\/\/192\.168\.\d+\.\d+:\d+$/, // Expo dev
+				/^http:\/\/192\.168\.\d+\.\d+:\d+$/, // Réseau local
+			]
+		: [
+				"https://sunnygo-frontend.vercel.app",
+				"https://sunnygo-backend-6y1m.onrender.com",
+				// ✅ Ajouter vos vraies URLs Vercel ici
+			];
+
 app.use(
-	cors(
-		process.env.NODE_ENV !== "production"
-			? {
-					origin: true, // Autorise toutes les origines en dev
-					credentials: true,
-					methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-					allowedHeaders: ["Content-Type", "Authorization"],
+	cors({
+		origin: function (origin, callback) {
+			// ✅ SÉCURITÉ: En production, rejeter les request sans origin (comme Postman/curl)
+			if (process.env.NODE_ENV === "production" && !origin) {
+				console.error("🚨 CORS: Request sans origin rejetée");
+				return callback(new Error("Origin requis en production"));
+			}
+
+			// ✅ SÉCURITÉ: Validation stricte contre liste d'origins autorisées
+			const isAllowed = corsOrigins.some((allowedOrigin) => {
+				if (typeof allowedOrigin === "string") {
+					return allowedOrigin === origin;
+				} else if (allowedOrigin instanceof RegExp) {
+					return allowedOrigin.test(origin);
 				}
-			: {
-					origin: [
-						"http://localhost:8081",
-						"exp://192.168.*.*:8081",
-						"http://localhost:3000",
-						"https://sunnygo-frontend.vercel.app",
-						"https://sunnygo-backend-6y1m.onrender.com",
-					],
-					credentials: true,
-					methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-					allowedHeaders: ["Content-Type", "Authorization"],
-				},
-	),
+				return false;
+			});
+
+			if (isAllowed || !origin) {
+				callback(null, true);
+			} else {
+				console.error(`🚨 CORS: Origin non autorisé: ${origin}`);
+				callback(new Error("Accès refusé par CORS"));
+			}
+		},
+		credentials: true,
+		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+		allowedHeaders: ["Content-Type", "Authorization", "stripe-signature"],
+	}),
 );
 
 app.use(express.json({ limit: "10mb" }));
@@ -89,6 +114,10 @@ app.use("/mfa", require("./routes/mfa")); // 🔐 Routes MFA (Multi-Factor Authe
 app.use("/api/feature-levels", auth, require("./routes/featureLevels")); // 🎚️ Routes niveaux fonctionnels
 app.use("/client/token", clientTokenRoutes);
 app.use("/client/products", clientProductsRoutes);
+
+// ✅ SÉCURITÉ: Middlewares de gestion d'erreurs (TOUJOURS EN DERNIER)
+app.use(notFoundHandler); // 404 pour routes non trouvées
+app.use(secureErrorHandler); // Gestionnaire d'erreurs sécurisé
 
 // ⚠ N'écoute pas ici, on exporte seulement l'app
 module.exports = app;

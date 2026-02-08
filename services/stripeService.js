@@ -19,7 +19,7 @@ class StripeService {
 
 		if (!stripeSecretKey) {
 			console.warn(
-				"⚠️ STRIPE_SECRET_KEY non définie - Les paiements ne fonctionneront pas"
+				"⚠️ STRIPE_SECRET_KEY non définie - Les paiements ne fonctionneront pas",
 			);
 			this.stripe = null;
 		} else {
@@ -32,7 +32,7 @@ class StripeService {
 			console.log(
 				`✅ Stripe initialisé en mode ${
 					this.isTestMode ? "TEST" : "PRODUCTION"
-				}`
+				}`,
 			);
 		}
 
@@ -70,7 +70,7 @@ class StripeService {
 	}) {
 		if (!this.isConfigured()) {
 			throw new Error(
-				"Stripe n'est pas configuré - vérifiez STRIPE_SECRET_KEY"
+				"Stripe n'est pas configuré - vérifiez STRIPE_SECRET_KEY",
 			);
 		}
 
@@ -118,7 +118,7 @@ class StripeService {
 		console.log(
 			`✅ PaymentIntent créé: ${paymentIntent.id} - Montant: ${
 				totalAmount / 100
-			}€`
+			}€`,
 		);
 
 		// 4. Sauvegarder dans la DB
@@ -194,9 +194,8 @@ class StripeService {
 			throw new Error("Stripe n'est pas configuré");
 		}
 
-		const paymentIntent = await this.stripe.paymentIntents.cancel(
-			paymentIntentId
-		);
+		const paymentIntent =
+			await this.stripe.paymentIntents.cancel(paymentIntentId);
 
 		// Mettre à jour la DB
 		const payment = await Payment.findByPaymentIntentId(paymentIntentId);
@@ -237,7 +236,7 @@ class StripeService {
 			paymentIntentId,
 			{
 				payment_method: testPaymentMethodId,
-			}
+			},
 		);
 
 		// Mettre à jour la DB
@@ -268,7 +267,7 @@ class StripeService {
 								(reservation.paidAmount || 0) + payment.amount / 100;
 							await reservation.save();
 							console.log(
-								`✅ Réservation ${reservation._id} mise à jour - paidAmount: ${reservation.paidAmount}€`
+								`✅ Réservation ${reservation._id} mise à jour - paidAmount: ${reservation.paidAmount}€`,
 							);
 						}
 					}
@@ -398,7 +397,7 @@ class StripeService {
 		await payment.markAsFailed(errorMessage, errorCode);
 		await payment.addStripeEvent(
 			paymentIntent.id,
-			"payment_intent.payment_failed"
+			"payment_intent.payment_failed",
 		);
 
 		return {
@@ -452,7 +451,7 @@ class StripeService {
 		payment.status = "requires_action";
 		await payment.addStripeEvent(
 			paymentIntent.id,
-			"payment_intent.requires_action"
+			"payment_intent.requires_action",
 		);
 		await payment.save();
 
@@ -471,19 +470,30 @@ class StripeService {
 	 * @returns {Object} Événement vérifié
 	 */
 	verifyWebhookSignature(payload, signature) {
+		// ✅ SÉCURITÉ: Webhook secret OBLIGATOIRE en production
 		if (!this.webhookSecret) {
-			console.warn(
-				"⚠️ STRIPE_WEBHOOK_SECRET non défini - Webhooks non vérifiés!"
-			);
-			return JSON.parse(payload);
+			const error =
+				"🚨 STRIPE_WEBHOOK_SECRET manquant - Webhooks REFUSÉS pour sécurité !";
+			console.error(error);
+			throw new Error("Webhook secret requis");
+		}
+
+		// ✅ SÉCURITÉ: Signature obligatoire
+		if (!signature) {
+			console.error("🚨 Webhook sans signature rejeté");
+			throw new Error("Signature webhook manquante");
 		}
 
 		try {
-			return this.stripe.webhooks.constructEvent(
+			// ✅ Vérification cryptographique de la signature
+			const event = this.stripe.webhooks.constructEvent(
 				payload,
 				signature,
-				this.webhookSecret
+				this.webhookSecret,
 			);
+
+			console.log(`✅ Webhook vérifié: ${event.type} - ${event.id}`);
+			return event;
 		} catch (err) {
 			console.error("❌ Erreur vérification webhook:", err.message);
 			throw new Error("Webhook signature verification failed");
