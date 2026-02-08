@@ -37,12 +37,14 @@ router.post("/login", loginLimiter, async (req, res) => {
 
 		// 🔒 VÉRIFICATION ABONNEMENT : Si restaurant désactivé, bloquer la connexion
 		// ⚠️ Exception : Les développeurs peuvent toujours se connecter
+		// 🚨 TEMPORAIREMENT DÉSACTIVÉ pour tests
 		let restaurantCategory = "restaurant"; // Par défaut
 		if (user.role !== "developer" && user.restaurantId) {
 			const Restaurant = require("../models/Restaurant");
 			const restaurant = await Restaurant.findById(user.restaurantId);
 
-			if (restaurant && !restaurant.active) {
+			// 🚨 COMMENTÉ TEMPORAIREMENT : Vérification d'abonnement désactivée
+			/* if (restaurant && !restaurant.active) {
 				console.log(
 					`🚫 Connexion refusée - Restaurant désactivé: ${restaurant.name} (${user.email})`,
 				);
@@ -52,7 +54,7 @@ router.post("/login", loginLimiter, async (req, res) => {
 					code: "RESTAURANT_DISABLED",
 					restaurantName: restaurant.name,
 				});
-			}
+			} */
 
 			// 🍔 Récupérer la catégorie du restaurant (foodtruck, restaurant, snack, etc.)
 			if (restaurant) {
