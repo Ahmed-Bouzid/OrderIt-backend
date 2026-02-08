@@ -35,15 +35,21 @@ const corsOrigins =
 			]
 		: [
 				"https://sunnygo-frontend.vercel.app",
-			"https://orderit-backend-6y1m.onrender.com",
+				"https://orderit-backend-6y1m.onrender.com",
+				// ✅ AUTORISER EXPO MÊME EN PRODUCTION pour les apps mobiles
+				/^exp:\/\/192\.168\.\d+\.\d+:\d+$/, // Expo mobile dev
+				/^http:\/\/localhost:\d+$/, // Localhost mobile
+				// ✅ Ajouter vos vraies URLs Vercel ici
+			];
+
 app.use(
 	cors({
 		origin: function (origin, callback) {
-			// ✅ SÉCURITÉ: En production, rejeter les request sans origin (comme Postman/curl)
-			if (process.env.NODE_ENV === "production" && !origin) {
-				console.error("🚨 CORS: Request sans origin rejetée");
-				return callback(new Error("Origin requis en production"));
-			}
+			// ✅ TEMPORAIRE: Permettre les requêtes sans origin pour debug
+			// if (process.env.NODE_ENV === "production" && !origin) {
+			// 	console.error("🚨 CORS: Request sans origin rejetée");
+			// 	return callback(new Error("Origin requis en production"));
+			// }
 
 			// ✅ SÉCURITÉ: Validation stricte contre liste d'origins autorisées
 			const isAllowed = corsOrigins.some((allowedOrigin) => {
