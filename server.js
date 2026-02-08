@@ -1,5 +1,4 @@
-console.log("=== [DEBUG] DEMARRAGE server.js ===");
-console.log("=== DEMARRAGE SERVER.JS ===");
+// ✅ Démarrage sécurisé du serveur
 const express = require("express");
 const cors = require("cors");
 const rateLimiter = require("./middlewares/rateLimiter");
@@ -62,7 +61,10 @@ app.use(
 			if (isAllowed || !origin) {
 				callback(null, true);
 			} else {
+				// ✅ SÉCURITÉ: Log uniquement en développement
+			if (process.env.NODE_ENV !== "production") {
 				console.error(`🚨 CORS: Origin non autorisé: ${origin}`);
+			}
 				callback(new Error("Accès refusé par CORS"));
 			}
 		},

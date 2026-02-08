@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const ClientFeedback = require("../../models/ClientFeedback");
 const { body, validationResult } = require("express-validator");
+const logger = require("../../utils/secureLogger"); // ✅ Logger sécurisé
 
 /**
  * 🌟 Routes pour la collecte d'avis clients
@@ -47,13 +48,13 @@ const validateClientFeedback = [
  * Enregistre un feedback client (uniquement pour clients non 100% satisfaits)
  */
 router.post("/submit", validateClientFeedback, async (req, res) => {
-	console.log("📝 [CLIENT-FEEDBACK] Réception feedback client:", req.body);
+	logger.debug("Réception feedback client");
 
 	try {
 		// Vérifier les erreurs de validation
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
-			console.error("❌ [CLIENT-FEEDBACK] Erreurs validation:", errors.array());
+			logger.warn("Erreurs validation feedback", { errorsCount: errors.array().length });
 			return res.status(400).json({
 				success: false,
 				message: "Données invalides",
@@ -143,7 +144,7 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 			shouldStore: true,
 		});
 	} catch (error) {
-		console.error("❌ [CLIENT-FEEDBACK] Erreur enregistrement:", error);
+		logger.error("Erreur enregistrement feedback", { error: error.message });
 
 		// Même en cas d'erreur, on laisse l'utilisateur accéder à Google
 		res.status(500).json({
@@ -191,7 +192,7 @@ router.get("/stats/:restaurantId", async (req, res) => {
 			data: stats,
 		});
 	} catch (error) {
-		console.error("❌ [CLIENT-FEEDBACK] Erreur stats:", error);
+		logger.error("Erreur statistiques feedback", { error: error.message });
 		res.status(500).json({
 			success: false,
 			message: "Erreur lors du calcul des statistiques",
@@ -236,7 +237,7 @@ router.get("/improvement/:restaurantId", async (req, res) => {
 			count: feedbacks.length,
 		});
 	} catch (error) {
-		console.error("❌ [CLIENT-FEEDBACK] Erreur récupération feedbacks:", error);
+		logger.error("Erreur récupération feedbacks", { error: error.message });
 		res.status(500).json({
 			success: false,
 			message: "Erreur lors de la récupération des feedbacks",

@@ -12,6 +12,7 @@ const Restaurant = require("../../models/Restaurant");
 const { body, validationResult } = require("express-validator");
 const auth = require("../../middlewares/auth");
 const checkDeveloper = require("../../middlewares/checkDeveloper");
+const logger = require("../../utils/secureLogger"); // ✅ Logger sécurisé
 
 /**
  * 📋 GET /api/developer/features - Liste tous les restaurants et leurs fonctionnalités
@@ -51,7 +52,7 @@ router.get("/features", auth, checkDeveloper, async (req, res) => {
 			total: restaurantsWithFeatures.length,
 		});
 	} catch (error) {
-		console.error("❌ [DEVELOPER-FEATURES] Erreur récupération:", error);
+		logger.error("Erreur récupération fonctionnalités", { error: error.message });
 		res.status(500).json({
 			success: false,
 			message: "Erreur lors de la récupération des fonctionnalités",
@@ -186,7 +187,10 @@ router.post(
 				},
 			});
 		} catch (error) {
-			console.error("❌ [DEVELOPER-FEATURES] Erreur toggle:", error);
+			logger.error("Erreur toggle fonctionnalité", { 
+				error: error.message,
+				restaurantId: req.params.restaurantId 
+			});
 			res.status(500).json({
 				success: false,
 				message: "Erreur lors de la modification",
@@ -248,7 +252,7 @@ router.get("/features/stats", auth, checkDeveloper, async (req, res) => {
 			},
 		});
 	} catch (error) {
-		console.error("❌ [DEVELOPER-FEATURES] Erreur statistiques:", error);
+		logger.error("Erreur statistiques fonctionnalités", { error: error.message });
 		res.status(500).json({
 			success: false,
 			message: "Erreur lors du calcul des statistiques",

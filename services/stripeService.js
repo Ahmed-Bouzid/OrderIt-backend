@@ -1,6 +1,7 @@
 const Stripe = require("stripe");
 const Payment = require("../models/Payment");
 const Order = require("../models/Order");
+const logger = require("../utils/secureLogger"); // ✅ Logger sécurisé
 
 /**
  * Service Stripe - Gestion centralisée de tous les paiements Stripe
@@ -115,11 +116,11 @@ class StripeService {
 			capture_method: "automatic",
 		});
 
-		console.log(
-			`✅ PaymentIntent créé: ${paymentIntent.id} - Montant: ${
-				totalAmount / 100
-			}€`,
-		);
+		logger.info("PaymentIntent créé avec succès", {
+			paymentIntentId: paymentIntent.id.substring(0, 12) + "...",
+			amount: totalAmount / 100 + "€",
+			currency: currency
+		});
 
 		// 4. Sauvegarder dans la DB
 		const payment = new Payment({
@@ -223,7 +224,7 @@ class StripeService {
 			throw new Error("Cette méthode est disponible uniquement en mode TEST");
 		}
 
-		console.log(`🧪 Confirmation avec token test Visa: ${paymentIntentId}`);
+		logger.debug("Mode test: Confirmation avec token Visa test");
 
 		// ✅ Utiliser le token de test prédéfini par Stripe (carte Visa 4242)
 		// Plus sécurisé que d'envoyer les détails bruts de la carte
@@ -256,7 +257,7 @@ class StripeService {
 					order.paidAmount = payment.amount / 100; // Convertir centimes en euros
 					order.paymentStatus = "paid";
 					await order.save();
-					console.log(`✅ Commande ${order._id} marquée comme payée`);
+					logger.info("Commande marquée comme payée");
 
 					// ⭐ Mettre à jour aussi la réservation
 					if (order.reservationId) {
@@ -495,7 +496,7 @@ class StripeService {
 			console.log(`✅ Webhook vérifié: ${event.type} - ${event.id}`);
 			return event;
 		} catch (err) {
-			console.error("❌ Erreur vérification webhook:", err.message);
+			logger.error("Erreur vérification webhook", { error: err.message });
 			throw new Error("Webhook signature verification failed");
 		}
 	}
@@ -567,7 +568,7 @@ class StripeService {
 
 		await order.save();
 
-		console.log(`✅ Paiement fake créé et commande ${order._id} marquée payée`);
+		logger.info("Paiement fake créé avec succès");
 
 		return {
 			success: true,
