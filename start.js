@@ -24,7 +24,7 @@ const io = new Server(server, {
 					// Production : CORS STRICT (liste blanche)
 					origin: [
 						"https://sunnygo-frontend.vercel.app", // Frontend production
-						"https://sunnygo-backend-6y1m.onrender.com", // Backend production
+					"https://orderit-backend-6y1m.onrender.com", // Backend production
 						process.env.FRONTEND_URL, // Variable d'environnement
 					].filter(Boolean), // Enlever les undefined
 					credentials: true,
