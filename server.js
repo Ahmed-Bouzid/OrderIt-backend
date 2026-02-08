@@ -91,6 +91,7 @@ app.get("/tables/:tableId", tablesRouter);
 
 // Routes protégées
 app.use("/auth", require("./routes/auth"));
+// app.use("/auth-secure", require("./routes/authSecure")); // 🔐 TODO: Réactiver après test
 app.use("/restaurants", require("./routes/restaurants"));
 app.use("/orders", auth, require("./routes/orders"));
 app.use("/tables", auth, tablesRouter);
