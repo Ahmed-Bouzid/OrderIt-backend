@@ -137,6 +137,21 @@ router.post(
 
 			await order.save();
 
+			// ⭐ Émettre événement WebSocket pour notifier le frontend
+			const io = req.app.locals.io;
+			if (io && order.restaurantId) {
+				const { emitOrderEvent } = require("../utils/socketEmitter");
+				emitOrderEvent(
+					io,
+					order.restaurantId.toString(),
+					"created",
+					order.toObject(),
+				);
+				console.log(
+					`📡 WebSocket: Nouvelle commande ${order._id} émise vers restaurant ${order.restaurantId}`,
+				);
+			}
+
 			// 🔔 Réponse
 			res.status(201).json(order);
 		} catch (err) {

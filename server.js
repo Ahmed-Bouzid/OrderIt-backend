@@ -62,9 +62,9 @@ app.use(
 				callback(null, true);
 			} else {
 				// ✅ SÉCURITÉ: Log uniquement en développement
-			if (process.env.NODE_ENV !== "production") {
-				console.error(`🚨 CORS: Origin non autorisé: ${origin}`);
-			}
+				if (process.env.NODE_ENV !== "production") {
+					console.error(`🚨 CORS: Origin non autorisé: ${origin}`);
+				}
 				callback(new Error("Accès refusé par CORS"));
 			}
 		},
@@ -105,6 +105,7 @@ app.use("/reservations", require("./routes/reservations"));
 app.use("/assistant", require("./routes/assistant")); // ⭐ Assistant intelligent réservations
 app.use("/developer", require("./routes/developer")); // 🔧 Routes développeur
 app.use("/api/developer", require("./routes/api/developerFeatures")); // 🛠️ Routes gestion fonctionnalités payantes
+app.use("/crm", auth, require("./routes/crm")); // 📊 Routes CRM - Performance des équipes
 app.use("/accounting", auth, require("./routes/accounting")); // 💰 Routes comptabilité
 app.use("/products", auth, require("./routes/products"));
 app.use("/products", auth, require("./routes/productOptions")); // ⭐ Routes options produits

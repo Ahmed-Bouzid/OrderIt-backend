@@ -119,7 +119,7 @@ class StripeService {
 		logger.info("PaymentIntent créé avec succès", {
 			paymentIntentId: paymentIntent.id.substring(0, 12) + "...",
 			amount: totalAmount / 100 + "€",
-			currency: currency
+			currency: currency,
 		});
 
 		// 4. Sauvegarder dans la DB

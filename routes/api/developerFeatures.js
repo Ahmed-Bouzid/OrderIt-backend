@@ -52,7 +52,9 @@ router.get("/features", auth, checkDeveloper, async (req, res) => {
 			total: restaurantsWithFeatures.length,
 		});
 	} catch (error) {
-		logger.error("Erreur récupération fonctionnalités", { error: error.message });
+		logger.error("Erreur récupération fonctionnalités", {
+			error: error.message,
+		});
 		res.status(500).json({
 			success: false,
 			message: "Erreur lors de la récupération des fonctionnalités",
@@ -187,9 +189,9 @@ router.post(
 				},
 			});
 		} catch (error) {
-			logger.error("Erreur toggle fonctionnalité", { 
+			logger.error("Erreur toggle fonctionnalité", {
 				error: error.message,
-				restaurantId: req.params.restaurantId 
+				restaurantId: req.params.restaurantId,
 			});
 			res.status(500).json({
 				success: false,
@@ -252,7 +254,9 @@ router.get("/features/stats", auth, checkDeveloper, async (req, res) => {
 			},
 		});
 	} catch (error) {
-		logger.error("Erreur statistiques fonctionnalités", { error: error.message });
+		logger.error("Erreur statistiques fonctionnalités", {
+			error: error.message,
+		});
 		res.status(500).json({
 			success: false,
 			message: "Erreur lors du calcul des statistiques",

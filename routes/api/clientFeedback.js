@@ -54,7 +54,9 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 		// Vérifier les erreurs de validation
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
-			logger.warn("Erreurs validation feedback", { errorsCount: errors.array().length });
+			logger.warn("Erreurs validation feedback", {
+				errorsCount: errors.array().length,
+			});
 			return res.status(400).json({
 				success: false,
 				message: "Données invalides",
@@ -120,6 +122,28 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 		console.log(
 			`✅ [CLIENT-FEEDBACK] Feedback enregistré - Type: ${clientFeedback.feedbackType}, ID: ${clientFeedback._id}`,
 		);
+
+		// ⭐ Émettre événement WebSocket pour notifier le frontend
+		const io = req.app.locals.io;
+		if (io && clientFeedback.restaurantId) {
+			const { emitNotification } = require("../../utils/socketEmitter");
+			emitNotification(
+				io,
+				clientFeedback.restaurantId.toString(),
+				"Nouveau Feedback",
+				`Avis ${clientFeedback.feedbackType} reçu : ${clientFeedback.comment || "Sans commentaire"}`,
+				clientFeedback.feedbackType === "mixed" ? "warning" : "info",
+				{
+					feedbackId: clientFeedback._id,
+					feedbackType: clientFeedback.feedbackType,
+					tableId: clientFeedback.tableId,
+					clientName: clientFeedback.clientName || "Client",
+				},
+			);
+			console.log(
+				`📡 WebSocket: Feedback ${clientFeedback._id} émis vers restaurant ${clientFeedback.restaurantId}`,
+			);
+		}
 
 		// Message de réponse selon le type
 		let responseMessage = "Merci pour votre retour !";

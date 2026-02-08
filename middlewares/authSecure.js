@@ -1,6 +1,6 @@
 /**
  * 🔐 Middleware d'authentification sécurisé avec nouveau système JWT
- * 
+ *
  * Utilise le système jwtSecure.js avec :
  * - Access tokens courts (15 min)
  * - Validation stricte avec issuer/audience
@@ -8,9 +8,9 @@
  * - Logs sécurisés
  */
 
-const { verifyAccessToken } = require('../utils/jwtSecure');
-const { createError } = require('./secureErrorHandler');
-const logger = require('../utils/secureLogger');
+const { verifyAccessToken } = require("../utils/jwtSecure");
+const { createError } = require("./secureErrorHandler");
+const logger = require("../utils/secureLogger");
 
 // Middleware d'authentification pour serveur/admin et clients
 module.exports = function authSecure(req, res, next) {
@@ -23,12 +23,12 @@ module.exports = function authSecure(req, res, next) {
 		logger.security("Tentative accès sans token", {
 			url: req.originalUrl,
 			ip: req.ip,
-			userAgent: req.get('User-Agent')
+			userAgent: req.get("User-Agent"),
 		});
-		return res.status(401).json({ 
+		return res.status(401).json({
 			success: false,
 			error: "Authentification requise",
-			code: "TOKEN_MISSING"
+			code: "TOKEN_MISSING",
 		});
 	}
 
@@ -52,21 +52,21 @@ module.exports = function authSecure(req, res, next) {
 		logger.security("Token invalide détecté", {
 			error: err.message,
 			url: req.originalUrl,
-			ip: req.ip
+			ip: req.ip,
 		});
 
 		// ✅ Messages d'erreur cohérents
 		if (err.message === "Token expiré") {
-			return res.status(401).json({ 
+			return res.status(401).json({
 				success: false,
 				error: "Session expirée",
-				code: "TOKEN_EXPIRED"
+				code: "TOKEN_EXPIRED",
 			});
 		} else {
-			return res.status(403).json({ 
+			return res.status(403).json({
 				success: false,
 				error: "Token invalide",
-				code: "TOKEN_INVALID"
+				code: "TOKEN_INVALID",
 			});
 		}
 	}
