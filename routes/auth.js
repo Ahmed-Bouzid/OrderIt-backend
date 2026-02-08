@@ -17,42 +17,73 @@ const { sendPasswordResetEmail } = require("../services/emailService");
 router.post("/login", loginLimiter, async (req, res) => {
 	try {
 		const { email, password } = req.body;
-		
+
 		// 🕵️ LOG 1: Données reçues
-		console.log("🔑 [AUTH DEBUG] Tentative de connexion pour:", email?.substring(0, 3) + "***");
-		console.log("🔑 [AUTH DEBUG] Mot de passe reçu:", password ? "OUI (" + password.length + " chars)" : "NON");
+		console.log(
+			"🔑 [AUTH DEBUG] Tentative de connexion pour:",
+			email?.substring(0, 3) + "***",
+		);
+		console.log(
+			"🔑 [AUTH DEBUG] Mot de passe reçu:",
+			password ? "OUI (" + password.length + " chars)" : "NON",
+		);
 
 		let user = await Admin.findOne({ email });
 		let userType = "admin";
-		
+
 		// 🕵️ LOG 2: Recherche dans Admin
-		console.log("🔍 [AUTH DEBUG] Recherche dans Admin:", user ? "TROUVÉ" : "PAS TROUVÉ");
+		console.log(
+			"🔍 [AUTH DEBUG] Recherche dans Admin:",
+			user ? "TROUVÉ" : "PAS TROUVÉ",
+		);
 
 		if (!user) {
 			user = await Server.findOne({ email });
 			userType = "server";
-			
+
 			// 🕵️ LOG 3: Recherche dans Server
-			console.log("🔍 [AUTH DEBUG] Recherche dans Server:", user ? "TROUVÉ" : "PAS TROUVÉ");
+			console.log(
+				"🔍 [AUTH DEBUG] Recherche dans Server:",
+				user ? "TROUVÉ" : "PAS TROUVÉ",
+			);
 		}
 
 		if (!user) {
 			// 🕵️ LOG 4: Utilisateur non trouvé
-			console.log("❌ [AUTH DEBUG] UTILISATEUR NON TROUVÉ pour email:", email?.substring(0, 3) + "***");
+			console.log(
+				"❌ [AUTH DEBUG] UTILISATEUR NON TROUVÉ pour email:",
+				email?.substring(0, 3) + "***",
+			);
 			return res.status(401).json({ message: "Identifiants invalides." });
 		}
-		
+
 		// 🕵️ LOG 5: Utilisateur trouvé
-		console.log("✅ [AUTH DEBUG] Utilisateur trouvé - Type:", userType, "Role:", user.role);
+		console.log(
+			"✅ [AUTH DEBUG] Utilisateur trouvé - Type:",
+			userType,
+			"Role:",
+			user.role,
+		);
 
 		const validPassword = await bcrypt.compare(password, user.passwordHash);
-		
+
 		// 🕵️ LOG 6: Vérification mot de passe
-		console.log("🔐 [AUTH DEBUG] Mot de passe valide:", validPassword ? "OUI" : "NON");
-		console.log("🔐 [AUTH DEBUG] Hash en DB:", user.passwordHash ? "PRÉSENT (" + user.passwordHash.length + " chars)" : "ABSENT");
-		
+		console.log(
+			"🔐 [AUTH DEBUG] Mot de passe valide:",
+			validPassword ? "OUI" : "NON",
+		);
+		console.log(
+			"🔐 [AUTH DEBUG] Hash en DB:",
+			user.passwordHash
+				? "PRÉSENT (" + user.passwordHash.length + " chars)"
+				: "ABSENT",
+		);
+
 		if (!validPassword) {
-			console.log("❌ [AUTH DEBUG] MOT DE PASSE INCORRECT pour:", email?.substring(0, 3) + "***");
+			console.log(
+				"❌ [AUTH DEBUG] MOT DE PASSE INCORRECT pour:",
+				email?.substring(0, 3) + "***",
+			);
 			return res.status(401).json({ message: "Identifiants invalides." });
 		}
 
@@ -100,11 +131,14 @@ router.post("/login", loginLimiter, async (req, res) => {
 
 		// === Vérification JWT_SECRET (sans logs sensibles) ===
 		const jwtSecret = process.env.JWT_SECRET;
-		
+
 		// 🕵️ LOG 7: Variables d'environnement
-		console.log("🔧 [AUTH DEBUG] JWT_SECRET présent:", jwtSecret ? "OUI (" + jwtSecret.length + " chars)" : "NON");
+		console.log(
+			"🔧 [AUTH DEBUG] JWT_SECRET présent:",
+			jwtSecret ? "OUI (" + jwtSecret.length + " chars)" : "NON",
+		);
 		console.log("🔧 [AUTH DEBUG] NODE_ENV:", process.env.NODE_ENV);
-		
+
 		if (!jwtSecret || jwtSecret.trim() === "") {
 			console.error("❌ CRITICAL: JWT_SECRET is empty or undefined!");
 			return res
@@ -113,8 +147,11 @@ router.post("/login", loginLimiter, async (req, res) => {
 		}
 
 		const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
-		console.log("🔧 [AUTH DEBUG] REFRESH_TOKEN_SECRET présent:", refreshSecret ? "OUI (" + refreshSecret.length + " chars)" : "NON");
-		
+		console.log(
+			"🔧 [AUTH DEBUG] REFRESH_TOKEN_SECRET présent:",
+			refreshSecret ? "OUI (" + refreshSecret.length + " chars)" : "NON",
+		);
+
 		if (!refreshSecret || refreshSecret.trim() === "") {
 			console.error("❌ CRITICAL: REFRESH_TOKEN_SECRET is empty or undefined!");
 			return res.status(500).json({
@@ -123,17 +160,27 @@ router.post("/login", loginLimiter, async (req, res) => {
 		}
 
 		let accessToken, refreshToken;
-		
+
 		// 🕵️ LOG 8: Génération des tokens
-		console.log("🎫 [AUTH DEBUG] Payload pour les tokens:", JSON.stringify(payload, null, 2));
-		
+		console.log(
+			"🎫 [AUTH DEBUG] Payload pour les tokens:",
+			JSON.stringify(payload, null, 2),
+		);
+
 		try {
 			accessToken = jwt.sign(payload, jwtSecret, {
 				expiresIn: "2h",
 			});
-			console.log("✅ [AUTH DEBUG] AccessToken généré avec succès (" + accessToken.length + " chars)");
+			console.log(
+				"✅ [AUTH DEBUG] AccessToken généré avec succès (" +
+					accessToken.length +
+					" chars)",
+			);
 		} catch (error) {
-			console.error("❌ [AUTH DEBUG] Erreur génération accessToken:", error.message);
+			console.error(
+				"❌ [AUTH DEBUG] Erreur génération accessToken:",
+				error.message,
+			);
 			console.error("JWT sign error details (accessToken):", error.message);
 			throw error;
 		}
@@ -141,9 +188,16 @@ router.post("/login", loginLimiter, async (req, res) => {
 			refreshToken = jwt.sign(payload, refreshSecret, {
 				expiresIn: "7d",
 			});
-			console.log("✅ [AUTH DEBUG] RefreshToken généré avec succès (" + refreshToken.length + " chars)");
+			console.log(
+				"✅ [AUTH DEBUG] RefreshToken généré avec succès (" +
+					refreshToken.length +
+					" chars)",
+			);
 		} catch (error) {
-			console.error("❌ [AUTH DEBUG] Erreur génération refreshToken:", error.message);
+			console.error(
+				"❌ [AUTH DEBUG] Erreur génération refreshToken:",
+				error.message,
+			);
 			console.error("JWT sign error details (refreshToken):", error.message);
 			throw error;
 		}
@@ -197,11 +251,16 @@ router.post("/login", loginLimiter, async (req, res) => {
 			"restaurantId:",
 			response.restaurantId,
 		);
-		
+
 		// 🕵️ LOG 9: Réponse finale
-		console.log("🎯 [AUTH DEBUG] SUCCÈS - Envoi de la réponse complète au frontend");
-		console.log("🎯 [AUTH DEBUG] Taille de la réponse:", JSON.stringify(response).length + " chars");
-		
+		console.log(
+			"🎯 [AUTH DEBUG] SUCCÈS - Envoi de la réponse complète au frontend",
+		);
+		console.log(
+			"🎯 [AUTH DEBUG] Taille de la réponse:",
+			JSON.stringify(response).length + " chars",
+		);
+
 		return res.json(response);
 	} catch (err) {
 		// 🕵️ LOG 10: Erreur catch

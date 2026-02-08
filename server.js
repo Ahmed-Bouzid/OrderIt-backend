@@ -35,10 +35,7 @@ const corsOrigins =
 			]
 		: [
 				"https://sunnygo-frontend.vercel.app",
-				"https://sunnygo-backend-6y1m.onrender.com",
-				// ✅ Ajouter vos vraies URLs Vercel ici
-			];
-
+			"https://orderit-backend-6y1m.onrender.com",
 app.use(
 	cors({
 		origin: function (origin, callback) {
