@@ -215,28 +215,29 @@ router.get("/features/stats", auth, checkDeveloper, async (req, res) => {
 		// Compter les fonctionnalités activées
 		const featureStats = await RestaurantFeatures.aggregate([
 			{
-				$project: {
-					accounting: "$features.accounting.enabled",
-					feedback: "$features.feedback.enabled",
-					messaging: "$features.messaging.enabled",
-					tableAssistant: "$features.tableAssistant.enabled",
-					advancedNotifications: "$features.advancedNotifications.enabled",
-					analytics: "$features.analytics.enabled",
-					customization: "$features.customization.enabled",
-				},
-			},
-			{
 				$group: {
 					_id: null,
-					accounting: { $sum: { $cond: ["$accounting", 1, 0] } },
-					feedback: { $sum: { $cond: ["$feedback", 1, 0] } },
-					messaging: { $sum: { $cond: ["$messaging", 1, 0] } },
-					tableAssistant: { $sum: { $cond: ["$tableAssistant", 1, 0] } },
-					advancedNotifications: {
-						$sum: { $cond: ["$advancedNotifications", 1, 0] },
+					accounting: { 
+						$sum: { $cond: ["$features.accounting.enabled", 1, 0] } 
 					},
-					analytics: { $sum: { $cond: ["$analytics", 1, 0] } },
-					customization: { $sum: { $cond: ["$customization", 1, 0] } },
+					feedback: { 
+						$sum: { $cond: ["$features.feedback.enabled", 1, 0] } 
+					},
+					messaging: { 
+						$sum: { $cond: ["$features.messaging.enabled", 1, 0] } 
+					},
+					tableAssistant: { 
+						$sum: { $cond: ["$features.tableAssistant.enabled", 1, 0] } 
+					},
+					advancedNotifications: {
+						$sum: { $cond: ["$features.advancedNotifications.enabled", 1, 0] }
+					},
+					analytics: { 
+						$sum: { $cond: ["$features.analytics.enabled", 1, 0] } 
+					},
+					customization: { 
+						$sum: { $cond: ["$features.customization.enabled", 1, 0] } 
+					},
 				},
 			},
 		]);
