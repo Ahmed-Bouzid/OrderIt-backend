@@ -217,26 +217,26 @@ router.get("/features/stats", auth, checkDeveloper, async (req, res) => {
 			{
 				$group: {
 					_id: null,
-					accounting: { 
-						$sum: { $cond: ["$features.accounting.enabled", 1, 0] } 
+					accounting: {
+						$sum: { $cond: ["$features.accounting.enabled", 1, 0] },
 					},
-					feedback: { 
-						$sum: { $cond: ["$features.feedback.enabled", 1, 0] } 
+					feedback: {
+						$sum: { $cond: ["$features.feedback.enabled", 1, 0] },
 					},
-					messaging: { 
-						$sum: { $cond: ["$features.messaging.enabled", 1, 0] } 
+					messaging: {
+						$sum: { $cond: ["$features.messaging.enabled", 1, 0] },
 					},
-					tableAssistant: { 
-						$sum: { $cond: ["$features.tableAssistant.enabled", 1, 0] } 
+					tableAssistant: {
+						$sum: { $cond: ["$features.tableAssistant.enabled", 1, 0] },
 					},
 					advancedNotifications: {
-						$sum: { $cond: ["$features.advancedNotifications.enabled", 1, 0] }
+						$sum: { $cond: ["$features.advancedNotifications.enabled", 1, 0] },
 					},
-					analytics: { 
-						$sum: { $cond: ["$features.analytics.enabled", 1, 0] } 
+					analytics: {
+						$sum: { $cond: ["$features.analytics.enabled", 1, 0] },
 					},
-					customization: { 
-						$sum: { $cond: ["$features.customization.enabled", 1, 0] } 
+					customization: {
+						$sum: { $cond: ["$features.customization.enabled", 1, 0] },
 					},
 				},
 			},

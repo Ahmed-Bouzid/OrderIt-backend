@@ -1,13 +1,87 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
+const readline = require("readline");
 
-const restaurantId = "6970ef6594abf8bacd9d804d";
-const email = "contact@cucina.com";
-const newPassword = "Cucina2026!";
+// ⚠️ SCRIPT DE DÉVELOPPEMENT UNIQUEMENT
+// NE JAMAIS UTILISER EN PRODUCTION
+
+const rl = readline.createInterface({
+	input: process.stdin,
+	output: process.stdout,
+});
+
+function askQuestion(question) {
+	return new Promise((resolve) => {
+		rl.question(question, resolve);
+	});
+}
+
+function askPasswordHidden(prompt) {
+	return new Promise((resolve) => {
+		process.stdout.write(prompt);
+		process.stdin.setRawMode(true);
+		process.stdin.resume();
+		let password = "";
+
+		process.stdin.on("data", (char) => {
+			if (char.toString() === "\r" || char.toString() === "\n") {
+				process.stdin.setRawMode(false);
+				process.stdin.pause();
+				process.stdout.write("\n");
+				resolve(password);
+				return;
+			}
+
+			if (char.toString() === "\u007f") {
+				// backspace
+				if (password.length > 0) {
+					password = password.slice(0, -1);
+					process.stdout.write("\b \b");
+				}
+			} else {
+				password += char.toString();
+				process.stdout.write("*");
+			}
+		});
+	});
+}
 
 async function resetPassword() {
 	try {
+		console.log("🔧 SCRIPT DE RÉINITIALISATION DE MOTS DE PASSE");
+		console.log(
+			"⚠️  DÉVELOPPEMENT UNIQUEMENT - NE PAS UTILISER EN PRODUCTION\n",
+		);
+
+		// Récupérer les données de manière interactive
+		const restaurantId = await askQuestion("🏪 ID du restaurant: ");
+		const email = await askQuestion("📧 Email de l'admin: ");
+		const name = await askQuestion("👤 Nom de l'admin: ");
+		const newPassword = await askPasswordHidden(
+			"🔑 Nouveau mot de passe (masqué): ",
+		);
+
+		// Validation basique
+		if (!restaurantId || !email || !newPassword) {
+			console.log("❌ Tous les champs sont requis");
+			process.exit(1);
+		}
+
+		if (newPassword.length < 8) {
+			console.log("❌ Le mot de passe doit faire au moins 8 caractères");
+			process.exit(1);
+		}
+
+		// Confirmation
+		const confirm = await askQuestion(
+			`\n⚠️  CONFIRMER: Réinitialiser le mot de passe pour ${email} ? (oui/non): `,
+		);
+		if (confirm.toLowerCase() !== "oui" && confirm.toLowerCase() !== "yes") {
+			console.log("❌ Opération annulée");
+			process.exit(0);
+		}
+
 		await mongoose.connect(process.env.MONGO_URI);
 		console.log("✅ Connecté à MongoDB");
 
@@ -18,7 +92,7 @@ async function resetPassword() {
 			.collection("admins")
 			.findOne({ email: email });
 
-		const salt = await bcrypt.genSalt(10);
+		const salt = await bcrypt.genSalt(12); // Plus sécurisé
 		const hash = await bcrypt.hash(newPassword, salt);
 
 		if (existingAdmin) {
@@ -30,8 +104,8 @@ async function resetPassword() {
 		} else {
 			// Créer un nouvel admin lié au restaurant
 			await db.collection("admins").insertOne({
-				serverId: "S0099",
-				name: "Lacucinadinini",
+				serverId: `S${Date.now().toString().slice(-4)}`, // ID unique
+				name: name,
 				email: email,
 				passwordHash: hash,
 				role: "admin",
@@ -41,18 +115,27 @@ async function resetPassword() {
 			console.log("✅ Nouvel admin créé et lié au restaurant!");
 		}
 
-		console.log("");
+		console.log("\n🎉 SUCCÈS !");
 		console.log("📧 Email:", email);
-		console.log("🔑 Mot de passe:", newPassword);
-		console.log("");
-		console.log("Tu peux maintenant te connecter !");
+		console.log(
+			"🔑 Le mot de passe a été défini (mot de passe masqué pour sécurité)",
+		);
+		console.log("\n✅ Tu peux maintenant te connecter !");
 
 		await mongoose.disconnect();
+		rl.close();
 		process.exit(0);
 	} catch (err) {
 		console.error("❌ Erreur:", err.message);
+		rl.close();
 		process.exit(1);
 	}
+}
+
+// Vérification de l'environnement
+if (process.env.NODE_ENV === "production") {
+	console.log("🚨 ERREUR: Ce script ne doit PAS être utilisé en production!");
+	process.exit(1);
 }
 
 resetPassword();

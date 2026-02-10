@@ -164,10 +164,10 @@ router.post(
 	},
 );
 
-// GET /api/orders - Récupérer les commandes avec filtres (restaurantId, status)
+// GET /api/orders - Récupérer les commandes avec filtres (restaurantId, status, origin)
 router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
-		const { restaurantId, status } = req.query;
+		const { restaurantId, status, origin } = req.query;
 		const query = {};
 
 		if (restaurantId) {
@@ -180,13 +180,18 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			query.status = { $in: statusArray };
 		}
 
+		// ⭐ Nouveau filtre par origine (pour Express Orders)
+		if (origin) {
+			query.origin = origin;
+		}
+
 		console.log(`📦 GET /orders - Query:`, query);
 
 		const orders = await Order.find(query)
 			.populate("tableId", "number")
 			.populate("serverId", "name serverId")
 			.populate("restaurantId", "name")
-			.sort({ createdAt: 1 }); // Du plus ancien au plus récent
+			.sort({ createdAt: -1 }); // Du plus récent au plus ancien (pour Express Orders)
 
 		console.log(`✅ Commandes trouvées: ${orders.length}`);
 		res.json({ orders });
@@ -197,6 +202,96 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			.json({ message: "Erreur lors du chargement des commandes." });
 	}
 });
+
+// ⭐ PATCH /api/orders/:id/urgency - Basculer l'urgence d'une commande (Express Orders)
+router.patch(
+	"/:id/urgency",
+	auth,
+	checkRoles(["server", "admin"]),
+	validateObjectIds(["id"]),
+	async (req, res) => {
+		try {
+			const { isUrgent } = req.body;
+			const orderId = req.params.id;
+
+			if (typeof isUrgent !== "boolean") {
+				return res.status(400).json({
+					message: "isUrgent doit être un booléen",
+				});
+			}
+
+			const order = await Order.findById(orderId)
+				.populate("tableId", "number")
+				.populate("serverId", "name serverId")
+				.populate("restaurantId", "name");
+
+			if (!order) {
+				return res.status(404).json({ message: "Commande introuvable" });
+			}
+
+			// Mettre à jour l'urgence
+			order.isUrgent = isUrgent;
+			await order.save();
+
+			// ⚡ Émettre via WebSocket
+			const io = req.app.locals.io;
+			if (io && order.restaurantId) {
+				const { emitOrderEvent } = require("../utils/socketEmitter");
+				emitOrderEvent(
+					io,
+					order.restaurantId.toString(),
+					"statusUpdated",
+					order.toObject(),
+				);
+				console.log(
+					`📡 WebSocket: Urgence commande ${order._id} → ${isUrgent}`,
+				);
+			}
+
+			res.json(order);
+		} catch (err) {
+			console.error("❌ Erreur PATCH urgency:", err);
+			res.status(500).json({
+				message: "Erreur lors de la mise à jour de l'urgence",
+			});
+		}
+	},
+);
+
+// ⭐ PATCH /api/orders/:id/dismiss - Masquer une commande (Express Orders)
+router.patch(
+	"/:id/dismiss",
+	auth,
+	checkRoles(["server", "admin"]),
+	validateObjectIds(["id"]),
+	async (req, res) => {
+		try {
+			const orderId = req.params.id;
+
+			const order = await Order.findById(orderId);
+			if (!order) {
+				return res.status(404).json({ message: "Commande introuvable" });
+			}
+
+			// ⚡ Émettre via WebSocket pour masquer côté frontend
+			const io = req.app.locals.io;
+			if (io && order.restaurantId) {
+				const { emitOrderEvent } = require("../utils/socketEmitter");
+				emitOrderEvent(io, order.restaurantId.toString(), "dismissed", {
+					_id: order._id,
+				});
+				console.log(`📡 WebSocket: Commande ${order._id} masquée`);
+			}
+
+			res.json({ message: "Commande masquée avec succès" });
+		} catch (err) {
+			console.error("❌ Erreur PATCH dismiss:", err);
+			res.status(500).json({
+				message: "Erreur lors du masquage",
+			});
+		}
+	},
+);
 
 router.get(
 	"/table/:tableId",

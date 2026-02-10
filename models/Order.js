@@ -161,6 +161,13 @@ const orderSchema = new mongoose.Schema(
 			index: true,
 		},
 
+		// ⭐⭐ Urgence de la commande (pour Express Orders)
+		isUrgent: {
+			type: Boolean,
+			default: false,
+			index: true,
+		},
+
 		paymentMethod: {
 			type: String,
 			enum: ["cash", "card", "app", "split"],
