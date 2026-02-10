@@ -56,13 +56,18 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 		if (!errors.isEmpty()) {
 			console.log("❌ [CLIENT-FEEDBACK] Erreurs de validation détaillées:");
 			errors.array().forEach((error, index) => {
-				console.log(`  ${index + 1}. Champ '${error.param}': ${error.msg} (valeur: "${error.value}")`);
+				console.log(
+					`  ${index + 1}. Champ '${error.param}': ${error.msg} (valeur: "${error.value}")`,
+				);
 			});
-			console.log("❌ [CLIENT-FEEDBACK] Corps de la requête complet:", req.body);
-			
+			console.log(
+				"❌ [CLIENT-FEEDBACK] Corps de la requête complet:",
+				req.body,
+			);
+
 			logger.warn("Erreurs validation feedback", {
 				errorsCount: errors.array().length,
-				details: errors.array()
+				details: errors.array(),
 			});
 			return res.status(400).json({
 				success: false,
@@ -70,8 +75,11 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 				errors: errors.array(),
 			});
 		}
-		
-		console.log("✅ [CLIENT-FEEDBACK] Validation réussie, données reçues:", req.body);
+
+		console.log(
+			"✅ [CLIENT-FEEDBACK] Validation réussie, données reçues:",
+			req.body,
+		);
 
 		const {
 			restaurantId,
