@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Reservation = require("../models/Reservation");
 const Table = require("../models/Table");
+const Restaurant = require("../models/Restaurant");
 const { body, validationResult } = require("express-validator");
 
 const auth = require("../middlewares/auth");
@@ -99,6 +100,14 @@ router.post(
 				Reservation.findOne({ tableId: tableIdFinal }).sort({ createdAt: -1 }),
 			]);
 
+			// ⭐ Récupérer le restaurant pour connaître sa catégorie
+			let restaurant = null;
+			let isFoodtruck = false;
+			if (table && table.restaurantId) {
+				restaurant = await Restaurant.findById(table.restaurantId);
+				isFoodtruck = restaurant?.category === "foodtruck";
+			}
+
 			console.log("📋 [RESERVATION] État initial:", {
 				tableId: tableIdFinal,
 				tableNumber: table?.number,
@@ -106,6 +115,7 @@ router.post(
 				isAvailable: table?.isAvailable,
 				guests: table?.guests,
 				lastResaStatus: lastReservation?.status,
+				isFoodtruck, // ⭐ Ajout pour debug
 			});
 
 			// Helper: Ajouter guest et marquer table occupée
@@ -152,9 +162,10 @@ router.post(
 					message: "Impossible de rejoindre : la réservation est terminée.",
 				});
 			}
-			// CAS 3: Réservation en cours → Rejoindre
-			else if (lastReservation && lastReservation.status !== "terminée") {
-				console.log("👥 [RESERVATION] Rejoindre réservation existante");
+			// CAS 3: Réservation en cours → Rejoindre (sauf pour foodtrucks)
+			// ⭐ Pour les foodtrucks : chaque client a sa propre reservation
+			else if (lastReservation && lastReservation.status !== "terminée" && !isFoodtruck) {
+				console.log("👥 [RESERVATION] Rejoindre réservation existante (restaurant)");
 
 				await lastReservation.populate("tableId");
 				const resaTable = lastReservation.tableId
@@ -175,6 +186,11 @@ router.post(
 						: `Table réservée par ${lastReservation.clientName}. Vous avez rejoint !`,
 					joinable: !isCreator,
 				});
+			}
+			// ⭐ CAS 4 (Foodtruck avec reservation en cours): Créer nouvelle reservation individuelle
+			else if (lastReservation && lastReservation.status !== "terminée" && isFoodtruck) {
+				console.log("🚚 [RESERVATION] Foodtruck - Nouvelle reservation individuelle");
+				// Continue vers création de réservation (après les cas)
 			}
 
 			// CRÉATION D'UNE NOUVELLE RÉSERVATION
