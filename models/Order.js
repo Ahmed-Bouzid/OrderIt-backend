@@ -41,18 +41,11 @@ const orderSchema = new mongoose.Schema(
 			required: false,
 			trim: true,
 		},
-
-		items: [
-			{
-				productId: {
-					type: mongoose.Schema.Types.ObjectId,
-					ref: "Product",
-					required: false,
-				},
-				name: { type: String, required: true },
-				quantity: {
-					type: Number,
-					required: true,
+	clientPhone: {
+		type: String,
+		required: false,
+		trim: true,
+	},
 					min: 1,
 					validate: {
 						validator: Number.isInteger,

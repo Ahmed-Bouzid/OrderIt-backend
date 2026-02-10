@@ -37,6 +37,7 @@ router.post(
 				reservationId, // ⭐ AJOUTER
 				clientId, // ⭐ AJOUTER
 				clientName, // ⭐ AJOUTER
+				clientPhone, // 📱 AJOUTER
 			} = req.body;
 
 			// 🌟 Si c'est un client, on lui impose la table du token
@@ -94,6 +95,7 @@ router.post(
 				reservationId, // ⭐ AJOUTÉ
 				clientId, // ⭐ AJOUTÉ
 				clientName, // ⭐ AJOUTÉ
+				clientPhone, // 📱 AJOUTÉ
 				origin: role === "client" ? "client" : "server",
 			});
 
