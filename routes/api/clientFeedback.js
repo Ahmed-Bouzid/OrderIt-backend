@@ -130,22 +130,21 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 			userAgent: req.get("User-Agent"),
 		});
 
-		console.log(
-			"🔍 [CLIENT-FEEDBACK] Tentative d'enregistrement avec:",
-			{
-				restaurantId,
-				serviceRating,
-				foodQuality,
-				venueExperience,
-				hasComment: !!comment.trim(),
-			},
-		);
+		console.log("🔍 [CLIENT-FEEDBACK] Tentative d'enregistrement avec:", {
+			restaurantId,
+			serviceRating,
+			foodQuality,
+			venueExperience,
+			hasComment: !!comment.trim(),
+		});
 
 		// Le middleware pre("save") calculera automatiquement :
 		// - overallSatisfied
 		// - feedbackType
 
+		console.log("💾 [CLIENT-FEEDBACK] Appel save() en cours...");
 		await clientFeedback.save();
+		console.log("✅ [CLIENT-FEEDBACK] save() réussi!");
 
 		console.log(
 			`✅ [CLIENT-FEEDBACK] Feedback enregistré - Type: ${clientFeedback.feedbackType}, ID: ${clientFeedback._id}`,
@@ -204,6 +203,11 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 			shouldStore: true,
 		});
 	} catch (error) {
+		console.error("❌ [CLIENT-FEEDBACK] Erreur critique:", {
+			message: error.message,
+			stack: error.stack,
+			name: error.name,
+		});
 		logger.error("Erreur enregistrement feedback", { error: error.message });
 
 		// Même en cas d'erreur, on laisse l'utilisateur accéder à Google
