@@ -130,6 +130,17 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 			userAgent: req.get("User-Agent"),
 		});
 
+		console.log(
+			"🔍 [CLIENT-FEEDBACK] Tentative d'enregistrement avec:",
+			{
+				restaurantId,
+				serviceRating,
+				foodQuality,
+				venueExperience,
+				hasComment: !!comment.trim(),
+			},
+		);
+
 		// Le middleware pre("save") calculera automatiquement :
 		// - overallSatisfied
 		// - feedbackType
@@ -140,26 +151,34 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 			`✅ [CLIENT-FEEDBACK] Feedback enregistré - Type: ${clientFeedback.feedbackType}, ID: ${clientFeedback._id}`,
 		);
 
-		// ⭐ Émettre événement WebSocket pour notifier le frontend
-		const io = req.app.locals.io;
-		if (io && clientFeedback.restaurantId) {
-			const { emitNotification } = require("../../utils/socketEmitter");
-			emitNotification(
-				io,
-				clientFeedback.restaurantId.toString(),
-				"Nouveau Feedback",
-				`Avis ${clientFeedback.feedbackType} reçu : ${clientFeedback.comment || "Sans commentaire"}`,
-				clientFeedback.feedbackType === "mixed" ? "warning" : "info",
-				{
-					feedbackId: clientFeedback._id,
-					feedbackType: clientFeedback.feedbackType,
-					tableId: clientFeedback.tableId,
-					clientName: clientFeedback.clientName || "Client",
-				},
+		// ⭐ Émettre événement WebSocket pour notifier le frontend (non-bloquant)
+		try {
+			const io = req.app.locals.io;
+			if (io && clientFeedback.restaurantId) {
+				const { emitNotification } = require("../../utils/socketEmitter");
+				emitNotification(
+					io,
+					clientFeedback.restaurantId.toString(),
+					"Nouveau Feedback",
+					`Avis ${clientFeedback.feedbackType} reçu : ${clientFeedback.comment || "Sans commentaire"}`,
+					clientFeedback.feedbackType === "mixed" ? "warning" : "info",
+					{
+						feedbackId: clientFeedback._id,
+						feedbackType: clientFeedback.feedbackType,
+						tableId: clientFeedback.tableId,
+						clientName: clientFeedback.clientName || "Client",
+					},
+				);
+				console.log(
+					`📡 WebSocket: Feedback ${clientFeedback._id} émis vers restaurant ${clientFeedback.restaurantId}`,
+				);
+			}
+		} catch (wsError) {
+			console.warn(
+				`⚠️ [CLIENT-FEEDBACK] Erreur WebSocket non-bloquante:`,
+				wsError.message,
 			);
-			console.log(
-				`📡 WebSocket: Feedback ${clientFeedback._id} émis vers restaurant ${clientFeedback.restaurantId}`,
-			);
+			// Continue le flux normal même si le WebSocket échoue
 		}
 
 		// Message de réponse selon le type
