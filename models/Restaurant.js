@@ -42,6 +42,17 @@ const restaurantSchema = new mongoose.Schema({
 		default: true,
 		index: true,
 	},
+	// 🌟 Avis Google (redirection clients)
+	googlePlaceId: {
+		type: String,
+		default: null,
+		trim: true,
+	},
+	googleReviewUrl: {
+		type: String,
+		default: null,
+		trim: true,
+	},
 });
 
 // Middleware to handle category changes
