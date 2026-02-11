@@ -17,7 +17,7 @@ router.post(
 	async (req, res) => {
 		console.log(
 			"📥 POST /orders - Body reçu:",
-			JSON.stringify(req.body, null, 2)
+			JSON.stringify(req.body, null, 2),
 		);
 		console.log("📥 POST /orders - User:", req.user);
 		const { role, tableId: clientTableId } = req.user; // token limité pour client ou token serveur/admin
@@ -59,7 +59,7 @@ router.post(
 				items.map(async (item) => {
 					if (item.productId) {
 						const product = await Product.findById(item.productId).select(
-							"category"
+							"category",
 						);
 						if (product && product.category) {
 							// Convertir en minuscule pour correspondre à l'enum Order
@@ -68,7 +68,7 @@ router.post(
 						}
 					}
 					return item; // Si pas de productId ou produit introuvable, on garde l'item tel quel
-				})
+				}),
 			);
 
 			console.log("🔍 Items enrichis avec catégories:", enrichedItems);
@@ -76,7 +76,7 @@ router.post(
 			// Vérification du total
 			const calculatedTotal = enrichedItems.reduce(
 				(sum, i) => sum + i.price * i.quantity,
-				0
+				0,
 			);
 			if (total !== calculatedTotal) {
 				return res
@@ -110,7 +110,7 @@ router.post(
 				stack: err.stack, // optionnel : détail complet pour le dev
 			});
 		}
-	}
+	},
 );
 
 // Suite du fichier orders.js...

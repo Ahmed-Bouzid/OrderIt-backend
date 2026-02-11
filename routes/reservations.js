@@ -53,7 +53,7 @@ router.post(
 					io,
 					req.body.restaurantId,
 					"created",
-					reservation.toObject()
+					reservation.toObject(),
 				);
 			}
 
@@ -62,7 +62,7 @@ router.post(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server" });
 		}
-	}
+	},
 );
 
 // POST /client/reservations
@@ -164,8 +164,14 @@ router.post(
 			}
 			// CAS 3: Réservation en cours → Rejoindre (sauf pour foodtrucks)
 			// ⭐ Pour les foodtrucks : chaque client a sa propre reservation
-			else if (lastReservation && lastReservation.status !== "terminée" && !isFoodtruck) {
-				console.log("👥 [RESERVATION] Rejoindre réservation existante (restaurant)");
+			else if (
+				lastReservation &&
+				lastReservation.status !== "terminée" &&
+				!isFoodtruck
+			) {
+				console.log(
+					"👥 [RESERVATION] Rejoindre réservation existante (restaurant)",
+				);
 
 				await lastReservation.populate("tableId");
 				const resaTable = lastReservation.tableId
@@ -188,8 +194,14 @@ router.post(
 				});
 			}
 			// ⭐ CAS 4 (Foodtruck avec reservation en cours): Créer nouvelle reservation individuelle
-			else if (lastReservation && lastReservation.status !== "terminée" && isFoodtruck) {
-				console.log("🚚 [RESERVATION] Foodtruck - Nouvelle reservation individuelle");
+			else if (
+				lastReservation &&
+				lastReservation.status !== "terminée" &&
+				isFoodtruck
+			) {
+				console.log(
+					"🚚 [RESERVATION] Foodtruck - Nouvelle reservation individuelle",
+				);
 				// Continue vers création de réservation (après les cas)
 			}
 
@@ -217,7 +229,7 @@ router.post(
 					io,
 					reservation.restaurantId,
 					"created",
-					reservation.toObject()
+					reservation.toObject(),
 				);
 			}
 
@@ -236,7 +248,7 @@ router.post(
 				error: error.message,
 			});
 		}
-	}
+	},
 );
 
 router.post("/client/reservations/join/:id", async (req, res) => {
@@ -289,7 +301,7 @@ router.get(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server" });
 		}
-	}
+	},
 );
 
 // GET /:id - récupérer toutes les réservations
@@ -344,7 +356,7 @@ router.put(
 		// ⭐ Si le frontend essaie de modifier le status via cette route, rediriger vers /:id/status
 		if (req.body.status) {
 			console.log(
-				"⚠️ [PUT /:id] Tentative de modification du status via la route générale. Utiliser /:id/status"
+				"⚠️ [PUT /:id] Tentative de modification du status via la route générale. Utiliser /:id/status",
 			);
 			return res.status(400).json({
 				message: "Pour modifier le statut, utilisez la route PUT /:id/status",
@@ -353,7 +365,7 @@ router.put(
 		}
 
 		const updates = Object.fromEntries(
-			Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
+			Object.entries(req.body).filter(([key]) => allowedFields.includes(key)),
 		);
 
 		try {
@@ -365,7 +377,7 @@ router.put(
 			const updated = await Reservation.findByIdAndUpdate(
 				req.params.id,
 				updates,
-				{ new: true }
+				{ new: true },
 			).populate("serverId", "firstName lastName");
 
 			// ⭐ Audit des modifications importantes
@@ -419,7 +431,7 @@ router.put(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server" });
 		}
-	}
+	},
 );
 
 // Toggle Présent / Absent
@@ -487,7 +499,7 @@ router.put(
 					io,
 					reservation.restaurantId,
 					"presentToggled",
-					reservation.toObject()
+					reservation.toObject(),
 				);
 			}
 
@@ -496,7 +508,7 @@ router.put(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server" });
 		}
-	}
+	},
 );
 
 // Mettre à jour le statut d'une réservation (en attente, ouverte, terminée, annulée)
@@ -512,13 +524,13 @@ router.put(
 		console.log("🔍 [DEBUG] Body:", req.body);
 		console.log(
 			"🔍 [DEBUG] Headers - Authorization:",
-			req.headers.authorization ? "PRÉSENT" : "ABSENT"
+			req.headers.authorization ? "PRÉSENT" : "ABSENT",
 		);
 
 		if (req.headers.authorization) {
 			console.log(
 				"🔍 [DEBUG] Token (début):",
-				req.headers.authorization.substring(0, 30) + "..."
+				req.headers.authorization.substring(0, 30) + "...",
 			);
 		}
 
@@ -548,7 +560,7 @@ router.put(
 				"→",
 				status,
 				"isPresent:",
-				reservation.isPresent
+				reservation.isPresent,
 			);
 
 			// ⭐ RÈGLE MÉTIER: Réservation terminée/annulée ne peut plus être modifiée
@@ -595,7 +607,7 @@ router.put(
 					io,
 					reservation.restaurantId,
 					"statusUpdated",
-					reservation.toObject()
+					reservation.toObject(),
 				);
 			}
 
@@ -604,7 +616,7 @@ router.put(
 			console.error("❌ Erreur /:id/status:", err);
 			res.status(500).json({ message: "Erreur server" });
 		}
-	}
+	},
 );
 
 // ⭐ Route spécifique pour mettre à jour le paiement
@@ -655,7 +667,7 @@ router.put(
 					console.log(
 						`[PAIEMENT] Guests vidés sur table ${
 							table.number || table._id
-						} (orderId: ${reservation._id})`
+						} (orderId: ${reservation._id})`,
 					);
 				} catch (err) {
 					require("../utils/logger").error(
@@ -664,7 +676,7 @@ router.put(
 							error: err,
 							orderId: reservation._id,
 							tableId: reservation.tableId,
-						}
+						},
 					);
 					return res.status(500).json({
 						message: "Erreur lors du vidage des guests",
@@ -682,7 +694,7 @@ router.put(
 					io,
 					reservation.restaurantId,
 					"statusUpdated",
-					reservation.toObject()
+					reservation.toObject(),
 				);
 			}
 
@@ -691,7 +703,7 @@ router.put(
 			console.error("❌ Erreur mise à jour paiement:", err);
 			res.status(500).json({ message: "Erreur serveur" });
 		}
-	}
+	},
 );
 
 // 🔓 Route simplifiée pour le client (sans auth JWT)
@@ -714,7 +726,7 @@ router.patch("/assignTable/:id", auth, async (req, res) => {
 					"🔓 Ancienne table libérée:",
 					oldTable.number,
 					"isAvailable:",
-					oldTable.isAvailable
+					oldTable.isAvailable,
 				);
 			}
 		}
@@ -728,7 +740,7 @@ router.patch("/assignTable/:id", auth, async (req, res) => {
 				"🔒 Nouvelle table occupée:",
 				newTable.number,
 				"isAvailable:",
-				newTable.isAvailable
+				newTable.isAvailable,
 			);
 		}
 
@@ -736,7 +748,7 @@ router.patch("/assignTable/:id", auth, async (req, res) => {
 		const updatedReservation = await Reservation.findByIdAndUpdate(
 			reservationId,
 			{ tableId: tableId },
-			{ new: true }
+			{ new: true },
 		).populate("tableId");
 
 		console.log("✅ Réservation mise à jour");
@@ -748,7 +760,7 @@ router.patch("/assignTable/:id", auth, async (req, res) => {
 				io,
 				updatedReservation.restaurantId,
 				"tableAssigned",
-				updatedReservation.toObject()
+				updatedReservation.toObject(),
 			);
 		}
 
@@ -776,7 +788,7 @@ router.patch(
 			console.error(err);
 			res.status(500).json({ message: "Erreur serveur" });
 		}
-	}
+	},
 );
 
 // DELETE /:id - supprimer réservation
@@ -795,7 +807,7 @@ router.delete(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server" });
 		}
-	}
+	},
 );
 
 // GET /restaurant/:restaurantId - toutes les réservations d'un restaurant avec filtres et pagination
@@ -858,7 +870,7 @@ router.get(
 			console.error(err);
 			res.status(500).json({ message: "Erreur server" });
 		}
-	}
+	},
 );
 
 // ⭐⭐ PLACEZ VOTRE ROUTE ICI - À LA FIN DU FICHIER
@@ -945,7 +957,7 @@ router.put("/client/:id/close", async (req, res) => {
 					io,
 					updatedReservation.restaurantId.toString(),
 					"updated",
-					updatedReservation
+					updatedReservation,
 				);
 			}
 		} catch (e) {
