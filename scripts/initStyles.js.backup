@@ -17,39 +17,17 @@ const SYSTEM_STYLES = [
 		suitableFor: ["restaurant", "cafe", "boulangerie"],
 		isSystem: true,
 		config: {
-			// Gradients principaux
 			primary: ["#667eea", "#764ba2"],
-			fire: ["#667eea", "#764ba2"],
-			gold: ["#f093fb", "#f5576c"],
 			secondary: ["#f093fb", "#f5576c"],
-			ember: ["#4facfe", "#00f2fe"],
 			accent: ["#4facfe", "#00f2fe"],
-			smoke: ["#302b63", "#0f0c29"],
-			// Couleurs unitaires
-			orange: "#667eea",
-			rouge: "#764ba2",
-			dore: "#f093fb",
-			// États
 			success: ["#11998e", "#38ef7d"],
 			warning: ["#f2994a", "#f2c94c"],
-			error: ["#e74c3c", "#c0392b"],
-			danger: ["#e74c3c", "#c0392b"],
-			// Backgrounds (dark = string, background = array pour LinearGradient)
-			dark: "#0f0c29",
-			card: "#302b63",
-			elevated: "#24243e",
+			dark: ["#0f0c29", "#302b63", "#24243e"],
 			background: ["#0f0c29", "#302b63", "#24243e"],
-			// Textes
 			text: "#ffffff",
-			textSecondary: "rgba(255, 255, 255, 0.85)",
 			textMuted: "rgba(255, 255, 255, 0.7)",
-			textAccent: "#f093fb",
-			// Transparences
 			glass: "rgba(255, 255, 255, 0.15)",
 			glassBorder: "rgba(255, 255, 255, 0.25)",
-			overlay: "rgba(15, 12, 41, 0.9)",
-			fireOverlay: "rgba(102, 126, 234, 0.2)",
-			// Layout & UI
 			menuLayout: "grid",
 			fontFamily: "System",
 			cardStyle: "glassmorphism",
@@ -65,39 +43,16 @@ const SYSTEM_STYLES = [
 		suitableFor: ["foodtruck", "snack", "bar"],
 		isSystem: true,
 		config: {
-			// Gradients principaux
 			primary: ["#ff9800", "#ff6f00"],
-			fire: ["#ff9800", "#ff6f00"],
-			gold: ["#ffb347", "#ffcc33"],
 			secondary: ["#ffb347", "#ffcc33"],
-			ember: ["#ff512f", "#dd2476"],
 			accent: ["#ff512f", "#dd2476"],
-			smoke: ["#232526", "#181818"],
-			// Couleurs unitaires
-			orange: "#ff9800",
-			rouge: "#ff6f00",
-			dore: "#ffcc33",
-			// États
 			success: ["#ff9800", "#ff6f00"],
-			warning: ["#f2994a", "#f2c94c"],
-			error: ["#e74c3c", "#c0392b"],
-			danger: ["#e74c3c", "#c0392b"],
-			// Backgrounds
-			dark: "#181818",
-			card: "#232526",
-			elevated: "#2d2d2d",
+			dark: ["#181818", "#232526"],
 			background: ["#181818", "#232526"],
-			// Textes
 			text: "#ffffff",
-			textSecondary: "rgba(255, 255, 255, 0.85)",
 			textMuted: "rgba(255, 255, 255, 0.7)",
-			textAccent: "#ffcc33",
-			// Transparences
 			glass: "rgba(255, 255, 255, 0.1)",
 			glassBorder: "rgba(255, 255, 255, 0.18)",
-			overlay: "rgba(24, 24, 24, 0.9)",
-			fireOverlay: "rgba(255, 152, 0, 0.2)",
-			// Layout & UI
 			menuLayout: "grid",
 			fontFamily: "System",
 			cardStyle: "solid",
@@ -113,39 +68,16 @@ const SYSTEM_STYLES = [
 		suitableFor: ["foodtruck", "restaurant", "bar"],
 		isSystem: true,
 		config: {
-			// Gradients principaux
-			primary: ["#FF6B35", "#D73027"],
-			fire: ["#FF6B35", "#D73027"],
-			gold: ["#FFD700", "#FFBF00"],
-			secondary: ["#FFD700", "#FFBF00"],
-			ember: ["#FF8C42", "#FF6B35"],
-			accent: ["#FF8C42", "#FF6B35"],
-			smoke: ["#4a4a4a", "#1a1a1a"],
-			// Couleurs unitaires
-			orange: "#FF6B35",
-			rouge: "#D73027",
-			dore: "#FFD700",
-			// États
-			success: ["#228B22", "#32CD32"],
-			warning: ["#FF8C00", "#FFA500"],
-			error: ["#DC143C", "#FF4500"],
-			danger: ["#DC143C", "#FF4500"],
-			// Backgrounds
-			dark: "#1a1a1a",
-			card: "#2a2a2a",
-			elevated: "#3a3a3a",
-			background: ["#1a1a1a", "#2a2a2a"],
-			// Textes
-			text: "#FFF8F0",
-			textSecondary: "#E0E0E0",
-			textMuted: "#B0B0B0",
-			textAccent: "#FFD700",
-			// Transparences
+			primary: ["#181818", "#ff512f", "#ff9800"],
+			secondary: ["#ff9800", "#ff512f"],
+			accent: ["#ff512f", "#ff9800"],
+			success: ["#22c55e", "#16a34a"],
+			dark: ["#181818", "#232526"],
+			background: ["#181818", "#232526"],
+			text: "#ffffff",
+			textMuted: "rgba(255, 255, 255, 0.7)",
 			glass: "rgba(255, 255, 255, 0.1)",
-			glassBorder: "rgba(255, 215, 0, 0.2)",
-			overlay: "rgba(26, 26, 26, 0.9)",
-			fireOverlay: "rgba(255, 107, 53, 0.2)",
-			// Layout & UI
+			glassBorder: "rgba(255, 255, 255, 0.18)",
 			menuLayout: "grid",
 			fontFamily: "System",
 			cardStyle: "solid",
@@ -161,39 +93,16 @@ const SYSTEM_STYLES = [
 		suitableFor: ["restaurant", "cafe"],
 		isSystem: true,
 		config: {
-			// Gradients principaux
 			primary: ["#3b82f6", "#2563eb"],
-			fire: ["#3b82f6", "#2563eb"],
-			gold: ["#06b6d4", "#0891b2"],
 			secondary: ["#06b6d4", "#0891b2"],
-			ember: ["#8b5cf6", "#7c3aed"],
 			accent: ["#8b5cf6", "#7c3aed"],
-			smoke: ["#1e293b", "#0f172a"],
-			// Couleurs unitaires
-			orange: "#3b82f6",
-			rouge: "#2563eb",
-			dore: "#06b6d4",
-			// États
 			success: ["#10b981", "#059669"],
-			warning: ["#f59e0b", "#d97706"],
-			error: ["#ef4444", "#dc2626"],
-			danger: ["#ef4444", "#dc2626"],
-			// Backgrounds
-			dark: "#0f172a",
-			card: "#1e293b",
-			elevated: "#334155",
+			dark: ["#0f172a", "#1e293b"],
 			background: ["#0f172a", "#1e293b"],
-			// Textes
 			text: "#ffffff",
-			textSecondary: "rgba(255, 255, 255, 0.85)",
 			textMuted: "rgba(255, 255, 255, 0.7)",
-			textAccent: "#06b6d4",
-			// Transparences
 			glass: "rgba(255, 255, 255, 0.1)",
 			glassBorder: "rgba(255, 255, 255, 0.2)",
-			overlay: "rgba(15, 23, 42, 0.9)",
-			fireOverlay: "rgba(59, 130, 246, 0.2)",
-			// Layout & UI
 			menuLayout: "list",
 			fontFamily: "System",
 			cardStyle: "modern",

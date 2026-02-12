@@ -294,7 +294,9 @@ router.patch(
 				emitOrderEvent(io, order.restaurantId.toString(), "dismissed", {
 					_id: order._id,
 				});
-				console.log(`📡 WebSocket: Commande ${order._id} retirée de l'affichage`);
+				console.log(
+					`📡 WebSocket: Commande ${order._id} retirée de l'affichage`,
+				);
 			}
 
 			res.json({
