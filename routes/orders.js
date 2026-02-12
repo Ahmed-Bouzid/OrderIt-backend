@@ -179,7 +179,10 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 		if (status) {
 			// status peut être "confirmed,in_progress,ready"
 			const statusArray = status.split(",");
-			query.status = { $in: statusArray };
+			query.orderStatus = { $in: statusArray };
+		} else {
+			// ✅ Par défaut, exclure les commandes terminées et annulées
+			query.orderStatus = { $nin: ["completed", "cancelled"] };
 		}
 
 		// ⭐ Nouveau filtre par origine (pour Express Orders)
@@ -260,7 +263,7 @@ router.patch(
 	},
 );
 
-// ⭐ PATCH /api/orders/:id/dismiss - Masquer une commande (Express Orders)
+// ⭐ PATCH /api/orders/:id/dismiss - Marquer une commande comme terminée (Express Orders)
 router.patch(
 	"/:id/dismiss",
 	auth,
@@ -275,6 +278,15 @@ router.patch(
 				return res.status(404).json({ message: "Commande introuvable" });
 			}
 
+			// ✅ Marquer comme terminée avec date de complétion
+			order.orderStatus = "completed";
+			order.completedAt = new Date();
+			await order.save();
+
+			console.log(
+				`✅ Commande ${order._id} marquée comme terminée (dismissed)`,
+			);
+
 			// ⚡ Émettre via WebSocket pour masquer côté frontend
 			const io = req.app.locals.io;
 			if (io && order.restaurantId) {
@@ -282,10 +294,13 @@ router.patch(
 				emitOrderEvent(io, order.restaurantId.toString(), "dismissed", {
 					_id: order._id,
 				});
-				console.log(`📡 WebSocket: Commande ${order._id} masquée`);
+				console.log(`📡 WebSocket: Commande ${order._id} retirée de l'affichage`);
 			}
 
-			res.json({ message: "Commande masquée avec succès" });
+			res.json({
+				message: "Commande marquée comme terminée",
+				orderStatus: order.orderStatus,
+			});
 		} catch (err) {
 			console.error("❌ Erreur PATCH dismiss:", err);
 			res.status(500).json({
