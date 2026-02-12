@@ -50,11 +50,11 @@ router.post(
 		}
 	},
 );
-// 🏪 GET /restaurants/:id/info - Récupérer les infos publiques d'un restaurant (category, name)
+// 🏪 GET /restaurants/:id/info - Récupérer les infos publiques d'un restaurant (category, name, Google)
 router.get("/:id/info", validateObjectIds(["id"]), async (req, res) => {
 	try {
 		const restaurant = await Restaurant.findById(req.params.id).select(
-			"name category",
+			"name category googlePlaceId googleReviewUrl",
 		);
 
 		if (!restaurant) {
@@ -64,6 +64,8 @@ router.get("/:id/info", validateObjectIds(["id"]), async (req, res) => {
 		res.json({
 			name: restaurant.name,
 			category: restaurant.category || "restaurant",
+			googlePlaceId: restaurant.googlePlaceId || null,
+			googleUrl: restaurant.googleReviewUrl || null,
 		});
 	} catch (err) {
 		console.error("Erreur récupération info restaurant:", err);
