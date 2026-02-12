@@ -190,8 +190,12 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			
 			// ⭐ Pour Express Orders: afficher seulement les commandes non préparées
 			// (uniquement pour origin="client", pas pour "server" ou "admin")
+			// ⚠️ IMPORTANT: Inclure aussi les commandes qui n'ont pas encore le champ isMade
 			if (origin === "client") {
-				query.isMade = false;
+				query.$or = [
+					{ isMade: false },
+					{ isMade: { $exists: false } }
+				];
 			}
 		}
 
