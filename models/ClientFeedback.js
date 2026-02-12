@@ -120,6 +120,11 @@ clientFeedbackSchema.index({
 
 // ⭐ Middleware pour calculer automatiquement overallSatisfied
 clientFeedbackSchema.pre("save", function (next) {
+	console.log("🔄 [CLIENT-FEEDBACK-MODEL] Middleware pre('save') exécuté");
+	console.log("  - serviceRating:", this.serviceRating, typeof this.serviceRating);
+	console.log("  - foodQuality:", this.foodQuality, typeof this.foodQuality);
+	console.log("  - venueExperience:", this.venueExperience, typeof this.venueExperience);
+
 	// Calcul automatique du score global
 	this.overallSatisfied =
 		this.serviceRating === true &&
@@ -132,6 +137,9 @@ clientFeedbackSchema.pre("save", function (next) {
 	} else {
 		this.feedbackType = "mixed";
 	}
+
+	console.log("  - overallSatisfied calculé:", this.overallSatisfied);
+	console.log("  - feedbackType calculé:", this.feedbackType);
 
 	next();
 });

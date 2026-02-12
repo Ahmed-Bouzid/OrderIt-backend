@@ -114,13 +114,16 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 			});
 		}
 
-		// Créer l'enregistrement feedback
-		const clientFeedback = new ClientFeedback({
-			restaurantId,
-			tableId: tableId || null,
-			reservationId: reservationId || null,
-			clientId: clientId || null,
-			clientName: clientName || null,
+		// 🛠️ Helper pour valider un ObjectId MongoDB
+		const mongoose = require("mongoose");
+		const isValidObjectId = (id) => {
+			if (!id || typeof id !== "string") return false;
+			return mongoose.Types.ObjectId.isValid(id);
+		};
+
+		// 🛠️ Construire le document feedback en filtrant les champs invalides
+		const feedbackDoc = {
+			restaurantId, // Déjà validé par express-validator
 			serviceRating,
 			foodQuality,
 			venueExperience,
@@ -128,7 +131,34 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 			redirectedToGoogle,
 			ipAddress: req.ip || req.connection.remoteAddress,
 			userAgent: req.get("User-Agent"),
-		});
+		};
+
+		// ✅ Ajouter tableId UNIQUEMENT s'il est un ObjectId valide
+		if (isValidObjectId(tableId)) {
+			feedbackDoc.tableId = tableId;
+		}
+
+		// ✅ Ajouter reservationId UNIQUEMENT s'il est un ObjectId valide
+		if (isValidObjectId(reservationId)) {
+			feedbackDoc.reservationId = reservationId;
+		}
+
+		// ✅ Ajouter clientId (String, pas ObjectId) s'il existe
+		if (clientId && typeof clientId === "string" && clientId.length > 0) {
+			feedbackDoc.clientId = clientId;
+		}
+
+		// ✅ Ajouter clientName s'il existe
+		if (
+			clientName &&
+			typeof clientName === "string" &&
+			clientName.trim().length > 0
+		) {
+			feedbackDoc.clientName = clientName.trim();
+		}
+
+		// Créer l'enregistrement feedback
+		const clientFeedback = new ClientFeedback(feedbackDoc);
 
 		console.log("🔍 [CLIENT-FEEDBACK] Tentative d'enregistrement avec:", {
 			restaurantId,
@@ -136,6 +166,8 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 			foodQuality,
 			venueExperience,
 			hasComment: !!comment.trim(),
+			hasTableId: !!feedbackDoc.tableId,
+			hasReservationId: !!feedbackDoc.reservationId,
 		});
 
 		// Le middleware pre("save") calculera automatiquement :
