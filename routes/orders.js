@@ -188,9 +188,11 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 		if (origin) {
 			query.origin = origin;
 			
-			// ⭐ Pour Express Orders: exclure seulement les cancelled + limiter aux dernières 24h
-			query.orderStatus = { $ne: "cancelled" };
-			query.createdAt = { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) };
+			// ⭐ Pour Express Orders: afficher seulement les commandes non préparées
+			// (uniquement pour origin="client", pas pour "server" ou "admin")
+			if (origin === "client") {
+				query.isMade = false;
+			}
 		}
 
 		console.log(`📦 [GET /orders] Query MongoDB:`, JSON.stringify(query));
@@ -220,6 +222,119 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			.json({ message: "Erreur lors du chargement des commandes." });
 	}
 });
+
+// ⭐⭐ PATCH /api/orders/:id/mark-made - Marquer une commande comme préparée (foodtrucks)
+router.patch(
+	"/:id/mark-made",
+	auth,
+	checkRoles(["server", "admin"]),
+	validateObjectIds(["id"]),
+	async (req, res) => {
+		try {
+			const orderId = req.params.id;
+			const { isMade } = req.body;
+
+			if (typeof isMade !== "boolean") {
+				return res.status(400).json({
+					message: "isMade doit être un booléen",
+				});
+			}
+
+			const order = await Order.findById(orderId);
+			if (!order) {
+				return res.status(404).json({ message: "Commande introuvable" });
+			}
+
+			order.isMade = isMade;
+			await order.save();
+
+			console.log(`✅ [MARK MADE] Commande ${orderId} marquée isMade=${isMade}`);
+
+			// ⚡ Émettre l'événement WebSocket
+			const io = req.app.get("io");
+			if (io) {
+				io.to(`restaurant:${order.restaurantId}`).emit("order:updated", {
+					orderId: order._id,
+					isMade: order.isMade,
+					orderStatus: order.orderStatus,
+				});
+			}
+
+			res.json({
+				success: true,
+				order: {
+					_id: order._id,
+					isMade: order.isMade,
+				},
+			});
+		} catch (err) {
+			console.error("❌ [MARK MADE] Erreur:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
+
+// ⭐⭐ PATCH /api/orders/bulk-mark-made - Marquer plusieurs commandes comme préparées (foodtrucks)
+router.patch(
+	"/bulk-mark-made",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { orderIds, isMade } = req.body;
+
+			if (!Array.isArray(orderIds) || orderIds.length === 0) {
+				return res.status(400).json({
+					message: "orderIds doit être un tableau non vide",
+				});
+			}
+
+			if (typeof isMade !== "boolean") {
+				return res.status(400).json({
+					message: "isMade doit être un booléen",
+				});
+			}
+
+			// Valider tous les IDs
+			const validIds = orderIds.every((id) => mongoose.Types.ObjectId.isValid(id));
+			if (!validIds) {
+				return res.status(400).json({
+					message: "Un ou plusieurs IDs sont invalides",
+				});
+			}
+
+			// Mettre à jour toutes les commandes
+			const result = await Order.updateMany(
+				{ _id: { $in: orderIds } },
+				{ $set: { isMade } },
+			);
+
+			console.log(`✅ [BULK MARK MADE] ${result.modifiedCount} commandes marquées isMade=${isMade}`);
+
+			// ⚡ Émettre l'événement WebSocket pour chaque commande
+			const orders = await Order.find({ _id: { $in: orderIds } }).select("_id restaurantId isMade orderStatus");
+			const io = req.app.get("io");
+			if (io && orders.length > 0) {
+				const restaurantId = orders[0].restaurantId;
+				orders.forEach(order => {
+					io.to(`restaurant:${restaurantId}`).emit("order:updated", {
+						orderId: order._id,
+						isMade: order.isMade,
+						orderStatus: order.orderStatus,
+					});
+				});
+			}
+
+			res.json({
+				success: true,
+				modifiedCount: result.modifiedCount,
+			});
+		} catch (err) {
+			console.error("❌ [BULK MARK MADE] Erreur:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
 
 // ⭐ PATCH /api/orders/:id/urgency - Basculer l'urgence d'une commande (Express Orders)
 router.patch(
