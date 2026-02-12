@@ -180,10 +180,8 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			// status peut être "confirmed,in_progress,ready"
 			const statusArray = status.split(",");
 			query.orderStatus = { $in: statusArray };
-		} else {
-			// ✅ Par défaut, exclure les commandes terminées et annulées
-			query.orderStatus = { $nin: ["completed", "cancelled"] };
 		}
+		// ⭐ Pas de filtre par défaut sur orderStatus - on filtre par statut de réservation plus bas
 
 		// ⭐ Nouveau filtre par origine (pour Express Orders)
 		if (origin) {
@@ -192,11 +190,20 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 
 		console.log(`📦 GET /orders - Query:`, query);
 
-		const orders = await Order.find(query)
+		let orders = await Order.find(query)
 			.populate("tableId", "number")
 			.populate("serverId", "name serverId")
 			.populate("restaurantId", "name")
+			.populate("reservationId", "status") // ⭐ Populate pour filtrer par statut de réservation
 			.sort({ createdAt: -1 }); // Du plus récent au plus ancien (pour Express Orders)
+
+		// ⭐ Filtrer pour garder seulement les commandes dont la réservation est ouverte (ou sans réservation)
+		orders = orders.filter(order => {
+			// Garder les commandes sans réservation
+			if (!order.reservationId) return true;
+			// Garder seulement les commandes dont la réservation est ouverte
+			return order.reservationId.status === "ouverte";
+		});
 
 		console.log(`✅ Commandes trouvées: ${orders.length}`);
 		res.json({ orders });
