@@ -170,6 +170,8 @@ router.post(
 router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
 		const { restaurantId, status, origin } = req.query;
+		console.log(`📦 [GET /orders] Paramètres reçus:`, { restaurantId, status, origin });
+		
 		const query = {};
 
 		if (restaurantId) {
@@ -181,34 +183,38 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			const statusArray = status.split(",");
 			query.orderStatus = { $in: statusArray };
 		}
-		// ⭐ Pas de filtre par défaut sur orderStatus - on filtre par statut de réservation plus bas
 
 		// ⭐ Nouveau filtre par origine (pour Express Orders)
 		if (origin) {
 			query.origin = origin;
+			
+			// ⭐ Pour Express Orders: exclure seulement les cancelled + limiter aux dernières 24h
+			query.orderStatus = { $ne: "cancelled" };
+			query.createdAt = { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) };
 		}
 
-		console.log(`📦 GET /orders - Query:`, query);
+		console.log(`📦 [GET /orders] Query MongoDB:`, JSON.stringify(query));
 
 		let orders = await Order.find(query)
 			.populate("tableId", "number")
 			.populate("serverId", "name serverId")
 			.populate("restaurantId", "name")
-			.populate("reservationId", "status") // ⭐ Populate pour filtrer par statut de réservation
+			.populate("reservationId", "status") // ⭐ Populate pour info supplémentaire
 			.sort({ createdAt: -1 }); // Du plus récent au plus ancien (pour Express Orders)
 
-		// ⭐ Filtrer pour garder seulement les commandes dont la réservation est ouverte (ou sans réservation)
-		orders = orders.filter(order => {
-			// Garder les commandes sans réservation
-			if (!order.reservationId) return true;
-			// Garder seulement les commandes dont la réservation est ouverte
-			return order.reservationId.status === "ouverte";
+		console.log(`📦 [GET /orders] Commandes trouvées: ${orders.length}`);
+		
+		// Log des détails de chaque commande
+		orders.forEach((order, index) => {
+			const resaStatus = order.reservationId?.status || "AUCUNE RESA";
+			const orderStatus = order.orderStatus;
+			console.log(`   [${index + 1}] Order ${order._id} | orderStatus: ${orderStatus} | reservationStatus: ${resaStatus} | origin: ${order.origin}`);
 		});
 
-		console.log(`✅ Commandes trouvées: ${orders.length}`);
+		console.log(`✅ [GET /orders] Envoi de ${orders.length} commandes au frontend`);
 		res.json({ orders });
 	} catch (err) {
-		console.error("❌ Erreur GET /orders:", err);
+		console.error("❌ [GET /orders] Erreur:", err);
 		res
 			.status(500)
 			.json({ message: "Erreur lors du chargement des commandes." });
