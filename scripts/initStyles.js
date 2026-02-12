@@ -151,6 +151,11 @@ const SYSTEM_STYLES = [
 			cardStyle: "solid",
 			buttonStyle: "gradient",
 			animationSpeed: "smooth",
+			// 🚀 UI Customization Flags - Architecture 100% JSON-driven
+			useCustomHeader: true, // Activer le header custom GrillzHeader
+			useCustomBackground: true, // Activer le fond custom (image flyer)
+			backgroundImage: "grillz-flyer.jpg", // Nom du fichier dans assets
+			headerComponent: "GrillzHeader", // Composant header à utiliser
 		},
 	},
 	{

@@ -30,13 +30,26 @@ const styleSchema = new mongoose.Schema(
 			required: true,
 			// Structure :
 			// {
-			//   primaryColor: "#FF7F50",
-			//   secondaryColor: "#FF6347",
-			//   background: ["#1a1a1a", "#2d2d2d"],
+			//   // 🎨 Couleurs
+			//   primary: ["#FF7F50", "#FF6347"],
+			//   secondary: ["#f093fb", "#f5576c"],
+			//   accent: ["#4facfe", "#00f2fe"],
+			//   success: ["#11998e", "#38ef7d"],
+			//   dark: ["#0f0c29", "#302b63"],
 			//   text: "#ffffff",
 			//   textMuted: "rgba(255,255,255,0.7)",
+			//   
+			//   // 🎭 Customisation UI (flags pour composants custom)
+			//   useCustomHeader: false,          // Si true, utilise un header personnalisé
+			//   useCustomBackground: false,       // Si true, charge une image de fond custom
+			//   backgroundImage: null,            // Nom du fichier image (ex: "grillz-flyer.jpg")
+			//   headerComponent: "StandardHeader", // Nom du composant header à utiliser
+			//   
+			//   // 📋 Layout
 			//   menuLayout: "grid", // "grid" | "list"
 			//   fontFamily: "Poppins",
+			//   
+			//   // 🏷️ Catégories visibles
 			//   categories: [
 			//     { name: "Entrées", visible: true },
 			//     { name: "Plats", visible: true }
