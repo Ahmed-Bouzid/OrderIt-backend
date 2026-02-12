@@ -157,22 +157,32 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 			feedbackDoc.clientName = clientName.trim();
 		}
 
-		// Créer l'enregistrement feedback
-		const clientFeedback = new ClientFeedback(feedbackDoc);
+		// 🧮 Calculer overallSatisfied et feedbackType DIRECTEMENT (sans dépendre du middleware)
+		const overallSatisfied =
+			serviceRating === true &&
+			foodQuality === true &&
+			venueExperience === true;
+
+		const feedbackType = overallSatisfied ? "positive" : "mixed";
+
+		// ✅ Ajouter les champs calculés au document
+		feedbackDoc.overallSatisfied = overallSatisfied;
+		feedbackDoc.feedbackType = feedbackType;
 
 		console.log("🔍 [CLIENT-FEEDBACK] Tentative d'enregistrement avec:", {
 			restaurantId,
 			serviceRating,
 			foodQuality,
 			venueExperience,
+			overallSatisfied,
+			feedbackType,
 			hasComment: !!comment.trim(),
 			hasTableId: !!feedbackDoc.tableId,
 			hasReservationId: !!feedbackDoc.reservationId,
 		});
 
-		// Le middleware pre("save") calculera automatiquement :
-		// - overallSatisfied
-		// - feedbackType
+		// Créer l'enregistrement feedback
+		const clientFeedback = new ClientFeedback(feedbackDoc);
 
 		console.log("💾 [CLIENT-FEEDBACK] Appel save() en cours...");
 		await clientFeedback.save();
