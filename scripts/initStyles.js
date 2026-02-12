@@ -113,38 +113,38 @@ const SYSTEM_STYLES = [
 		suitableFor: ["foodtruck", "restaurant", "bar"],
 		isSystem: true,
 		config: {
-			// Gradients principaux
-			primary: ["#FF6B35", "#D73027"],
-			fire: ["#FF6B35", "#D73027"],
-			gold: ["#FFD700", "#FFBF00"],
-			secondary: ["#FFD700", "#FFBF00"],
-			ember: ["#FF8C42", "#FF6B35"],
-			accent: ["#FF8C42", "#FF6B35"],
-			smoke: ["#4a4a4a", "#1a1a1a"],
-			// Couleurs unitaires
-			orange: "#FF6B35",
-			rouge: "#D73027",
-			dore: "#FFD700",
-			// États
-			success: ["#228B22", "#32CD32"],
-			warning: ["#FF8C00", "#FFA500"],
-			error: ["#DC143C", "#FF4500"],
-			danger: ["#DC143C", "#FF4500"],
-			// Backgrounds
-			dark: "#1a1a1a",
-			card: "#2a2a2a",
-			elevated: "#3a3a3a",
-			background: ["#1a1a1a", "#2a2a2a"],
-			// Textes
-			text: "#FFF8F0",
-			textSecondary: "#E0E0E0",
-			textMuted: "#B0B0B0",
-			textAccent: "#FFD700",
-			// Transparences
-			glass: "rgba(255, 255, 255, 0.1)",
-			glassBorder: "rgba(255, 215, 0, 0.2)",
-			overlay: "rgba(26, 26, 26, 0.9)",
-			fireOverlay: "rgba(255, 107, 53, 0.2)",
+			// Gradients principaux - Flammes vives du BBQ
+			primary: ["#FF5722", "#BF360C"],
+			fire: ["#FF5722", "#BF360C"],
+			gold: ["#FF8C00", "#FF6F00"],
+			secondary: ["#FF8C00", "#FF6F00"],
+			ember: ["#FF6F00", "#E65100"],
+			accent: ["#FF6F00", "#E65100"],
+			smoke: ["#424242", "#212121"],
+			// Couleurs unitaires - Tons chauds du feu
+			orange: "#FF6F00",
+			rouge: "#BF360C",
+			dore: "#FF8C00",
+			// États - Palette chaleureuse
+			success: ["#FF8C00", "#FF6F00"],
+			warning: ["#FF9800", "#F57C00"],
+			error: ["#D84315", "#BF360C"],
+			danger: ["#D84315", "#BF360C"],
+			// Backgrounds - Charbon et fumée
+			dark: "#1C1C1C",
+			card: "#2C2C2C",
+			elevated: "#3C3C3C",
+			background: ["#1C1C1C", "#2C2C2C"],
+			// Textes - Blanc chaud
+			text: "#FFF8E1",
+			textSecondary: "#FFE0B2",
+			textMuted: "#BCAAA4",
+			textAccent: "#FF8C00",
+			// Transparences - Braises et fumée
+			glass: "rgba(255, 111, 0, 0.12)",
+			glassBorder: "rgba(255, 140, 0, 0.25)",
+			overlay: "rgba(28, 28, 28, 0.92)",
+			fireOverlay: "rgba(255, 87, 34, 0.25)",
 			// Layout & UI
 			menuLayout: "grid",
 			fontFamily: "System",

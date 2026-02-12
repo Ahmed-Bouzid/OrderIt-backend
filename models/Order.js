@@ -192,6 +192,13 @@ const orderSchema = new mongoose.Schema(
 			index: true,
 		},
 
+		// ⭐⭐ Commande préparée et servie (foodtrucks uniquement)
+		isMade: {
+			type: Boolean,
+			default: false,
+			index: true,
+		},
+
 		// ⭐⭐ Pour le split payment
 		splitDetails: [
 			{
