@@ -658,6 +658,19 @@ router.post("/:id/mark-as-paid", async (req, res) => {
 
 		await order.save();
 
+		// ⚡ Émettre WebSocket pour notifier le frontend
+		const io = req.app.locals.io;
+		if (io && order.restaurantId) {
+			const { emitOrderEvent } = require("../utils/socketEmitter");
+			emitOrderEvent(
+				io,
+				order.restaurantId.toString(),
+				"updated",
+				order.toObject(),
+			);
+			console.log(`📡 WebSocket: Commande ${order._id} marquée payée`);
+		}
+
 		res.json({
 			success: true,
 			message: "Commande marquée comme payée",

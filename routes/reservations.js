@@ -914,6 +914,9 @@ router.put("/client/:id/close", async (req, res) => {
 
 		if (reservation.orderIds && reservation.orderIds.length > 0) {
 			const Order = require("../models/Order");
+			const { emitOrderEvent } = require("../utils/socketEmitter");
+			const io = require("../start").io;
+
 			const orders = await Order.find({ _id: { $in: reservation.orderIds } });
 			const now = new Date();
 			// On sauvegarde chaque commande une par une AVANT la réservation
@@ -924,6 +927,19 @@ router.put("/client/:id/close", async (req, res) => {
 				order.paidAmount = order.totalAmount;
 				order.paidAt = now;
 				await order.save();
+
+				// ⚡ Émettre WebSocket pour notifier le frontend
+				if (io && order.restaurantId) {
+					emitOrderEvent(
+						io,
+						order.restaurantId.toString(),
+						"updated",
+						order.toObject(),
+					);
+					console.log(
+						`📡 WebSocket: Commande ${order._id} marquée payée → Frontend`,
+					);
+				}
 			}
 			// Log détaillé pour debug
 			const debugOrders = await Order.find({
