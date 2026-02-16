@@ -38,17 +38,17 @@ const styleSchema = new mongoose.Schema(
 			//   dark: ["#0f0c29", "#302b63"],
 			//   text: "#ffffff",
 			//   textMuted: "rgba(255,255,255,0.7)",
-			//   
+			//
 			//   // 🎭 Customisation UI (flags pour composants custom)
 			//   useCustomHeader: false,          // Si true, utilise un header personnalisé
 			//   useCustomBackground: false,       // Si true, charge une image de fond custom
 			//   backgroundImage: null,            // Nom du fichier image (ex: "grillz-flyer.jpg")
 			//   headerComponent: "StandardHeader", // Nom du composant header à utiliser
-			//   
+			//
 			//   // 📋 Layout
 			//   menuLayout: "grid", // "grid" | "list"
 			//   fontFamily: "Poppins",
-			//   
+			//
 			//   // 🏷️ Catégories visibles
 			//   categories: [
 			//     { name: "Entrées", visible: true },

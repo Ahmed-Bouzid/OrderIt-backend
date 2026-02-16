@@ -121,49 +121,49 @@ const SYSTEM_STYLES = [
 			ember: ["#C73E1D", "#A62F1A"], // Braises rougeoyantes
 			accent: ["#FF8C42", "#E65100"], // Orange chaud → Orange brûlé
 			smoke: ["#4A413D", "#2B1F1E"], // Gris fumée → Brun fumé
-			
+
 			// 🎨 Couleurs unitaires - Tons chauds BBQ
 			orange: "#FF6B35", // Orange flamme signature
 			rouge: "#D9381E", // Rouge feu intense
 			dore: "#D4A574", // Doré grillé
-			
+
 			// ✅ États - Palette énergique BBQ
 			success: ["#FF8C42", "#D4A574"], // Orange vif → Doré
 			warning: ["#FF9933", "#E67E22"], // Orange alerte
 			error: ["#D9381E", "#A62F1A"], // Rouge feu → Rouge braise
 			danger: ["#C73E1D", "#8B2500"], // Rouge danger intense
-			
+
 			// 🌑 Backgrounds - Charbon noir profond et fumée
 			dark: "#1A1110", // Noir charbon profond
 			card: "#2B1F1E", // Brun charbon
 			elevated: "#3D312E", // Brun élevé fumé
 			background: ["#1A1110", "#2B1F1E", "#332B28"], // Dégradé charbon → fumée
-			
+
 			// 📝 Textes - Blanc crème chaud du feu
 			text: "#FFFAF0", // Blanc crème chaud (floral white)
 			textSecondary: "#FFE4B5", // Moccasin (beige chaud)
 			textMuted: "#D2B48C", // Tan (brun clair)
 			textAccent: "#FF6B35", // Orange flamme signature
-			
+
 			// ✨ Transparences - Braises et fumée BBQ
 			glass: "rgba(255, 107, 53, 0.15)", // Verre orange flamme
 			glassBorder: "rgba(255, 140, 66, 0.3)", // Bordure orange chaud
 			overlay: "rgba(26, 17, 16, 0.94)", // Overlay charbon opaque
 			fireOverlay: "rgba(255, 107, 53, 0.3)", // Overlay flamme orange
-			
+
 			// 🎯 Layout & UI
 			menuLayout: "grid",
 			fontFamily: "System",
 			cardStyle: "solid",
 			buttonStyle: "gradient",
 			animationSpeed: "smooth",
-			
+
 			// 🚀 UI Customization Flags - Architecture 100% JSON-driven
 			useCustomHeader: true, // Activer le header custom GrillzHeader
 			useCustomBackground: true, // Activer le fond custom (image flyer)
 			backgroundImage: "grillz-flyer.jpg", // Nom du fichier dans assets
 			headerComponent: "GrillzHeader", // Composant header à utiliser
-			
+
 			// 🎨 Couleurs additionnelles BBQ
 			charcoal: "#1A1110", // Charbon noir
 			ash: "#4A413D", // Cendres grises

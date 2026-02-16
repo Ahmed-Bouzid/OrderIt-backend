@@ -170,8 +170,12 @@ router.post(
 router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
 		const { restaurantId, status, origin } = req.query;
-		console.log(`📦 [GET /orders] Paramètres reçus:`, { restaurantId, status, origin });
-		
+		console.log(`📦 [GET /orders] Paramètres reçus:`, {
+			restaurantId,
+			status,
+			origin,
+		});
+
 		const query = {};
 
 		if (restaurantId) {
@@ -187,15 +191,12 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 		// ⭐ Nouveau filtre par origine (pour Express Orders)
 		if (origin) {
 			query.origin = origin;
-			
+
 			// ⭐ Pour Express Orders: afficher seulement les commandes non préparées
 			// (uniquement pour origin="client", pas pour "server" ou "admin")
 			// ⚠️ IMPORTANT: Inclure aussi les commandes qui n'ont pas encore le champ isMade
 			if (origin === "client") {
-				query.$or = [
-					{ isMade: false },
-					{ isMade: { $exists: false } }
-				];
+				query.$or = [{ isMade: false }, { isMade: { $exists: false } }];
 			}
 		}
 
@@ -209,15 +210,19 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			.sort({ createdAt: -1 }); // Du plus récent au plus ancien (pour Express Orders)
 
 		console.log(`📦 [GET /orders] Commandes trouvées: ${orders.length}`);
-		
+
 		// Log des détails de chaque commande
 		orders.forEach((order, index) => {
 			const resaStatus = order.reservationId?.status || "AUCUNE RESA";
 			const orderStatus = order.orderStatus;
-			console.log(`   [${index + 1}] Order ${order._id} | orderStatus: ${orderStatus} | reservationStatus: ${resaStatus} | origin: ${order.origin}`);
+			console.log(
+				`   [${index + 1}] Order ${order._id} | orderStatus: ${orderStatus} | reservationStatus: ${resaStatus} | origin: ${order.origin}`,
+			);
 		});
 
-		console.log(`✅ [GET /orders] Envoi de ${orders.length} commandes au frontend`);
+		console.log(
+			`✅ [GET /orders] Envoi de ${orders.length} commandes au frontend`,
+		);
 		res.json({ orders });
 	} catch (err) {
 		console.error("❌ [GET /orders] Erreur:", err);
@@ -252,7 +257,9 @@ router.patch(
 			order.isMade = isMade;
 			await order.save();
 
-			console.log(`✅ [MARK MADE] Commande ${orderId} marquée isMade=${isMade}`);
+			console.log(
+				`✅ [MARK MADE] Commande ${orderId} marquée isMade=${isMade}`,
+			);
 
 			// ⚡ Émettre l'événement WebSocket
 			const io = req.app.get("io");
@@ -300,7 +307,9 @@ router.patch(
 			}
 
 			// Valider tous les IDs
-			const validIds = orderIds.every((id) => mongoose.Types.ObjectId.isValid(id));
+			const validIds = orderIds.every((id) =>
+				mongoose.Types.ObjectId.isValid(id),
+			);
 			if (!validIds) {
 				return res.status(400).json({
 					message: "Un ou plusieurs IDs sont invalides",
@@ -313,14 +322,18 @@ router.patch(
 				{ $set: { isMade } },
 			);
 
-			console.log(`✅ [BULK MARK MADE] ${result.modifiedCount} commandes marquées isMade=${isMade}`);
+			console.log(
+				`✅ [BULK MARK MADE] ${result.modifiedCount} commandes marquées isMade=${isMade}`,
+			);
 
 			// ⚡ Émettre l'événement WebSocket pour chaque commande
-			const orders = await Order.find({ _id: { $in: orderIds } }).select("_id restaurantId isMade orderStatus");
+			const orders = await Order.find({ _id: { $in: orderIds } }).select(
+				"_id restaurantId isMade orderStatus",
+			);
 			const io = req.app.get("io");
 			if (io && orders.length > 0) {
 				const restaurantId = orders[0].restaurantId;
-				orders.forEach(order => {
+				orders.forEach((order) => {
 					io.to(`restaurant:${restaurantId}`).emit("order:updated", {
 						orderId: order._id,
 						isMade: order.isMade,
