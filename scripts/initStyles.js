@@ -109,53 +109,66 @@ const SYSTEM_STYLES = [
 		name: "Style Grills",
 		key: "grills",
 		description:
-			"Style sombre pour grillades - Dégradé noir/rouge/orange, ambiance barbecue urbain",
+			"Style BBQ authentique - Flammes orange vif, braises rougeoyantes, charbon noir profond, ambiance grill urbain",
 		suitableFor: ["foodtruck", "restaurant", "bar"],
 		isSystem: true,
 		config: {
-			// Gradients principaux - Flammes vives du BBQ
-			primary: ["#FF5722", "#BF360C"],
-			fire: ["#FF5722", "#BF360C"],
-			gold: ["#FF8C00", "#FF6F00"],
-			secondary: ["#FF8C00", "#FF6F00"],
-			ember: ["#FF6F00", "#E65100"],
-			accent: ["#FF6F00", "#E65100"],
-			smoke: ["#424242", "#212121"],
-			// Couleurs unitaires - Tons chauds du feu
-			orange: "#FF6F00",
-			rouge: "#BF360C",
-			dore: "#FF8C00",
-			// États - Palette chaleureuse
-			success: ["#FF8C00", "#FF6F00"],
-			warning: ["#FF9800", "#F57C00"],
-			error: ["#D84315", "#BF360C"],
-			danger: ["#D84315", "#BF360C"],
-			// Backgrounds - Charbon et fumée
-			dark: "#1C1C1C",
-			card: "#2C2C2C",
-			elevated: "#3C3C3C",
-			background: ["#1C1C1C", "#2C2C2C"],
-			// Textes - Blanc chaud
-			text: "#FFF8E1",
-			textSecondary: "#FFE0B2",
-			textMuted: "#BCAAA4",
-			textAccent: "#FF8C00",
-			// Transparences - Braises et fumée
-			glass: "rgba(255, 111, 0, 0.12)",
-			glassBorder: "rgba(255, 140, 0, 0.25)",
-			overlay: "rgba(28, 28, 28, 0.92)",
-			fireOverlay: "rgba(255, 87, 34, 0.25)",
-			// Layout & UI
+			// 🔥 Gradients principaux - Flammes BBQ intenses
+			primary: ["#FF6B35", "#D9381E"], // Orange flamme vif → Rouge feu
+			fire: ["#FF6B35", "#D9381E"], // Flammes vives
+			gold: ["#D4A574", "#B8860B"], // Doré grillé → Or brûlé
+			secondary: ["#C73E1D", "#8B2500"], // Rouge braise → Brun brûlé
+			ember: ["#C73E1D", "#A62F1A"], // Braises rougeoyantes
+			accent: ["#FF8C42", "#E65100"], // Orange chaud → Orange brûlé
+			smoke: ["#4A413D", "#2B1F1E"], // Gris fumée → Brun fumé
+			
+			// 🎨 Couleurs unitaires - Tons chauds BBQ
+			orange: "#FF6B35", // Orange flamme signature
+			rouge: "#D9381E", // Rouge feu intense
+			dore: "#D4A574", // Doré grillé
+			
+			// ✅ États - Palette énergique BBQ
+			success: ["#FF8C42", "#D4A574"], // Orange vif → Doré
+			warning: ["#FF9933", "#E67E22"], // Orange alerte
+			error: ["#D9381E", "#A62F1A"], // Rouge feu → Rouge braise
+			danger: ["#C73E1D", "#8B2500"], // Rouge danger intense
+			
+			// 🌑 Backgrounds - Charbon noir profond et fumée
+			dark: "#1A1110", // Noir charbon profond
+			card: "#2B1F1E", // Brun charbon
+			elevated: "#3D312E", // Brun élevé fumé
+			background: ["#1A1110", "#2B1F1E", "#332B28"], // Dégradé charbon → fumée
+			
+			// 📝 Textes - Blanc crème chaud du feu
+			text: "#FFFAF0", // Blanc crème chaud (floral white)
+			textSecondary: "#FFE4B5", // Moccasin (beige chaud)
+			textMuted: "#D2B48C", // Tan (brun clair)
+			textAccent: "#FF6B35", // Orange flamme signature
+			
+			// ✨ Transparences - Braises et fumée BBQ
+			glass: "rgba(255, 107, 53, 0.15)", // Verre orange flamme
+			glassBorder: "rgba(255, 140, 66, 0.3)", // Bordure orange chaud
+			overlay: "rgba(26, 17, 16, 0.94)", // Overlay charbon opaque
+			fireOverlay: "rgba(255, 107, 53, 0.3)", // Overlay flamme orange
+			
+			// 🎯 Layout & UI
 			menuLayout: "grid",
 			fontFamily: "System",
 			cardStyle: "solid",
 			buttonStyle: "gradient",
 			animationSpeed: "smooth",
+			
 			// 🚀 UI Customization Flags - Architecture 100% JSON-driven
 			useCustomHeader: true, // Activer le header custom GrillzHeader
 			useCustomBackground: true, // Activer le fond custom (image flyer)
 			backgroundImage: "grillz-flyer.jpg", // Nom du fichier dans assets
 			headerComponent: "GrillzHeader", // Composant header à utiliser
+			
+			// 🎨 Couleurs additionnelles BBQ
+			charcoal: "#1A1110", // Charbon noir
+			ash: "#4A413D", // Cendres grises
+			flame: "#FF6B35", // Flamme signature
+			grill: "#8B4513", // Brun grille (saddle brown)
 		},
 	},
 	{
