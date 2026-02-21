@@ -14,7 +14,14 @@ const restaurantSchema = new mongoose.Schema({
 	// 🏢 Catégorie de restaurant (pour adapter l'interface)
 	category: {
 		type: String,
-		enum: ["restaurant", "foodtruck", "snack", "cafe", "boulangerie", "bar"],
+		enum: [
+			"restaurant",
+			"foodtruck",
+			"fast-food",
+			"cafe",
+			"boulangerie",
+			"bar",
+		],
 		default: "restaurant",
 	},
 	// 🎨 Clé du style appliqué (référence vers la table Style)
