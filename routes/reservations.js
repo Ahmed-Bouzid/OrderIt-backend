@@ -633,13 +633,21 @@ router.put(
 				return res.status(404).json({ message: "Réservation non trouvée" });
 			}
 
+			// ⭐ Marquer toutes les commandes comme payées AVANT le save
+			// (le hook pre("save") recalcule paidAmount depuis les orders)
+			if (reservation.orderIds && reservation.orderIds.length > 0) {
+				const Order = require("../models/Order");
+				await Order.updateMany(
+					{ _id: { $in: reservation.orderIds } },
+					{ $set: { paymentStatus: "paid" } }
+				);
+			}
+
 			// Mettre à jour les champs de paiement
-			if (paidAmount !== undefined) reservation.paidAmount = paidAmount;
-			if (remainingAmount !== undefined)
-				reservation.remainingAmount = remainingAmount;
 			if (paymentMethod) reservation.paymentMethod = paymentMethod;
 
 			// Forcer le statut à "terminée" après paiement
+			// (le hook pre("save") va recalculer paidAmount/remainingAmount correctement)
 			reservation.status = "terminée";
 			reservation.isPresent = false; // ⭐ RÈGLE MÉTIER
 			reservation.updatedAt = new Date();
