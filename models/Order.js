@@ -19,7 +19,8 @@ const orderSchema = new mongoose.Schema(
 		tableId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Table",
-			required: true,
+			required: false, // Optionnel pour les commandes fast-food sans table
+			default: null,
 			index: true,
 		},
 		serverId: {

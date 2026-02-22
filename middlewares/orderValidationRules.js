@@ -3,7 +3,8 @@ const mongoose = require("mongoose");
 function validateOrder(req, res, next) {
 	const { tableId, items, total, restaurantId, status } = req.body;
 
-	if (!tableId || !mongoose.Types.ObjectId.isValid(tableId)) {
+	// tableId optionnel (commandes fast-food sans table)
+	if (tableId && !mongoose.Types.ObjectId.isValid(tableId)) {
 		return res.status(400).json({ message: "tableId invalide." });
 	}
 	if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) {
