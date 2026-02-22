@@ -714,6 +714,52 @@ router.put(
 	},
 );
 
+// 🍳 Route pour mettre à jour le statut de préparation (dishStatus)
+router.patch(
+	"/:id/dish-status",
+	auth,
+	checkRoles(["admin", "server"]),
+	async (req, res) => {
+		try {
+			const { dishStatus } = req.body;
+			const allowedDishStatuses = ["En attente", "En cours", "Annulé", "Terminé"];
+
+			if (!dishStatus || !allowedDishStatuses.includes(dishStatus)) {
+				return res.status(400).json({
+					message: `dishStatus invalide. Valeurs acceptées: ${allowedDishStatuses.join(", ")}`,
+				});
+			}
+
+			const reservation = await Reservation.findById(req.params.id);
+			if (!reservation) {
+				return res.status(404).json({ message: "Réservation non trouvée" });
+			}
+
+			reservation.dishStatus = dishStatus;
+			reservation.updatedAt = new Date();
+			await reservation.save();
+
+			console.log(`🍳 [DISH STATUS] Réservation ${reservation._id} → dishStatus: ${dishStatus}`);
+
+			// Émettre événement WebSocket
+			const io = getIO(req);
+			if (io && reservation.restaurantId) {
+				emitReservationEvent(
+					io,
+					reservation.restaurantId,
+					"statusUpdated",
+					reservation.toObject(),
+				);
+			}
+
+			res.json({ success: true, reservation });
+		} catch (err) {
+			console.error("❌ Erreur mise à jour dishStatus:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
+
 // 🔓 Route simplifiée pour le client (sans auth JWT)
 
 // backend/routes/reservations.js
