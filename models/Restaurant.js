@@ -49,6 +49,14 @@ const restaurantSchema = new mongoose.Schema({
 		default: true,
 		index: true,
 	},
+	// 🔧 Overrides de fonctionnalités par restaurant
+	// Clé = nom de feature (ex: "chat_client"), valeur = true (activer) / false (désactiver)
+	// Surcharge la matrice de base déterminée par la catégorie.
+	featureOverrides: {
+		type: Map,
+		of: Boolean,
+		default: () => new Map(),
+	},
 	// 🌟 Avis Google (redirection clients)
 	googlePlaceId: {
 		type: String,

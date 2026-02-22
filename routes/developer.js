@@ -17,7 +17,7 @@ router.get("/restaurants", auth, checkDeveloper, async (req, res) => {
 	try {
 		const restaurants = await Restaurant.find()
 			.select(
-				"_id name email phone address createdAt turnoverTime active subscriptionPlan styleKey",
+				"_id name email phone address createdAt turnoverTime active subscriptionPlan styleKey category featureOverrides",
 			)
 			.lean();
 
@@ -992,5 +992,86 @@ router.post("/apply-style", auth, checkDeveloper, async (req, res) => {
 		});
 	}
 });
+
+/**
+ * GET /developer/restaurants/:id/feature-overrides
+ * Récupère les overrides de fonctionnalités d'un restaurant
+ */
+router.get(
+	"/restaurants/:id/feature-overrides",
+	auth,
+	checkDeveloper,
+	async (req, res) => {
+		try {
+			const restaurant = await Restaurant.findById(req.params.id).select(
+				"featureOverrides category name",
+			);
+			if (!restaurant) {
+				return res.status(404).json({ message: "Restaurant non trouvé" });
+			}
+			// Convertit la Map Mongoose en objet JS plain
+			const overrides = Object.fromEntries(
+				restaurant.featureOverrides || new Map(),
+			);
+			res.json({
+				status: "success",
+				restaurantId: restaurant._id,
+				name: restaurant.name,
+				category: restaurant.category,
+				featureOverrides: overrides,
+			});
+		} catch (error) {
+			console.error("❌ Erreur GET feature-overrides:", error);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
+
+/**
+ * PUT /developer/restaurants/:id/feature-overrides
+ * Met à jour les overrides de fonctionnalités d'un restaurant.
+ * Body: { overrides: { [featureKey]: boolean } }
+ * Ex : { overrides: { "chat_client": false, "gestion_stocks": true } }
+ */
+router.put(
+	"/restaurants/:id/feature-overrides",
+	auth,
+	checkDeveloper,
+	async (req, res) => {
+		try {
+			const { overrides } = req.body;
+			if (!overrides || typeof overrides !== "object") {
+				return res
+					.status(400)
+					.json({ message: "Le champ `overrides` (objet) est requis" });
+			}
+
+			const restaurant = await Restaurant.findById(req.params.id);
+			if (!restaurant) {
+				return res.status(404).json({ message: "Restaurant non trouvé" });
+			}
+
+			// Réinitialiser et reconstruire la Map
+			restaurant.featureOverrides = new Map(Object.entries(overrides));
+			await restaurant.save();
+
+			console.log(
+				`✅ [DEVELOPER] featureOverrides mis à jour pour ${restaurant.name}:`,
+				overrides,
+			);
+
+			res.json({
+				status: "success",
+				restaurantId: restaurant._id,
+				name: restaurant.name,
+				category: restaurant.category,
+				featureOverrides: overrides,
+			});
+		} catch (error) {
+			console.error("❌ Erreur PUT feature-overrides:", error);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
 
 module.exports = router;
