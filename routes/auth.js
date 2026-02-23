@@ -91,6 +91,7 @@ router.post("/login", loginLimiter, async (req, res) => {
 		// ⚠️ Exception : Les développeurs peuvent toujours se connecter
 		// 🚨 TEMPORAIREMENT DÉSACTIVÉ pour tests
 		let restaurantCategory = "restaurant"; // Par défaut
+		let restaurantFeatureOverrides = {}; // Par défaut : aucun override
 		if (user.role !== "developer" && user.restaurantId) {
 			const Restaurant = require("../models/Restaurant");
 			const restaurant = await Restaurant.findById(user.restaurantId);
@@ -117,6 +118,10 @@ router.post("/login", loginLimiter, async (req, res) => {
 					"pour restaurant:",
 					restaurant.name,
 				);
+				// 🔧 Extraire les feature overrides (map MongoDB → objet plain)
+				if (restaurant.featureOverrides && restaurant.featureOverrides.size > 0) {
+					restaurantFeatureOverrides = Object.fromEntries(restaurant.featureOverrides);
+				}
 			}
 		}
 
@@ -223,6 +228,7 @@ router.post("/login", loginLimiter, async (req, res) => {
 			userType,
 			restaurantId: user.restaurantId || null,
 			category: restaurantCategory, // 🍔 Catégorie du restaurant (foodtruck, restaurant, etc.)
+			featureOverrides: restaurantFeatureOverrides, // 🔧 Overrides fonctionnalités (developer mode)
 		};
 
 		// ⭐ Si c'est un serveur, ajouter serverId et tableId
@@ -528,6 +534,7 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 
 		// Récupérer catégorie restaurant si applicable
 		let restaurantCategory = "restaurant";
+		let restaurantFeatureOverrides = {}; // Par défaut : aucun override
 		if (user.role !== "developer" && user.restaurantId) {
 			const Restaurant = require("../models/Restaurant");
 			const restaurant = await Restaurant.findById(user.restaurantId);
@@ -545,6 +552,10 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 
 			if (restaurant) {
 				restaurantCategory = restaurant.category || "restaurant";
+				// 🔧 Extraire les feature overrides (map MongoDB → objet plain)
+				if (restaurant.featureOverrides && restaurant.featureOverrides.size > 0) {
+					restaurantFeatureOverrides = Object.fromEntries(restaurant.featureOverrides);
+				}
 			}
 		}
 
@@ -584,6 +595,7 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 				role: user.role,
 				restaurantId: user.restaurantId,
 				category: restaurantCategory,
+				featureOverrides: restaurantFeatureOverrides, // 🔧 Overrides fonctionnalités
 			},
 		});
 	} catch (err) {

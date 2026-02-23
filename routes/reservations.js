@@ -639,7 +639,7 @@ router.put(
 				const Order = require("../models/Order");
 				await Order.updateMany(
 					{ _id: { $in: reservation.orderIds } },
-					{ $set: { paymentStatus: "paid" } }
+					{ $set: { paymentStatus: "paid" } },
 				);
 			}
 
@@ -722,7 +722,12 @@ router.patch(
 	async (req, res) => {
 		try {
 			const { dishStatus } = req.body;
-			const allowedDishStatuses = ["En attente", "En cours", "Annulé", "Terminé"];
+			const allowedDishStatuses = [
+				"En attente",
+				"En cours",
+				"Annulé",
+				"Terminé",
+			];
 
 			if (!dishStatus || !allowedDishStatuses.includes(dishStatus)) {
 				return res.status(400).json({
@@ -739,7 +744,9 @@ router.patch(
 			reservation.updatedAt = new Date();
 			await reservation.save();
 
-			console.log(`🍳 [DISH STATUS] Réservation ${reservation._id} → dishStatus: ${dishStatus}`);
+			console.log(
+				`🍳 [DISH STATUS] Réservation ${reservation._id} → dishStatus: ${dishStatus}`,
+			);
 
 			// Émettre événement WebSocket
 			const io = getIO(req);

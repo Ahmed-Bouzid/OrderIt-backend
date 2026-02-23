@@ -24,7 +24,7 @@ function validateOrder(req, res, next) {
 	if (status && !validStatuses.includes(status)) {
 		return res.status(400).json({
 			message: `Status invalide. Valeurs autorisées : ${validStatuses.join(
-				", "
+				", ",
 			)}`,
 		});
 	}
