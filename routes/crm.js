@@ -846,4 +846,291 @@ function calculateTableOccupancy(reservationsData, tablesData) {
 	};
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🧑‍💼 GET /crm/server/:serverId/detail - Profil individuel complet d'un serveur
+// ═══════════════════════════════════════════════════════════════════════════
+router.get(
+	"/server/:serverId/detail",
+	auth,
+	checkRoles(["admin", "manager"]),
+	[query("period").optional().isIn(["today", "week", "month", "quarter"])],
+	async (req, res) => {
+		try {
+			const { serverId } = req.params;
+			const { period = "week" } = req.query;
+			const restaurantId = req.user.restaurantId;
+			const { start, end } = getPeriodDates(period);
+
+			// Vérifier que le serveur appartient au restaurant
+			const server = await Server.findOne({ _id: serverId, restaurantId }).select(
+				"name email role objectives",
+			);
+			if (!server) {
+				return res.status(404).json({ success: false, message: "Serveur non trouvé" });
+			}
+
+			// Récupérer toutes les commandes du serveur sur la période
+			const orders = await Order.find({
+				serverId,
+				restaurantId,
+				createdAt: { $gte: start, $lte: end },
+			}).lean();
+
+			// ── Statistiques globales ──
+			const totalOrders = orders.length;
+			const totalRevenue = orders.reduce((s, o) => s + (o.totalAmount || 0), 0);
+			const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+			// Temps de service moyen (commandes avec completedAt)
+			const completedOrders = orders.filter((o) => o.completedAt);
+			const avgServiceTime =
+				completedOrders.length > 0
+					? completedOrders.reduce(
+							(s, o) => s + (new Date(o.completedAt) - new Date(o.createdAt)),
+							0,
+						) / completedOrders.length / (1000 * 60)
+					: 0;
+			const minServiceTime =
+				completedOrders.length > 0
+					? Math.min(...completedOrders.map((o) => (new Date(o.completedAt) - new Date(o.createdAt)) / (1000 * 60)))
+					: 0;
+			const maxServiceTime =
+				completedOrders.length > 0
+					? Math.max(...completedOrders.map((o) => (new Date(o.completedAt) - new Date(o.createdAt)) / (1000 * 60)))
+					: 0;
+
+			// ── Répartition des paiements ──
+			const paymentBreakdown = {};
+			orders.forEach((o) => {
+				const method = o.paymentMethod || "Autre";
+				paymentBreakdown[method] = (paymentBreakdown[method] || 0) + (o.totalAmount || 0);
+			});
+
+			// ── Ventes par jour (7 derniers jours ou selon période) ──
+			const dailySales = buildDailyBreakdown(orders, start, end);
+
+			// ── Répartition par catégorie d'items ──
+			const categoryBreakdown = {};
+			let totalAddOns = 0;
+			let addOnRevenue = 0;
+			const ADD_ON_CATEGORIES = ["supplement", "extra", "addon", "add-on", "boisson", "dessert", "accompagnement"];
+
+			orders.forEach((order) => {
+				(order.items || []).forEach((item) => {
+					const cat = (item.category || "autre").toLowerCase();
+					if (!categoryBreakdown[cat]) {
+						categoryBreakdown[cat] = { count: 0, revenue: 0 };
+					}
+					categoryBreakdown[cat].count += item.quantity || 1;
+					categoryBreakdown[cat].revenue += (item.price || 0) * (item.quantity || 1);
+
+					// Détecter les add-ons (catégories supplémentaires ou prix bas)
+					if (ADD_ON_CATEGORIES.some((a) => cat.includes(a))) {
+						totalAddOns += item.quantity || 1;
+						addOnRevenue += (item.price || 0) * (item.quantity || 1);
+					}
+				});
+			});
+
+			// Taux d'add-on = % des commandes qui ont au moins 1 add-on
+			const ordersWithAddOn = orders.filter((order) =>
+				(order.items || []).some((item) =>
+					ADD_ON_CATEGORIES.some((a) => (item.category || "").toLowerCase().includes(a)),
+				),
+			).length;
+			const addOnRate = totalOrders > 0 ? Math.round((ordersWithAddOn / totalOrders) * 100) : 0;
+
+			// ── Moyenne de l'équipe (pour comparaison) ──
+			const allServers = await Server.find({ restaurantId }).select("_id");
+			const teamOrders = await Order.find({
+				restaurantId,
+				serverId: { $in: allServers.map((s) => s._id) },
+				createdAt: { $gte: start, $lte: end },
+			}).lean();
+			const activeServerCount = new Set(teamOrders.map((o) => o.serverId?.toString())).size || 1;
+			const teamAvg = {
+				ordersPerServer: Math.round(teamOrders.length / activeServerCount),
+				revenuePerServer: teamOrders.reduce((s, o) => s + (o.totalAmount || 0), 0) / activeServerCount,
+				avgServiceTime: (() => {
+					const completed = teamOrders.filter((o) => o.completedAt);
+					if (!completed.length) return 0;
+					return completed.reduce((s, o) => s + (new Date(o.completedAt) - new Date(o.createdAt)), 0) /
+						completed.length / (1000 * 60);
+				})(),
+			};
+
+			// ── Efficacité ──
+			const efficiency = calculateServerEfficiency(totalOrders, avgServiceTime, 0);
+
+			// ── Objectifs ──
+			const objectives = server.objectives || {};
+
+			// ── Sessions (= réservations) ──
+			const Reservation = require("../models/Reservation");
+			const sessions = await Reservation.find({
+				serverId,
+				restaurantId,
+				createdAt: { $gte: start, $lte: end },
+			}).lean();
+			const avgSessionDuration =
+				sessions.filter((s) => s.updatedAt && s.status === "terminée").length > 0
+					? sessions
+							.filter((s) => s.updatedAt && s.status === "terminée")
+							.reduce((sum, s) => sum + (new Date(s.updatedAt) - new Date(s.createdAt)), 0) /
+						sessions.filter((s) => s.status === "terminée").length /
+						(1000 * 60)
+					: 0;
+
+			console.log(`🧑‍💼 [CRM] Détail serveur ${server.name}: ${totalOrders} commandes, ${totalRevenue.toFixed(2)}€`);
+
+			res.json({
+				success: true,
+				data: {
+					server: { id: server._id, name: server.name, email: server.email, role: server.role },
+					period,
+					dateRange: { start, end },
+					// Globaux
+					totalOrders,
+					totalRevenue: Math.round(totalRevenue * 100) / 100,
+					avgOrderValue: Math.round(avgOrderValue * 100) / 100,
+					efficiency,
+					// Temps de service
+					avgServiceTime: Math.round(avgServiceTime),
+					minServiceTime: Math.round(minServiceTime),
+					maxServiceTime: Math.round(maxServiceTime),
+					// Sessions
+					totalSessions: sessions.length,
+					avgSessionDuration: Math.round(avgSessionDuration),
+					// Ventes par jour
+					dailySales,
+					// Paiements
+					paymentBreakdown,
+					// Catégories
+					categoryBreakdown,
+					// Add-ons
+					addOnRate,
+					totalAddOns,
+					addOnRevenue: Math.round(addOnRevenue * 100) / 100,
+					// Comparaison équipe
+					teamAvg: {
+						orders: Math.round(teamAvg.ordersPerServer),
+						revenue: Math.round(teamAvg.revenuePerServer * 100) / 100,
+						avgServiceTime: Math.round(teamAvg.avgServiceTime),
+					},
+					// Objectifs
+					objectives,
+				},
+			});
+		} catch (error) {
+			console.error("❌ [CRM] Erreur détail serveur:", error);
+			res.status(500).json({ success: false, message: "Erreur lors du chargement du profil" });
+		}
+	},
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 GET /crm/objectives - Objectifs de tous les serveurs du restaurant
+// ═══════════════════════════════════════════════════════════════════════════
+router.get("/objectives", auth, checkRoles(["admin", "manager"]), async (req, res) => {
+	try {
+		const restaurantId = req.user.restaurantId;
+		const servers = await Server.find({ restaurantId }).select("name objectives");
+		const result = {};
+		servers.forEach((s) => {
+			result[s._id.toString()] = { name: s.name, objectives: s.objectives || {} };
+		});
+		res.json({ success: true, data: result });
+	} catch (error) {
+		console.error("❌ [CRM] Erreur objectives:", error);
+		res.status(500).json({ success: false, message: "Erreur chargement objectifs" });
+	}
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 PUT /crm/server/:serverId/objectives - Fixer les objectifs d'un serveur
+// ═══════════════════════════════════════════════════════════════════════════
+router.put(
+	"/server/:serverId/objectives",
+	auth,
+	checkRoles(["admin", "manager"]),
+	[
+		body("revenueTarget").optional().isFloat({ min: 0 }),
+		body("ordersTarget").optional().isInt({ min: 0 }),
+		body("addOnRateTarget").optional().isFloat({ min: 0, max: 100 }),
+	],
+	async (req, res) => {
+		try {
+			const errors = validationResult(req);
+			if (!errors.isEmpty()) {
+				return res.status(400).json({ errors: errors.array() });
+			}
+
+			const { serverId } = req.params;
+			const { revenueTarget, ordersTarget, addOnRateTarget, notes } = req.body;
+			const restaurantId = req.user.restaurantId;
+
+			const server = await Server.findOne({ _id: serverId, restaurantId });
+			if (!server) {
+				return res.status(404).json({ success: false, message: "Serveur non trouvé" });
+			}
+
+			const objectives = {
+				revenueTarget: revenueTarget ?? server.objectives?.revenueTarget ?? null,
+				ordersTarget: ordersTarget ?? server.objectives?.ordersTarget ?? null,
+				addOnRateTarget: addOnRateTarget ?? server.objectives?.addOnRateTarget ?? null,
+				notes: notes ?? server.objectives?.notes ?? "",
+				updatedAt: new Date(),
+			};
+
+			// Stocker directement dans le document Server (champ dynamique MongoDB)
+			await Server.findByIdAndUpdate(serverId, { $set: { objectives } });
+
+			console.log(`🎯 [CRM] Objectifs mis à jour pour serveur ${server.name}`);
+			res.json({ success: true, data: objectives });
+		} catch (error) {
+			console.error("❌ [CRM] Erreur mise à jour objectifs:", error);
+			res.status(500).json({ success: false, message: "Erreur mise à jour objectifs" });
+		}
+	},
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔧 HELPER: Ventes quotidiennes sur la période
+// ═══════════════════════════════════════════════════════════════════════════
+function buildDailyBreakdown(orders, start, end) {
+	const days = {};
+	const cursor = new Date(start);
+	cursor.setHours(0, 0, 0, 0);
+	const endDay = new Date(end);
+	endDay.setHours(23, 59, 59, 999);
+
+	// Initialiser tous les jours à 0
+	while (cursor <= endDay) {
+		const key = cursor.toISOString().split("T")[0];
+		days[key] = { revenue: 0, orders: 0 };
+		cursor.setDate(cursor.getDate() + 1);
+	}
+
+	// Remplir avec les commandes réelles
+	orders.forEach((order) => {
+		const key = new Date(order.createdAt).toISOString().split("T")[0];
+		if (days[key]) {
+			days[key].revenue += order.totalAmount || 0;
+			days[key].orders += 1;
+		}
+	});
+
+	// Retourner en tableau trié par date
+	return Object.entries(days)
+		.sort(([a], [b]) => a.localeCompare(b))
+		.map(([date, data]) => ({
+			date,
+			label: new Date(date).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" }),
+			revenue: Math.round(data.revenue * 100) / 100,
+			orders: data.orders,
+		}));
+}
+
 module.exports = router;
+
