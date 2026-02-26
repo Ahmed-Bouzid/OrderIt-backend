@@ -4,17 +4,29 @@ const rateLimit = require("express-rate-limit");
 // ⭐ Rate limiter général (modéré)
 const generalLimiter = rateLimit({
 	windowMs: 15 * 60 * 1000, // 15 minutes
-	max: 100, // 100 requêtes par IP toutes les 15 min
+	max: process.env.NODE_ENV === "production" ? 500 : 1000, // Augmenté pour Expo (beaucoup d'appels au démarrage)
 	message: "Trop de requêtes depuis cette IP, réessayez plus tard.",
 	standardHeaders: true,
 	legacyHeaders: false,
-	// ⚠️ Skip uniquement localhost en développement (pas tout le réseau local)
+	// ⚠️ Skip les IPs locales en développement OU si DISABLE_RATE_LIMIT=true
 	skip: (req) => {
-		if (process.env.NODE_ENV === "development") {
-			const isLocalhost = req.ip === "::1" || req.ip === "127.0.0.1";
-			return isLocalhost;
+		// Option pour désactiver complètement (via variable d'environnement)
+		if (process.env.DISABLE_RATE_LIMIT === "true") {
+			return true;
 		}
-		return false; // Pas de skip en production
+
+		if (process.env.NODE_ENV === "development") {
+			const ip = req.ip || req.connection.remoteAddress;
+			// Localhost ET réseau local (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+			const isLocal =
+				ip === "::1" ||
+				ip === "127.0.0.1" ||
+				ip?.startsWith("192.168.") ||
+				ip?.startsWith("10.") ||
+				/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip || "");
+			return isLocal;
+		}
+		return false;
 	},
 });
 
