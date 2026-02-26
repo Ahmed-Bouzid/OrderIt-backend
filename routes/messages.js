@@ -12,60 +12,55 @@ const checkRoles = require("../middlewares/checkRoles");
  * Créer un nouveau message (Manager → Serveur)
  * Body: { type, title, description, coachingItem?, metadata?, priority? }
  */
-router.post(
-	"/",
-	auth,
-	checkRoles(["admin", "manager"]),
-	async (req, res) => {
-		try {
-			const {
+router.post("/", auth, checkRoles(["admin", "manager"]), async (req, res) => {
+	try {
+		const {
+			type,
+			title,
+			description,
+			coachingItem,
+			metadata,
+			priority,
+			serverId,
+		} = req.body;
+
+		// Validation
+		if (!type || !title || !description || !serverId) {
+			return res.status(400).json({
+				error: "Champs requis: type, title, description, serverId",
+			});
+		}
+
+		const validTypes = ["meeting", "planning", "zonning", "coaching"];
+		if (!validTypes.includes(type)) {
+			return res.status(400).json({
+				error: "Type invalide: meeting, planning, zonning, coaching",
+			});
+		}
+
+		const message = await MessageService.createMessage(
+			req.user.restaurantId,
+			req.user.id,
+			serverId,
+			{
 				type,
 				title,
 				description,
 				coachingItem,
 				metadata,
 				priority,
-				serverId,
-			} = req.body;
+			},
+		);
 
-			// Validation
-			if (!type || !title || !description || !serverId) {
-				return res.status(400).json({
-					error: "Champs requis: type, title, description, serverId",
-				});
-			}
-
-			const validTypes = ["meeting", "planning", "zonning", "coaching"];
-			if (!validTypes.includes(type)) {
-				return res.status(400).json({
-					error: "Type invalide: meeting, planning, zonning, coaching",
-				});
-			}
-
-			const message = await MessageService.createMessage(
-				req.user.restaurantId,
-				req.user.id,
-				serverId,
-				{
-					type,
-					title,
-					description,
-					coachingItem,
-					metadata,
-					priority,
-				},
-			);
-
-			res.status(201).json({
-				success: true,
-				message,
-			});
-		} catch (error) {
-			console.error("❌ [Messages Route] POST error:", error.message);
-			res.status(500).json({ error: error.message });
-		}
-	},
-);
+		res.status(201).json({
+			success: true,
+			message,
+		});
+	} catch (error) {
+		console.error("❌ [Messages Route] POST error:", error.message);
+		res.status(500).json({ error: error.message });
+	}
+});
 
 /**
  * GET /api/messages/server

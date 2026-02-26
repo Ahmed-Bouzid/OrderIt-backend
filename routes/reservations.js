@@ -885,6 +885,19 @@ router.get(
 			});
 			const tableIds = tables.map((t) => t._id);
 
+			console.log("\n🔵 [DEBUG RESA API] ===============================");
+			console.log("🔵 [DEBUG RESA API] GET /reservations/restaurant/:restaurantId");
+			console.log("🔵 RestaurantId:", req.params.restaurantId);
+			console.log("🔵 Tables trouvées:", tables.length);
+			if (tables.length === 0) {
+				console.warn("⚠️ Aucune table liée à ce restaurant");
+			} else {
+				console.log(
+					"🔵 Exemple tableIds:",
+					tableIds.slice(0, 5).map((id) => id.toString()),
+				);
+			}
+
 			const {
 				date,
 				clientName,
@@ -907,6 +920,16 @@ router.get(
 				],
 			};
 
+			const totalByRestaurant = await Reservation.countDocuments({
+				restaurantId: req.params.restaurantId,
+			});
+			const totalByTables = await Reservation.countDocuments({
+				tableId: { $in: tableIds },
+			});
+
+			console.log("🔵 Total réservations par restaurantId:", totalByRestaurant);
+			console.log("🔵 Total réservations par tableIds:", totalByTables);
+
 			if (date) filter.reservationDate = date;
 			if (clientName) filter.clientName = { $regex: clientName, $options: "i" };
 			if (server) filter.server = server;
@@ -920,6 +943,9 @@ router.get(
 				.skip((page - 1) * limit)
 				.limit(Number(limit));
 			const total = await Reservation.countDocuments(filter);
+
+			console.log("🔵 Réservations retournées:", reservations.length);
+			console.log("🔵 [DEBUG RESA API] ===============================\n");
 
 			res.json({
 				total,
