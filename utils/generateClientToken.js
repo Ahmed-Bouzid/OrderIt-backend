@@ -17,14 +17,17 @@ function generateClientToken({
 	tableId,
 	expiresIn = 3600,
 }) {
-	if (!restaurantId || !tableId)
-		throw new Error("restaurantId et tableId obligatoires");
+	// ✅ Validation assouplie : tableId optionnel pour foodtrucks
+	if (!restaurantId)
+		throw new Error("restaurantId obligatoire");
 
 	const payload = {
-		id: clientId || null, // facultatif
+		id: clientId || null,
+		clientId: clientId || null, // ✅ Ajouter clientId explicitement
 		role: "client",
+		userType: "client",
 		restaurantId,
-		tableId,
+		tableId: tableId || null, // ✅ Accepter null pour foodtrucks
 	};
 
 	// Génération du token JWT

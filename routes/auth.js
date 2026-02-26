@@ -119,8 +119,13 @@ router.post("/login", loginLimiter, async (req, res) => {
 					restaurant.name,
 				);
 				// 🔧 Extraire les feature overrides (map MongoDB → objet plain)
-				if (restaurant.featureOverrides && restaurant.featureOverrides.size > 0) {
-					restaurantFeatureOverrides = Object.fromEntries(restaurant.featureOverrides);
+				if (
+					restaurant.featureOverrides &&
+					restaurant.featureOverrides.size > 0
+				) {
+					restaurantFeatureOverrides = Object.fromEntries(
+						restaurant.featureOverrides,
+					);
 				}
 			}
 		}
@@ -553,8 +558,13 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 			if (restaurant) {
 				restaurantCategory = restaurant.category || "restaurant";
 				// 🔧 Extraire les feature overrides (map MongoDB → objet plain)
-				if (restaurant.featureOverrides && restaurant.featureOverrides.size > 0) {
-					restaurantFeatureOverrides = Object.fromEntries(restaurant.featureOverrides);
+				if (
+					restaurant.featureOverrides &&
+					restaurant.featureOverrides.size > 0
+				) {
+					restaurantFeatureOverrides = Object.fromEntries(
+						restaurant.featureOverrides,
+					);
 				}
 			}
 		}

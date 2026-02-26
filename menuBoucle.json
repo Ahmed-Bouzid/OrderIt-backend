@@ -1,0 +1,923 @@
+[
+	{
+		"category": "Nos Entrées",
+		"items": [
+			{
+				"name": "Camembert Gratiné, Jambon Cru et ses Mouillettes",
+				"price": 17.9,
+				"description": "Un camembert entier crémeux, gratiné au four et servi avec de fines tranches de jambon cru et des mouillettes de pain croustillantes pour tremper.",
+				"options": []
+			},
+			{
+				"name": "Gratiné de Poivrons au Chèvre",
+				"price": 15.9,
+				"description": "Des poivrons doux généreusement garnis de fromage de chèvre et gratinés, posés sur une tranche de pain de campagne toasté.",
+				"options": []
+			},
+			{
+				"name": "Frittura mista sauce gribiche",
+				"price": 19.9,
+				"description": "Une friture croustillante de petits poulpes, calamars, crevettes et seiches, accompagnée d'une sauce gribiche maison aux cornichons et câpres.",
+				"options": []
+			},
+			{
+				"name": "Tartare 2 Saumons",
+				"price": 19.9,
+				"description": "Un tartare frais mêlant saumon cru et saumon fumé, relevé à l'aneth et aux échalotes. Une entrée légère et savoureuse.",
+				"options": []
+			},
+			{
+				"name": "Carpaccio de boeuf",
+				"price": 18.0,
+				"description": "Fines lamelles de boeuf cru marinées, servies avec roquette et copeaux de parmesan, assaisonnées d'un filet d'huile d'olive et de citron.",
+				"options": []
+			}
+		]
+	},
+	{
+		"category": "Nos Salades",
+		"items": [
+			{
+				"name": "La Fraîcheur Marine",
+				"price": 17.9,
+				"description": "Une salade iodée avec crevettes, surimi, cœur de palmier et chiffonnade de saumon fumé, agrémentée de tomates et olives.",
+				"options": []
+			},
+			{
+				"name": "La Buffala",
+				"price": 17.9,
+				"description": "Salade composée de tomates, mozzarella di buffala crémeuse, jambon cru et croquants cressins, le tout relevé d'une sauce au basilic.",
+				"options": []
+			},
+			{
+				"name": "La Chèvre-Chaud",
+				"price": 16.9,
+				"description": "Une salade verte accompagnée de lardons fumés et d'une généreuse toast de fromage de chèvre chaud et fondant.",
+				"options": []
+			},
+			{
+				"name": "La Provençale",
+				"price": 16.9,
+				"description": "Salade aux accents du sud avec poivrons marinés, tapenade, anchois, œuf dur et croûtons dorés.",
+				"options": []
+			},
+			{
+				"name": "La Nicoise",
+				"price": 15.9,
+				"description": "La classique salade niçoise : thon, haricots verts, tomates, œuf dur, anchois et olives, sur un lit de salade fraîche.",
+				"options": []
+			},
+			{
+				"name": "La César de la Boucle",
+				"price": 17.9,
+				"description": "Notre version de la célèbre salade César : blanc de poulet pané, salade croquante, tomates, œuf dur, emmental et chiffonnade de jambon blanc.",
+				"options": []
+			}
+		]
+	},
+	{
+		"category": "Nos Chaussons au Feu de Bois",
+		"items": [
+			{
+				"name": "Royal",
+				"price": 16.5,
+				"description": "Un chausson généreux cuit au feu de bois, garni de jambon, champignons, emmental fondant et surmonté d'un œuf.",
+				"options": [
+					{
+						"name": "Format",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "Standard (16,50€)", "price": 0 },
+							{ "name": "Grand format (19,90€)", "price": 3.4 }
+						]
+					}
+				]
+			},
+			{
+				"name": "Forestier",
+				"price": 16.5,
+				"description": "Un chausson à la crème onctueuse, généreusement garni de lardons fumés, champignons et chèvre, le tout gratiné avec de l'emmental.",
+				"options": [
+					{
+						"name": "Format",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "Standard (16,50€)", "price": 0 },
+							{ "name": "Grand format (19,90€)", "price": 3.4 }
+						]
+					}
+				]
+			},
+			{
+				"name": "Boucle",
+				"price": 16.5,
+				"description": "Notre signature : une base de sauce tomate maison, du chèvre fondant, de la mozzarella filante et des feuilles de basilic frais.",
+				"options": [
+					{
+						"name": "Format",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "Standard (16,50€)", "price": 0 },
+							{ "name": "Grand format (19,90€)", "price": 3.4 }
+						]
+					}
+				]
+			},
+			{
+				"name": "Brousse Figatelli",
+				"price": 16.5,
+				"description": "Une association corse irrésistible : la brousse douce et crémeuse avec le figatelli, saucisse corse fumée, le tout gratiné à l'emmental.",
+				"options": [
+					{
+						"name": "Format",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "Standard (16,50€)", "price": 0 },
+							{ "name": "Grand format (19,90€)", "price": 3.4 }
+						]
+					}
+				]
+			}
+		]
+	},
+	{
+		"category": "Nos Pizzas",
+		"items": [
+			{
+				"name": "Anchois",
+				"price": 14.9,
+				"description": "Une pizza simple et savoureuse avec filets d'anchois et basilic frais sur fond de sauce tomate.",
+				"options": []
+			},
+			{
+				"name": "Fromage",
+				"price": 14.9,
+				"description": "La pizza classique : jambon et fromage fondant sur une base de sauce tomate.",
+				"options": []
+			},
+			{
+				"name": "Napolitaine",
+				"price": 14.9,
+				"description": "La traditionnelle napolitaine : anchois, fromage, origan et olives.",
+				"options": []
+			},
+			{
+				"name": "Mozzarella",
+				"price": 16.5,
+				"description": "Une pizza généreuse en mozzarella fondante, parfumée au basilic frais.",
+				"options": []
+			},
+			{
+				"name": "Bleu d'Auvergne/Fromage",
+				"price": 16.2,
+				"description": "Une pizza crémeuse aux champignons, lardons, chèvre et bleu d'Auvergne, sur base crème.",
+				"options": []
+			},
+			{
+				"name": "Poivrons/Mozzarella",
+				"price": 16.9,
+				"description": "Poivrons grillés, anchois, oignons et mozzarella pour une pizza méditerranéenne.",
+				"options": []
+			},
+			{
+				"name": "Royale",
+				"price": 16.9,
+				"description": "La pizza royale avec sa sélection spéciale de garnitures généreuses.",
+				"options": []
+			},
+			{
+				"name": "Végétarienne",
+				"price": 19.9,
+				"description": "Une pizza généreuse pour les amoureux des légumes : oignons, poivrons, champignons, aubergines et fromage.",
+				"options": []
+			},
+			{
+				"name": "Catalane",
+				"price": 17.9,
+				"description": "Oignons, poivrons et chorizo relevé pour une touche espagnole.",
+				"options": []
+			},
+			{
+				"name": "Champignons/Fromage",
+				"price": 15.9,
+				"description": "Simple et gourmande : champignons et fromage fondant.",
+				"options": []
+			},
+			{
+				"name": "Chorizo/Fromage",
+				"price": 15.9,
+				"description": "Le chorizo épicé associé au fromage fondant.",
+				"options": []
+			},
+			{
+				"name": "Brousse/Figatelli",
+				"price": 15.9,
+				"description": "Spécialité corse : brousse douce et figatelli fumé.",
+				"options": []
+			},
+			{
+				"name": "Oignons/Fromage",
+				"price": 15.9,
+				"description": "Oignons confits et fromage gratiné.",
+				"options": []
+			},
+			{
+				"name": "Chèvre/Fromage",
+				"price": 16.9,
+				"description": "Chèvre, miel et crème pour une pizza douce et fondante.",
+				"options": []
+			},
+			{
+				"name": "Thon/Poivrons",
+				"price": 17.9,
+				"description": "Thon émietté et poivrons grillés, une association marine et méditerranéenne.",
+				"options": []
+			},
+			{
+				"name": "4 Fromages",
+				"price": 17.9,
+				"description": "Sélection de quatre fromages : brousse, bleu, mozzarella et emmental.",
+				"options": []
+			},
+			{
+				"name": "Lorraine",
+				"price": 17.9,
+				"description": "Inspirée de la quiche : crème, champignons, lardons, oignons et fromage.",
+				"options": []
+			},
+			{
+				"name": "Aubergine/Parmesan",
+				"price": 17.9,
+				"description": "Aubergines grillées et parmesan, un classique italien.",
+				"options": []
+			},
+			{
+				"name": "Duo au choix",
+				"price": 19.0,
+				"description": "Deux pizzas en une : choisissez deux garnitures différentes sur une même pizza.",
+				"options": []
+			}
+		]
+	},
+	{
+		"category": "Nos Pâtes",
+		"items": [
+			{
+				"name": "Gnocchis sauce au choix",
+				"price": 16.0,
+				"description": "De tendres gnocchis accompagnés de la sauce de votre choix : Romaine, Carbonara, Basilic, Gorgonzola, Saumon ou Forestière.",
+				"options": [
+					{
+						"name": "Choix de la sauce",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "Romaine", "price": 0 },
+							{ "name": "Carbonara", "price": 0 },
+							{ "name": "Basilic", "price": 0 },
+							{ "name": "Gorgonzola", "price": 0 },
+							{ "name": "Saumon", "price": 0 },
+							{ "name": "Forestière", "price": 0 }
+						]
+					}
+				]
+			},
+			{
+				"name": "Pâtes à la Romaine",
+				"price": 15.9,
+				"description": "Sauce tomate maison, aubergines grillées et basilic frais.",
+				"options": []
+			},
+			{
+				"name": "Pâtes au Basilic",
+				"price": 15.9,
+				"description": "Pesto au basilic, dés de tomates fraîches, parmesan, huile d'olive et copeaux de jambon cru.",
+				"options": []
+			},
+			{
+				"name": "Pâtes Gorgonzola",
+				"price": 15.9,
+				"description": "Une sauce onctueuse au gorgonzola, fromage italien au caractère prononcé.",
+				"options": []
+			},
+			{
+				"name": "Pâtes aux deux Saumons",
+				"price": 16.9,
+				"description": "Saumon frais et saumon fumé dans une sauce crémeuse.",
+				"options": []
+			},
+			{
+				"name": "Pâtes Forestières",
+				"price": 15.9,
+				"description": "Sauce crémeuse aux oignons et champignons des bois.",
+				"options": []
+			},
+			{
+				"name": "Pâtes aux Scampis Marco",
+				"price": 19.0,
+				"description": "Scampis flambés au pastis, une spécialité méditerranéenne savoureuse.",
+				"options": []
+			},
+			{
+				"name": "Pâtes Carbonara",
+				"price": 15.9,
+				"description": "La vraie carbonara : oignons, lardons, œuf et crème fraîche.",
+				"options": []
+			}
+		]
+	},
+	{
+		"category": "Nos Viandes",
+		"items": [
+			{
+				"name": "Steack haché 180g",
+				"price": 15.9,
+				"description": "Steack haché pur bœuf, accompagné de frites maison et salade verte.",
+				"options": []
+			},
+			{
+				"name": "Tartare de boeuf",
+				"price": 18.9,
+				"description": "Bœuf haché préparé à la commande, servi avec frites et salade.",
+				"options": []
+			},
+			{
+				"name": "Côtes d'Agneau Grillées",
+				"price": 21.9,
+				"description": "Deux belles côtes d'agneau grillées, tendres et savoureuses.",
+				"options": []
+			},
+			{
+				"name": "Entrecôte Grillée Nature",
+				"price": 22.0,
+				"description": "Entrecôte de bœuf grillée, servie nature pour apprécier toute sa saveur.",
+				"options": []
+			},
+			{
+				"name": "Burger de la Boucle",
+				"price": 18.0,
+				"description": "Burger au choix viande ou poulet, garni de rösti croustillant, coppa, cheddar et sauce gribiche maison.",
+				"options": [
+					{
+						"name": "Choix de la viande",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "Bœuf", "price": 0 },
+							{ "name": "Poulet", "price": 0 }
+						]
+					}
+				]
+			},
+			{
+				"name": "Magret de Canard",
+				"price": 21.9,
+				"description": "Magret de canard entier, cuit nature pour en préserver le fondant.",
+				"options": []
+			},
+			{
+				"name": "Escalope Milanaise",
+				"price": 21.9,
+				"description": "Escalope de veau panée, cuite à la perfection.",
+				"options": []
+			},
+			{
+				"name": "Escalope de Veau Parmigiano",
+				"price": 22.9,
+				"description": "Escalope de veau gratinée au parmesan, sauce tomate et aubergines.",
+				"options": []
+			},
+			{
+				"name": "Escalope de veau à la crème",
+				"price": 22.9,
+				"description": "Escalope de veau nappée d'une sauce crémeuse aux oignons et champignons.",
+				"options": []
+			},
+			{
+				"name": "Pavé de Saumon 300g",
+				"price": 19.9,
+				"description": "Pavé de saumon de 300g, sauce beurre blanc et poêlée de légumes de saison.",
+				"options": []
+			}
+		]
+	},
+	{
+		"category": "Nos Sauces faites Maison",
+		"items": [
+			{
+				"name": "Sauce Forestière",
+				"price": 3.9,
+				"description": "Sauce crémeuse aux champignons.",
+				"options": []
+			},
+			{
+				"name": "Sauce Pizzaiole",
+				"price": 3.9,
+				"description": "Sauce tomate aux herbes méditerranéennes.",
+				"options": []
+			},
+			{
+				"name": "Sauce Poivre",
+				"price": 3.9,
+				"description": "Sauce onctueuse au poivre vert.",
+				"options": []
+			},
+			{
+				"name": "Sauce Gorgonzola",
+				"price": 3.9,
+				"description": "Sauce crémeuse au gorgonzola.",
+				"options": []
+			}
+		]
+	},
+	{
+		"category": "Menu Enfant",
+		"items": [
+			{
+				"name": "Menu Enfant - Moins de 12 ans",
+				"price": 13.0,
+				"description": "Un menu complet adapté aux enfants : boisson au choix, plat principal, dessert.",
+				"options": [
+					{
+						"name": "Boisson au choix",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "Limonade", "price": 0 },
+							{ "name": "Coca-Cola", "price": 0 },
+							{ "name": "Sirop", "price": 0 }
+						]
+					},
+					{
+						"name": "Plat au choix",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "Pizza assiette (fromage)", "price": 0 },
+							{ "name": "Steak haché + frites", "price": 0 },
+							{ "name": "Steak haché + pâtes", "price": 0 },
+							{ "name": "Nuggets + frites", "price": 0 },
+							{ "name": "Nuggets + pâtes", "price": 0 }
+						]
+					},
+					{
+						"name": "Dessert au choix",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "Mousse au chocolat", "price": 0 },
+							{ "name": "Pot de glace", "price": 0 }
+						]
+					}
+				]
+			}
+		]
+	},
+	{
+		"category": "Menus et Formules",
+		"items": [
+			{
+				"name": "Menu Plat du Jour",
+				"price": 14.5,
+				"description": "Du lundi au vendredi midi uniquement : choisissez entre deux plats du jour préparés par notre chef.",
+				"options": [
+					{
+						"name": "Choix du plat",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "Plat du jour A", "price": 0 },
+							{ "name": "Plat du jour B", "price": 0 }
+						]
+					}
+				]
+			},
+			{
+				"name": "Menu Plat du Jour Complet",
+				"price": 18.5,
+				"description": "Du lundi au vendredi midi : plat du jour au choix, dessert et 1/4 de vin.",
+				"options": [
+					{
+						"name": "Choix du plat",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "Plat du jour A", "price": 0 },
+							{ "name": "Plat du jour B", "price": 0 }
+						]
+					}
+				]
+			},
+			{
+				"name": "Menu Jour Spécial",
+				"price": 17.0,
+				"description": "Notre plat du jour spécial : paella, couscous, aioli ou autre spécialité selon le jour.",
+				"options": [
+					{
+						"name": "Spécialité du jour",
+						"price": 0,
+						"available": true,
+						"choices": [{ "name": "Spécialité du jour", "price": 0 }]
+					}
+				]
+			},
+			{
+				"name": "Menu Jour Spécial Complet",
+				"price": 20.0,
+				"description": "Plat spécial du jour, dessert et 1/4 de vin.",
+				"options": [
+					{
+						"name": "Spécialité du jour",
+						"price": 0,
+						"available": true,
+						"choices": [{ "name": "Spécialité du jour", "price": 0 }]
+					}
+				]
+			},
+			{
+				"name": "Menu Pizza",
+				"price": 17.9,
+				"description": "Une pizza au choix (jusqu'à 16,90€), salade verte et dessert.",
+				"options": [
+					{
+						"name": "Choix de la pizza",
+						"price": 0,
+						"available": true,
+						"categoryRef": "No Pizzas",
+						"maxPrice": 16.9,
+						"choices": [
+							{ "name": "Pizza Anchois", "price": 0 },
+							{ "name": "Pizza Fromage", "price": 0 },
+							{ "name": "Pizza Napolitaine", "price": 0 },
+							{ "name": "Pizza Mozzarella", "price": 0 },
+							{ "name": "Pizza Bleu d'Auvergne/Fromage", "price": 0 },
+							{ "name": "Pizza Poivrons/Mozzarella", "price": 0 },
+							{ "name": "Pizza Royale", "price": 0 },
+							{ "name": "Pizza Champignons/Fromage", "price": 0 },
+							{ "name": "Pizza Chorizo/Fromage", "price": 0 },
+							{ "name": "Pizza Brousse/Figatelli", "price": 0 },
+							{ "name": "Pizza Oignons/Fromage", "price": 0 },
+							{ "name": "Pizza Chèvre/Fromage", "price": 0 }
+						]
+					}
+				],
+				"includes": ["Salade verte", "Dessert"]
+			}
+		]
+	},
+	{
+		"category": "Les Vins",
+		"items": [
+			{
+				"name": "Vin en pichet (Rouge/Rosé/Blanc)",
+				"price": 4.9,
+				"description": "Notre vin de table, servi en pichet de 25cl ou 50cl.",
+				"options": [
+					{
+						"name": "Format",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "25cl (4,90€)", "price": 0 },
+							{ "name": "50cl (7,50€)", "price": 2.6 }
+						]
+					},
+					{
+						"name": "Couleur",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "Rouge", "price": 0 },
+							{ "name": "Rosé", "price": 0 },
+							{ "name": "Blanc", "price": 0 }
+						]
+					}
+				]
+			},
+			{
+				"name": "IGP Bouches du Rhône - Domaine Virant Rosé",
+				"price": 16.9,
+				"description": "Un rosé frais et fruité de la région. Demandez notre sélection du moment.",
+				"options": []
+			},
+			{
+				"name": "Coteaux d'Aix-en-Provence AOC - Château Paradis Rosé",
+				"price": 22.0,
+				"description": "Un rosé élégant aux arômes de fruits rouges.",
+				"options": []
+			},
+			{
+				"name": "Coteaux d'Aix-en-Provence AOC - Château Paradis Rouge",
+				"price": 24.0,
+				"description": "Un rouge structuré aux notes de fruits mûrs.",
+				"options": []
+			},
+			{
+				"name": "Château Virant Cuvée Classique",
+				"price": 17.9,
+				"description": "La cuvée emblématique du domaine, disponible en rouge, rosé ou blanc.",
+				"options": [
+					{
+						"name": "Couleur",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "Rouge", "price": 0 },
+							{ "name": "Rosé", "price": 0 },
+							{ "name": "Blanc", "price": 0 }
+						]
+					}
+				]
+			},
+			{
+				"name": "Luberon AOC - Marronen Rouge",
+				"price": 16.9,
+				"description": "Un rouge du Luberon signé La Grande Toque, équilibré et gourmand.",
+				"options": []
+			},
+			{
+				"name": "Château Simone Rouge",
+				"price": 75.0,
+				"description": "Un grand cru de la région, puissant et complexe.",
+				"options": []
+			},
+			{
+				"name": "Cassis AOC - Domaine du Bagnol Blanc Bio",
+				"price": 39.0,
+				"description": "Un blanc sec et minéral de Cassis, en agriculture biologique.",
+				"options": []
+			},
+			{
+				"name": "Cassis AOC - Domaine Bodin",
+				"price": 39.0,
+				"description": "Un vin de Cassis disponible en rosé ou blanc, aux arômes méditerranéens.",
+				"options": [
+					{
+						"name": "Couleur",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "Rosé", "price": 0 },
+							{ "name": "Blanc", "price": 0 }
+						]
+					}
+				]
+			},
+			{
+				"name": "Champagne",
+				"price": 55.0,
+				"description": "Une bouteille de champagne pour vos occasions spéciales.",
+				"options": []
+			}
+		]
+	},
+	{
+		"category": "Les Apéritifs",
+		"items": [
+			{
+				"name": "Pastis",
+				"price": 3.5,
+				"description": "L'incontournable anisé, servi avec sa carafe d'eau.",
+				"options": []
+			},
+			{
+				"name": "Kir maison",
+				"price": 3.7,
+				"description": "Notre kir préparé avec de la crème de cassis et du vin blanc.",
+				"options": []
+			},
+			{
+				"name": "Martini / Porto",
+				"price": 4.2,
+				"description": "Martini blanc ou rouge, Porto rouge ou blanc.",
+				"options": []
+			},
+			{
+				"name": "Baby",
+				"price": 5.5,
+				"description": "Un apéritif doux et pétillant, apprécié de tous.",
+				"options": []
+			},
+			{
+				"name": "Martini Gin / Vodka",
+				"price": 9.5,
+				"description": "Un cocktail classique au choix gin ou vodka.",
+				"options": [
+					{
+						"name": "Choix de l'alcool",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "Gin", "price": 0 },
+							{ "name": "Vodka", "price": 0 }
+						]
+					}
+				]
+			},
+			{
+				"name": "Kir Royal",
+				"price": 9.0,
+				"description": "L'élégance du champagne associée à la crème de cassis.",
+				"options": []
+			},
+			{
+				"name": "Coupe de Champagne",
+				"price": 8.0,
+				"description": "Une coupe de champagne pour trinquer.",
+				"options": []
+			},
+			{
+				"name": "Whisky Supérieur",
+				"price": 11.0,
+				"description": "Une sélection de whiskys d'exception.",
+				"options": []
+			},
+			{
+				"name": "Rhum Supérieur",
+				"price": 11.0,
+				"description": "Rhum vieux à déguster pur, en digestif ou en cocktail.",
+				"options": []
+			}
+		]
+	},
+	{
+		"category": "Les Bières",
+		"items": [
+			{
+				"name": "Bock Pression",
+				"price": 3.0,
+				"description": "Un petit format de bière pression pour une pause fraîcheur.",
+				"options": []
+			},
+			{
+				"name": "Pression",
+				"price": 4.0,
+				"description": "Notre bière pression classique, servie bien fraîche.",
+				"options": []
+			},
+			{
+				"name": "Pression Grimbergen",
+				"price": 4.5,
+				"description": "La bière d'abbaye Grimbergen, riche en arômes.",
+				"options": []
+			},
+			{
+				"name": "Heineken 25cl",
+				"price": 4.0,
+				"description": "La célèbre bière hollandaise en bouteille.",
+				"options": []
+			},
+			{
+				"name": "Desperados",
+				"price": 6.0,
+				"description": "Une bière à la tequila, originale et parfumée.",
+				"options": []
+			},
+			{
+				"name": "HOO",
+				"price": 6.0,
+				"description": "Une bière artisanale aux arômes fruités.",
+				"options": []
+			}
+		]
+	},
+	{
+		"category": "Sans Alcool",
+		"items": [
+			{
+				"name": "Sirop (25cl)",
+				"price": 3.0,
+				"description": "Sirop à l'eau, choix de plusieurs parfums.",
+				"options": []
+			},
+			{
+				"name": "Pago",
+				"price": 4.5,
+				"description": "Jus de fruits premium, riche en pulpe.",
+				"options": []
+			},
+			{
+				"name": "Coca-Cola",
+				"price": 4.0,
+				"description": "Le célèbre soda en canette ou bouteille.",
+				"options": []
+			},
+			{
+				"name": "Orangina",
+				"price": 4.0,
+				"description": "Boisson gazeuse aux agrumes, avec sa pulpe.",
+				"options": []
+			},
+			{
+				"name": "Perrier",
+				"price": 4.0,
+				"description": "Eau pétillante naturelle, servie fraîche.",
+				"options": []
+			},
+			{
+				"name": "Schweppes",
+				"price": 4.0,
+				"description": "Boisson tonic ou agrumes.",
+				"options": []
+			},
+			{
+				"name": "Nestea",
+				"price": 4.0,
+				"description": "Thé glacé au citron, rafraîchissant.",
+				"options": []
+			},
+			{
+				"name": "Bitter San Pellegrino",
+				"price": 4.0,
+				"description": "Boisson italienne aux extraits d'agrumes.",
+				"options": []
+			}
+		]
+	},
+	{
+		"category": "Eaux Minérales",
+		"items": [
+			{
+				"name": "Vittel",
+				"price": 4.0,
+				"description": "Eau minérale naturelle, disponible en 50cl ou 1L.",
+				"options": [
+					{
+						"name": "Format",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "50cl (4,00€)", "price": 0 },
+							{ "name": "1L (6,00€)", "price": 2.0 }
+						]
+					}
+				]
+			},
+			{
+				"name": "Perrier",
+				"price": 4.0,
+				"description": "Eau pétillante naturelle, disponible en 50cl ou 1L.",
+				"options": [
+					{
+						"name": "Format",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "50cl (4,00€)", "price": 0 },
+							{ "name": "1L (6,00€)", "price": 2.0 }
+						]
+					}
+				]
+			},
+			{
+				"name": "San Pellegrino",
+				"price": 4.0,
+				"description": "Eau minérale italienne légèrement pétillante, disponible en 50cl ou 1L.",
+				"options": [
+					{
+						"name": "Format",
+						"price": 0,
+						"available": true,
+						"choices": [
+							{ "name": "50cl (4,00€)", "price": 0 },
+							{ "name": "1L (6,00€)", "price": 2.0 }
+						]
+					}
+				]
+			}
+		]
+	},
+	{
+		"category": "Boissons Chaudes",
+		"items": [
+			{
+				"name": "Café",
+				"price": 3.5,
+				"description": "Un café espresso serré, préparé à la commande.",
+				"options": []
+			},
+			{
+				"name": "Infusion",
+				"price": 2.5,
+				"description": "Tisane aux herbes, disponible en plusieurs parfums.",
+				"options": []
+			},
+			{
+				"name": "Thé",
+				"price": 2.5,
+				"description": "Sélection de thés noirs ou verts.",
+				"options": []
+			},
+			{
+				"name": "Capuccino",
+				"price": 2.5,
+				"description": "Café onctueux surmonté de mousse de lait.",
+				"options": []
+			}
+		]
+	}
+]

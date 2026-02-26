@@ -62,12 +62,18 @@ io.use((socket, next) => {
 	// ✅ Si token présent, vérifier et authentifier
 	try {
 		const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
-		socket.userId = decoded.id;
+		
+		// ✅ Support des tokens clients (clientId) ET tokens serveur/admin (id)
+		socket.userId = decoded.id || decoded.clientId || null;
+		socket.clientId = decoded.clientId || null;
 		socket.restaurantId = decoded.restaurantId;
-		socket.userType = decoded.userType;
+		socket.tableId = decoded.tableId || null;
+		socket.userType = decoded.userType || decoded.role || "client";
 		socket.isPublicClient = false;
+		
+		const userIdentifier = socket.userId || socket.clientId || "unknown";
 		console.log(
-			`🔐 Connexion Socket authentifiée: ${decoded.userType} (${decoded.id})`,
+			`🔐 Connexion Socket authentifiée: ${socket.userType} (${userIdentifier})`,
 		);
 		next();
 	} catch (err) {

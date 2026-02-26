@@ -846,7 +846,6 @@ function calculateTableOccupancy(reservationsData, tablesData) {
 	};
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════════
 // 🧑‍💼 GET /crm/server/:serverId/detail - Profil individuel complet d'un serveur
 // ═══════════════════════════════════════════════════════════════════════════
@@ -863,11 +862,14 @@ router.get(
 			const { start, end } = getPeriodDates(period);
 
 			// Vérifier que le serveur appartient au restaurant
-			const server = await Server.findOne({ _id: serverId, restaurantId }).select(
-				"name email role objectives",
-			);
+			const server = await Server.findOne({
+				_id: serverId,
+				restaurantId,
+			}).select("name email role objectives");
 			if (!server) {
-				return res.status(404).json({ success: false, message: "Serveur non trouvé" });
+				return res
+					.status(404)
+					.json({ success: false, message: "Serveur non trouvé" });
 			}
 
 			// Récupérer toutes les commandes du serveur sur la période
@@ -889,22 +891,37 @@ router.get(
 					? completedOrders.reduce(
 							(s, o) => s + (new Date(o.completedAt) - new Date(o.createdAt)),
 							0,
-						) / completedOrders.length / (1000 * 60)
+						) /
+						completedOrders.length /
+						(1000 * 60)
 					: 0;
 			const minServiceTime =
 				completedOrders.length > 0
-					? Math.min(...completedOrders.map((o) => (new Date(o.completedAt) - new Date(o.createdAt)) / (1000 * 60)))
+					? Math.min(
+							...completedOrders.map(
+								(o) =>
+									(new Date(o.completedAt) - new Date(o.createdAt)) /
+									(1000 * 60),
+							),
+						)
 					: 0;
 			const maxServiceTime =
 				completedOrders.length > 0
-					? Math.max(...completedOrders.map((o) => (new Date(o.completedAt) - new Date(o.createdAt)) / (1000 * 60)))
+					? Math.max(
+							...completedOrders.map(
+								(o) =>
+									(new Date(o.completedAt) - new Date(o.createdAt)) /
+									(1000 * 60),
+							),
+						)
 					: 0;
 
 			// ── Répartition des paiements ──
 			const paymentBreakdown = {};
 			orders.forEach((o) => {
 				const method = o.paymentMethod || "Autre";
-				paymentBreakdown[method] = (paymentBreakdown[method] || 0) + (o.totalAmount || 0);
+				paymentBreakdown[method] =
+					(paymentBreakdown[method] || 0) + (o.totalAmount || 0);
 			});
 
 			// ── Ventes par jour (7 derniers jours ou selon période) ──
@@ -914,7 +931,15 @@ router.get(
 			const categoryBreakdown = {};
 			let totalAddOns = 0;
 			let addOnRevenue = 0;
-			const ADD_ON_CATEGORIES = ["supplement", "extra", "addon", "add-on", "boisson", "dessert", "accompagnement"];
+			const ADD_ON_CATEGORIES = [
+				"supplement",
+				"extra",
+				"addon",
+				"add-on",
+				"boisson",
+				"dessert",
+				"accompagnement",
+			];
 
 			orders.forEach((order) => {
 				(order.items || []).forEach((item) => {
@@ -923,7 +948,8 @@ router.get(
 						categoryBreakdown[cat] = { count: 0, revenue: 0 };
 					}
 					categoryBreakdown[cat].count += item.quantity || 1;
-					categoryBreakdown[cat].revenue += (item.price || 0) * (item.quantity || 1);
+					categoryBreakdown[cat].revenue +=
+						(item.price || 0) * (item.quantity || 1);
 
 					// Détecter les add-ons (catégories supplémentaires ou prix bas)
 					if (ADD_ON_CATEGORIES.some((a) => cat.includes(a))) {
@@ -936,10 +962,13 @@ router.get(
 			// Taux d'add-on = % des commandes qui ont au moins 1 add-on
 			const ordersWithAddOn = orders.filter((order) =>
 				(order.items || []).some((item) =>
-					ADD_ON_CATEGORIES.some((a) => (item.category || "").toLowerCase().includes(a)),
+					ADD_ON_CATEGORIES.some((a) =>
+						(item.category || "").toLowerCase().includes(a),
+					),
 				),
 			).length;
-			const addOnRate = totalOrders > 0 ? Math.round((ordersWithAddOn / totalOrders) * 100) : 0;
+			const addOnRate =
+				totalOrders > 0 ? Math.round((ordersWithAddOn / totalOrders) * 100) : 0;
 
 			// ── Moyenne de l'équipe (pour comparaison) ──
 			const allServers = await Server.find({ restaurantId }).select("_id");
@@ -948,20 +977,33 @@ router.get(
 				serverId: { $in: allServers.map((s) => s._id) },
 				createdAt: { $gte: start, $lte: end },
 			}).lean();
-			const activeServerCount = new Set(teamOrders.map((o) => o.serverId?.toString())).size || 1;
+			const activeServerCount =
+				new Set(teamOrders.map((o) => o.serverId?.toString())).size || 1;
 			const teamAvg = {
 				ordersPerServer: Math.round(teamOrders.length / activeServerCount),
-				revenuePerServer: teamOrders.reduce((s, o) => s + (o.totalAmount || 0), 0) / activeServerCount,
+				revenuePerServer:
+					teamOrders.reduce((s, o) => s + (o.totalAmount || 0), 0) /
+					activeServerCount,
 				avgServiceTime: (() => {
 					const completed = teamOrders.filter((o) => o.completedAt);
 					if (!completed.length) return 0;
-					return completed.reduce((s, o) => s + (new Date(o.completedAt) - new Date(o.createdAt)), 0) /
-						completed.length / (1000 * 60);
+					return (
+						completed.reduce(
+							(s, o) => s + (new Date(o.completedAt) - new Date(o.createdAt)),
+							0,
+						) /
+						completed.length /
+						(1000 * 60)
+					);
 				})(),
 			};
 
 			// ── Efficacité ──
-			const efficiency = calculateServerEfficiency(totalOrders, avgServiceTime, 0);
+			const efficiency = calculateServerEfficiency(
+				totalOrders,
+				avgServiceTime,
+				0,
+			);
 
 			// ── Objectifs ──
 			const objectives = server.objectives || {};
@@ -974,20 +1016,32 @@ router.get(
 				createdAt: { $gte: start, $lte: end },
 			}).lean();
 			const avgSessionDuration =
-				sessions.filter((s) => s.updatedAt && s.status === "terminée").length > 0
+				sessions.filter((s) => s.updatedAt && s.status === "terminée").length >
+				0
 					? sessions
 							.filter((s) => s.updatedAt && s.status === "terminée")
-							.reduce((sum, s) => sum + (new Date(s.updatedAt) - new Date(s.createdAt)), 0) /
+							.reduce(
+								(sum, s) =>
+									sum + (new Date(s.updatedAt) - new Date(s.createdAt)),
+								0,
+							) /
 						sessions.filter((s) => s.status === "terminée").length /
 						(1000 * 60)
 					: 0;
 
-			console.log(`🧑‍💼 [CRM] Détail serveur ${server.name}: ${totalOrders} commandes, ${totalRevenue.toFixed(2)}€`);
+			console.log(
+				`🧑‍💼 [CRM] Détail serveur ${server.name}: ${totalOrders} commandes, ${totalRevenue.toFixed(2)}€`,
+			);
 
 			res.json({
 				success: true,
 				data: {
-					server: { id: server._id, name: server.name, email: server.email, role: server.role },
+					server: {
+						id: server._id,
+						name: server.name,
+						email: server.email,
+						role: server.role,
+					},
 					period,
 					dateRange: { start, end },
 					// Globaux
@@ -1024,7 +1078,12 @@ router.get(
 			});
 		} catch (error) {
 			console.error("❌ [CRM] Erreur détail serveur:", error);
-			res.status(500).json({ success: false, message: "Erreur lors du chargement du profil" });
+			res
+				.status(500)
+				.json({
+					success: false,
+					message: "Erreur lors du chargement du profil",
+				});
 		}
 	},
 );
@@ -1032,20 +1091,32 @@ router.get(
 // ═══════════════════════════════════════════════════════════════════════════
 // 🎯 GET /crm/objectives - Objectifs de tous les serveurs du restaurant
 // ═══════════════════════════════════════════════════════════════════════════
-router.get("/objectives", auth, checkRoles(["admin", "manager"]), async (req, res) => {
-	try {
-		const restaurantId = req.user.restaurantId;
-		const servers = await Server.find({ restaurantId }).select("name objectives");
-		const result = {};
-		servers.forEach((s) => {
-			result[s._id.toString()] = { name: s.name, objectives: s.objectives || {} };
-		});
-		res.json({ success: true, data: result });
-	} catch (error) {
-		console.error("❌ [CRM] Erreur objectives:", error);
-		res.status(500).json({ success: false, message: "Erreur chargement objectifs" });
-	}
-});
+router.get(
+	"/objectives",
+	auth,
+	checkRoles(["admin", "manager"]),
+	async (req, res) => {
+		try {
+			const restaurantId = req.user.restaurantId;
+			const servers = await Server.find({ restaurantId }).select(
+				"name objectives",
+			);
+			const result = {};
+			servers.forEach((s) => {
+				result[s._id.toString()] = {
+					name: s.name,
+					objectives: s.objectives || {},
+				};
+			});
+			res.json({ success: true, data: result });
+		} catch (error) {
+			console.error("❌ [CRM] Erreur objectives:", error);
+			res
+				.status(500)
+				.json({ success: false, message: "Erreur chargement objectifs" });
+		}
+	},
+);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🎯 PUT /crm/server/:serverId/objectives - Fixer les objectifs d'un serveur
@@ -1072,13 +1143,17 @@ router.put(
 
 			const server = await Server.findOne({ _id: serverId, restaurantId });
 			if (!server) {
-				return res.status(404).json({ success: false, message: "Serveur non trouvé" });
+				return res
+					.status(404)
+					.json({ success: false, message: "Serveur non trouvé" });
 			}
 
 			const objectives = {
-				revenueTarget: revenueTarget ?? server.objectives?.revenueTarget ?? null,
+				revenueTarget:
+					revenueTarget ?? server.objectives?.revenueTarget ?? null,
 				ordersTarget: ordersTarget ?? server.objectives?.ordersTarget ?? null,
-				addOnRateTarget: addOnRateTarget ?? server.objectives?.addOnRateTarget ?? null,
+				addOnRateTarget:
+					addOnRateTarget ?? server.objectives?.addOnRateTarget ?? null,
 				notes: notes ?? server.objectives?.notes ?? "",
 				updatedAt: new Date(),
 			};
@@ -1090,7 +1165,9 @@ router.put(
 			res.json({ success: true, data: objectives });
 		} catch (error) {
 			console.error("❌ [CRM] Erreur mise à jour objectifs:", error);
-			res.status(500).json({ success: false, message: "Erreur mise à jour objectifs" });
+			res
+				.status(500)
+				.json({ success: false, message: "Erreur mise à jour objectifs" });
 		}
 	},
 );
@@ -1126,11 +1203,13 @@ function buildDailyBreakdown(orders, start, end) {
 		.sort(([a], [b]) => a.localeCompare(b))
 		.map(([date, data]) => ({
 			date,
-			label: new Date(date).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" }),
+			label: new Date(date).toLocaleDateString("fr-FR", {
+				weekday: "short",
+				day: "numeric",
+			}),
 			revenue: Math.round(data.revenue * 100) / 100,
 			orders: data.orders,
 		}));
 }
 
 module.exports = router;
-

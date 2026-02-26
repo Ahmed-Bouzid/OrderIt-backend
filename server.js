@@ -103,6 +103,7 @@ app.use("/tables", auth, tablesRouter);
 app.use("/client-tables", require("./routes/clientTables")); // ⭐ Route publique guests
 app.use("/client-orders", require("./routes/clientOrders")); // ⭐ Route publique commandes par réservation
 app.use("/client-messages", require("./routes/clientMessages")); // 💬 Route messagerie client → serveur
+app.use("/messages", auth, require("./routes/messages")); // 📨 Route messagerie interne manager → serveur
 app.use("/servers", require("./routes/servers"));
 app.use("/reservations", require("./routes/reservations"));
 app.use("/assistant", require("./routes/assistant")); // ⭐ Assistant intelligent réservations
