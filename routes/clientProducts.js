@@ -21,7 +21,8 @@ router.get("/restaurant/:restaurantId", auth, async (req, res) => {
 
 		const products = await Product.find({
 			restaurantId: req.params.restaurantId,
-			archived: { $ne: true }, // ✅ Exclure les produits archivés
+			archived: false, // ✅ Filtre uniquement les produits actifs (pas undefined, pas true)
+			available: true, // ✅ Filtre uniquement les produits disponibles
 		}).populate("allergens");
 
 		res.json(products);
