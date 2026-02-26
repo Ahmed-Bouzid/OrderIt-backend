@@ -241,7 +241,7 @@ router.post("/import-menu", auth, checkDeveloper, async (req, res) => {
 
 			for (const item of items) {
 				try {
-					const { name, price, description } = item;
+					const { name, price, description, options } = item;
 
 					if (!name || typeof price !== "number") {
 						importErrors.push({
@@ -249,6 +249,28 @@ router.post("/import-menu", auth, checkDeveloper, async (req, res) => {
 							error: "Nom ou prix manquant",
 						});
 						continue;
+					}
+
+					// Transformer options si présentes
+					let processedOptions = [];
+					if (Array.isArray(options) && options.length > 0) {
+						processedOptions = options.map((option, idx) => ({
+							id: option.id || `opt-${idx}`,
+							name: option.name || "",
+							description: option.description || "",
+							required: option.required ?? true, // Les options du menu sont obligatoires par défaut
+							multiSelect: option.multiSelect ?? false,
+							available: option.available ?? true,
+							choices: Array.isArray(option.choices)
+								? option.choices.map((choice, cidx) => ({
+										id: choice.id || `choice-${cidx}`,
+										name: choice.name || "",
+										description: choice.description || "",
+										priceAdjustment: choice.priceAdjustment || choice.price || 0,
+										available: choice.available ?? true,
+									}))
+								: [],
+						}));
 					}
 
 					await Product.create({
@@ -259,6 +281,7 @@ router.post("/import-menu", auth, checkDeveloper, async (req, res) => {
 						category: finalCategoryName,
 						available: true,
 						archived: false,
+						options: processedOptions,
 					});
 
 					totalImported++;

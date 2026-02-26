@@ -27,11 +27,8 @@ router.get(
 				return res.status(404).json({ message: "Produit non trouvé" });
 			}
 
-			// Récupérer toutes les options du produit
-			const options = await ProductOption.find({ productId }).sort({
-				createdAt: 1,
-			});
-
+			// Retourner les options du produit (champ intégré)
+			const options = product.options || [];
 			res.status(200).json(options);
 		} catch (error) {
 			console.error("❌ Erreur GET options:", error);

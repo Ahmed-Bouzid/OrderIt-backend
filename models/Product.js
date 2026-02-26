@@ -38,7 +38,27 @@ const productSchema = new mongoose.Schema(
 				ref: "Allergen",
 			},
 		],
-		// 📦 Gestion des stocks
+		// �️ Options/personnalisations (menus, formules, etc.)
+		options: [
+			{
+				id: String, // "menu-choices", "size", etc.
+				name: String, // "Choix du plat", "Taille", etc.
+				description: String,
+				required: { type: Boolean, default: false }, // Obligatoire ou optionnel
+				multiSelect: { type: Boolean, default: false }, // Plusieurs choix possibles
+				available: { type: Boolean, default: true },
+				choices: [
+					{
+						id: String,
+						name: String,
+						description: String,
+						priceAdjustment: { type: Number, default: 0 }, // +0,50€, +1€, etc.
+						available: { type: Boolean, default: true },
+					},
+				],
+			},
+		],
+		// �📦 Gestion des stocks
 		quantifiable: {
 			type: Boolean,
 			default: false,
