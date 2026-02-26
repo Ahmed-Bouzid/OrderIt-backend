@@ -4,7 +4,8 @@
 const express = require("express");
 const router = express.Router();
 const MessageService = require("../services/messageService");
-const { authenticateToken, checkRoles } = require("../middlewares/auth");
+const auth = require("../middlewares/auth");
+const checkRoles = require("../middlewares/checkRoles");
 
 /**
  * POST /api/messages
@@ -13,7 +14,7 @@ const { authenticateToken, checkRoles } = require("../middlewares/auth");
  */
 router.post(
 	"/",
-	authenticateToken,
+	auth,
 	checkRoles(["admin", "manager"]),
 	async (req, res) => {
 		try {
@@ -71,7 +72,7 @@ router.post(
  * Récupérer les messages d'un serveur
  * Query: status (pending|accepted|rejected|all), limit, skip
  */
-router.get("/server", authenticateToken, async (req, res) => {
+router.get("/server", auth, async (req, res) => {
 	try {
 		const { status = "pending", limit = 50, skip = 0 } = req.query;
 
@@ -108,7 +109,7 @@ router.get("/server", authenticateToken, async (req, res) => {
  */
 router.get(
 	"/manager",
-	authenticateToken,
+	auth,
 	checkRoles(["admin", "manager"]),
 	async (req, res) => {
 		try {
@@ -141,7 +142,7 @@ router.get(
  * GET /api/messages/unread
  * Récupérer le nombre de messages non lus
  */
-router.get("/unread", authenticateToken, async (req, res) => {
+router.get("/unread", auth, async (req, res) => {
 	try {
 		const count = await MessageService.getUnreadCount(
 			req.user.id,
@@ -164,7 +165,7 @@ router.get("/unread", authenticateToken, async (req, res) => {
  */
 router.get(
 	"/stats",
-	authenticateToken,
+	auth,
 	checkRoles(["admin", "manager"]),
 	async (req, res) => {
 		try {
@@ -185,7 +186,7 @@ router.get(
  * GET /api/messages/:id/history
  * Récupérer l'historique d'un message
  */
-router.get("/:id/history", authenticateToken, async (req, res) => {
+router.get("/:id/history", auth, async (req, res) => {
 	try {
 		const history = await MessageService.getMessageHistory(req.params.id);
 
@@ -204,7 +205,7 @@ router.get("/:id/history", authenticateToken, async (req, res) => {
  * Répondre à un message (accepter/refuser)
  * Body: { status (accepted|rejected), notes? }
  */
-router.put("/:id/respond", authenticateToken, async (req, res) => {
+router.put("/:id/respond", auth, async (req, res) => {
 	try {
 		const { status, notes } = req.body;
 
@@ -237,7 +238,7 @@ router.put("/:id/respond", authenticateToken, async (req, res) => {
  * PUT /api/messages/:id/read
  * Marquer un message comme lu
  */
-router.put("/:id/read", authenticateToken, async (req, res) => {
+router.put("/:id/read", auth, async (req, res) => {
 	try {
 		const message = await MessageService.markAsRead(req.params.id, req.user.id);
 
@@ -255,7 +256,7 @@ router.put("/:id/read", authenticateToken, async (req, res) => {
  * DELETE /api/messages/:id
  * Supprimer un message (soft delete)
  */
-router.delete("/:id", authenticateToken, async (req, res) => {
+router.delete("/:id", auth, async (req, res) => {
 	try {
 		const message = await MessageService.deleteMessage(
 			req.params.id,
