@@ -1051,6 +1051,58 @@ router.get(
 );
 
 /**
+ * PUT /developer/restaurants/:id/category
+ * Met à jour la catégorie (format) d'un restaurant.
+ * Body: { category: "restaurant" | "foodtruck" | "fast-food" | "cafe" | "boulangerie" | "bar" }
+ */
+router.put(
+	"/restaurants/:id/category",
+	auth,
+	checkDeveloper,
+	async (req, res) => {
+		try {
+			const { category } = req.body;
+			const validCategories = [
+				"restaurant",
+				"foodtruck",
+				"fast-food",
+				"cafe",
+				"boulangerie",
+				"bar",
+			];
+			if (!category || !validCategories.includes(category)) {
+				return res.status(400).json({
+					message: `Catégorie invalide. Valeurs acceptées : ${validCategories.join(", ")}`,
+				});
+			}
+
+			const restaurant = await Restaurant.findByIdAndUpdate(
+				req.params.id,
+				{ category },
+				{ new: true },
+			);
+			if (!restaurant) {
+				return res.status(404).json({ message: "Restaurant non trouvé" });
+			}
+
+			console.log(
+				`✅ [DEVELOPER] Catégorie mise à jour pour ${restaurant.name}: ${category}`,
+			);
+
+			res.json({
+				status: "success",
+				restaurantId: restaurant._id,
+				name: restaurant.name,
+				category: restaurant.category,
+			});
+		} catch (error) {
+			console.error("❌ Erreur PUT category:", error);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
+
+/**
  * PUT /developer/restaurants/:id/feature-overrides
  * Met à jour les overrides de fonctionnalités d'un restaurant.
  * Body: { overrides: { [featureKey]: boolean } }
