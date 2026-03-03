@@ -82,7 +82,7 @@ router.post(
 		}
 
 		try {
-			const { tableId, clientName, allergies, restrictions } = req.body;
+			const { tableId, clientName, allergies, restrictions, restaurantId: bodyRestaurantId } = req.body;
 			const tableIdFinal = tableId || "1";
 
 			// Génère la note à partir des allergies/restrictions
@@ -101,10 +101,12 @@ router.post(
 			]);
 
 			// ⭐ Récupérer le restaurant pour connaître sa catégorie
+			// Priorité : restaurantId du body (plus fiable), sinon table.restaurantId
 			let restaurant = null;
 			let isFoodtruck = false;
-			if (table && table.restaurantId) {
-				restaurant = await Restaurant.findById(table.restaurantId);
+			const restaurantIdToUse = bodyRestaurantId || (table && table.restaurantId);
+			if (restaurantIdToUse) {
+				restaurant = await Restaurant.findById(restaurantIdToUse);
 				isFoodtruck = restaurant?.category === "foodtruck";
 			}
 
@@ -115,7 +117,9 @@ router.post(
 				isAvailable: table?.isAvailable,
 				guests: table?.guests,
 				lastResaStatus: lastReservation?.status,
-				isFoodtruck, // ⭐ Ajout pour debug
+				isFoodtruck,
+				restaurantSource: bodyRestaurantId ? "body" : "table",
+				restaurantCategory: restaurant?.category,
 			});
 
 			// Helper: Ajouter guest et marquer table occupée
