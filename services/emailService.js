@@ -1,88 +1,69 @@
 /**
- * 📧 Email Service - SunnyGo
+ * 📧 Email Service - OrderIt
  * Service centralisé pour l'envoi d'emails (reset password, notifications, etc.)
  *
- * Configuration requise dans .env:
- * - SMTP_HOST (ex: smtp.gmail.com)
- * - SMTP_PORT (ex: 587)
- * - SMTP_USER (ex: sunnygo.app@gmail.com)
- * - SMTP_PASS (mot de passe d'application Gmail ou SMTP)
- * - SMTP_FROM (ex: SunnyGo <sunnygo.app@gmail.com>)
+ * Configuration requise dans .env (Render env vars):
+ * - RESEND_API_KEY  : clé API Resend (https://resend.com)
+ * - EMAIL_FROM      : expéditeur (ex: OrderIt <noreply@tondomaine.com>)
+ *                     ⚠️  domaine doit être vérifié sur Resend
+ *                     En mode test : utilisez "onboarding@resend.dev"
  */
 
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
-// Configuration du transporteur SMTP
-const createTransporter = () => {
-	const config = {
-		host: process.env.SMTP_HOST || "smtp.gmail.com",
-		port: parseInt(process.env.SMTP_PORT) || 587,
-		secure: process.env.SMTP_SECURE === "true", // true pour 465, false pour autres ports
-		auth: {
-			user: process.env.SMTP_USER,
-			pass: process.env.SMTP_PASS,
-		},
-	};
-
-	// Vérifier que les credentials sont présents
-	if (!config.auth.user || !config.auth.pass) {
-		console.warn(
-			"⚠️ [EMAIL] SMTP_USER ou SMTP_PASS non configuré - emails désactivés",
-		);
-		return null;
-	}
-
-	return nodemailer.createTransport(config);
-};
-
-let transporter = null;
+let resend = null;
 
 /**
- * Initialise le transporteur email (appelé au démarrage du serveur)
+ * Initialise le client Resend (appelé au démarrage du serveur)
  */
 const initEmailService = async () => {
-	transporter = createTransporter();
+	const apiKey = process.env.RESEND_API_KEY;
 
-	if (transporter) {
-		try {
-			await transporter.verify();
-			console.log("✅ [EMAIL] Service email initialisé avec succès");
-			return true;
-		} catch (error) {
-			console.error("❌ [EMAIL] Erreur configuration SMTP:", error.message);
-			transporter = null;
-			return false;
-		}
+	if (!apiKey) {
+		console.warn(
+			"⚠️ [EMAIL] RESEND_API_KEY non configuré - emails désactivés",
+		);
+		return false;
 	}
-	return false;
+
+	resend = new Resend(apiKey);
+	console.log("✅ [EMAIL] Service Resend initialisé");
+	return true;
 };
 
 /**
- * Envoie un email
+ * Envoie un email via Resend
  * @param {Object} options - Options de l'email
  * @param {string} options.to - Destinataire
  * @param {string} options.subject - Sujet
- * @param {string} options.text - Contenu texte
- * @param {string} options.html - Contenu HTML (optionnel)
+ * @param {string} options.text - Contenu texte (fallback)
+ * @param {string} options.html - Contenu HTML
  */
 const sendEmail = async ({ to, subject, text, html }) => {
-	if (!transporter) {
-		console.warn("⚠️ [EMAIL] Service email non initialisé, email non envoyé");
+	if (!resend) {
+		console.warn("⚠️ [EMAIL] Resend non initialisé, email non envoyé");
 		return { success: false, error: "Email service not configured" };
 	}
 
 	try {
-		const mailOptions = {
-			from: process.env.SMTP_FROM || process.env.SMTP_USER,
+		const from =
+			process.env.EMAIL_FROM || "OrderIt <onboarding@resend.dev>";
+
+		const { data, error } = await resend.emails.send({
+			from,
 			to,
 			subject,
+			html: html || `<p>${text}</p>`,
 			text,
-			html: html || text,
-		};
+		});
 
-		const info = await transporter.sendMail(mailOptions);
-		console.log(`✅ [EMAIL] Email envoyé à ${to} - ID: ${info.messageId}`);
-		return { success: true, messageId: info.messageId };
+		if (error) {
+			console.error(`❌ [EMAIL] Erreur Resend à ${to}:`, error.message);
+			return { success: false, error: error.message };
+		}
+
+		console.log(`✅ [EMAIL] Email envoyé à ${to} - ID: ${data.id}`);
+		return { success: true, messageId: data.id };
 	} catch (error) {
 		console.error(`❌ [EMAIL] Erreur envoi à ${to}:`, error.message);
 		return { success: false, error: error.message };
@@ -101,12 +82,12 @@ const sendPasswordResetEmail = async (email, resetToken, resetUrl = null) => {
 	const fullResetUrl =
 		resetUrl || `${frontendUrl}/reset-password?token=${resetToken}`;
 
-	const subject = "🔐 SunnyGo - Réinitialisation de mot de passe";
+	const subject = "🔐 OrderIt - Réinitialisation de mot de passe";
 
 	const text = `
 Bonjour,
 
-Vous avez demandé la réinitialisation de votre mot de passe SunnyGo.
+Vous avez demandé la réinitialisation de votre mot de passe OrderIt.
 
 Votre code de réinitialisation est : ${resetToken}
 
@@ -114,7 +95,7 @@ Ce code expire dans 1 heure.
 
 Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.
 
-L'équipe SunnyGo
+L'équipe OrderIt
 `;
 
 	const html = `
@@ -129,7 +110,7 @@ L'équipe SunnyGo
     
     <!-- Header -->
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
-      <h1 style="color: #ffffff; margin: 0; font-size: 28px;">☀️ SunnyGo</h1>
+      <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🍽️ OrderIt</h1>
       <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Réinitialisation de mot de passe</p>
     </div>
     
@@ -161,7 +142,7 @@ L'équipe SunnyGo
     <!-- Footer -->
     <div style="background-color: #f8f9fa; padding: 20px; text-align: center;">
       <p style="color: #999; font-size: 12px; margin: 0;">
-        © ${new Date().getFullYear()} SunnyGo - Commande à table simplifiée
+        © ${new Date().getFullYear()} OrderIt - Commande à table simplifiée
       </p>
     </div>
     
@@ -177,7 +158,7 @@ L'équipe SunnyGo
  * Vérifie si le service email est opérationnel
  */
 const isEmailServiceReady = () => {
-	return transporter !== null;
+	return resend !== null;
 };
 
 module.exports = {
