@@ -1,10 +1,10 @@
 /**
- * 📧 Email Service - OrderIt
+ * 📧 Email Service - SunnyGo
  * Service centralisé pour l'envoi d'emails (reset password, notifications, etc.)
  *
  * Configuration requise dans .env (Render env vars):
  * - RESEND_API_KEY  : clé API Resend (https://resend.com)
- * - EMAIL_FROM      : expéditeur (ex: OrderIt <noreply@tondomaine.com>)
+ * - EMAIL_FROM      : expéditeur (ex: SunnyGo <sunnygo@sunflowersociety.fr>)
  *                     ⚠️  domaine doit être vérifié sur Resend
  *                     En mode test : utilisez "onboarding@resend.dev"
  */
@@ -47,7 +47,7 @@ const sendEmail = async ({ to, subject, text, html }) => {
 
 	try {
 		const from =
-			process.env.EMAIL_FROM || "OrderIt <onboarding@resend.dev>";
+			process.env.EMAIL_FROM || "SunnyGo <onboarding@resend.dev>";
 
 		const { data, error } = await resend.emails.send({
 			from,
@@ -82,12 +82,12 @@ const sendPasswordResetEmail = async (email, resetToken, resetUrl = null) => {
 	const fullResetUrl =
 		resetUrl || `${frontendUrl}/reset-password?token=${resetToken}`;
 
-	const subject = "🔐 OrderIt - Réinitialisation de mot de passe";
+	const subject = "🔐 SunnyGo - Réinitialisation de mot de passe";
 
 	const text = `
 Bonjour,
 
-Vous avez demandé la réinitialisation de votre mot de passe OrderIt.
+Vous avez demandé la réinitialisation de votre mot de passe SunnyGo.
 
 Votre code de réinitialisation est : ${resetToken}
 
@@ -95,7 +95,7 @@ Ce code expire dans 1 heure.
 
 Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.
 
-L'équipe OrderIt
+L'équipe SunnyGo
 `;
 
 	const html = `
@@ -110,7 +110,7 @@ L'équipe OrderIt
     
     <!-- Header -->
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
-      <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🍽️ OrderIt</h1>
+      <h1 style="color: #ffffff; margin: 0; font-size: 28px;">☀️ SunnyGo</h1>
       <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Réinitialisation de mot de passe</p>
     </div>
     
@@ -142,7 +142,7 @@ L'équipe OrderIt
     <!-- Footer -->
     <div style="background-color: #f8f9fa; padding: 20px; text-align: center;">
       <p style="color: #999; font-size: 12px; margin: 0;">
-        © ${new Date().getFullYear()} OrderIt - Commande à table simplifiée
+        © ${new Date().getFullYear()} SunnyGo - Commande à table simplifiée
       </p>
     </div>
     
