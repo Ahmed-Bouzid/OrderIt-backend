@@ -191,167 +191,182 @@ router.get("/history/:reservationId", async (req, res) => {
  * Récupère tous les messages non lus d'un restaurant (pour le dashboard serveur)
  * Route protégée
  */
-router.get("/restaurant/:restaurantId", auth, checkRoles(["server", "admin"]), async (req, res) => {
-	try {
-		const { restaurantId } = req.params;
-		const { status = "sent" } = req.query;
+router.get(
+	"/restaurant/:restaurantId",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { restaurantId } = req.params;
+			const { status = "sent" } = req.query;
 
-		const messages = await ClientMessage.find({
-			restaurantId,
-			status,
-		})
-			.populate("tableId", "number")
-			.populate("predefinedMessageId", "icon category")
-			.sort({ createdAt: -1 })
-			.limit(100);
+			const messages = await ClientMessage.find({
+				restaurantId,
+				status,
+			})
+				.populate("tableId", "number")
+				.populate("predefinedMessageId", "icon category")
+				.sort({ createdAt: -1 })
+				.limit(100);
 
-		res.json({
-			success: true,
-			messages,
-		});
-	} catch (error) {
-		console.error("❌ Erreur récupération messages restaurant:", error);
-		res.status(500).json({
-			success: false,
-			message: "Erreur serveur",
-		});
-	}
-});
+			res.json({
+				success: true,
+				messages,
+			});
+		} catch (error) {
+			console.error("❌ Erreur récupération messages restaurant:", error);
+			res.status(500).json({
+				success: false,
+				message: "Erreur serveur",
+			});
+		}
+	},
+);
 
 /**
  * PUT /client-messages/:messageId/read
  * Marque un message comme lu
  */
-router.put("/:messageId/read", auth, checkRoles(["server", "admin"]), async (req, res) => {
-	try {
-		const { messageId } = req.params;
+router.put(
+	"/:messageId/read",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { messageId } = req.params;
 
-		const message = await ClientMessage.findByIdAndUpdate(
-			messageId,
-			{
-				status: "read",
-				readAt: new Date(),
-			},
-			{ new: true },
-		);
-
-		if (!message) {
-			return res.status(404).json({
-				success: false,
-				message: "Message non trouvé",
-			});
-		}
-
-		// Notifier via WebSocket que le message a été lu
-		const io = req.app.get("io");
-		console.log("🔍 [DEBUG VALIDATION] io instance:", !!io);
-		console.log(
-			"🔍 [DEBUG VALIDATION] message.reservationId:",
-			message.reservationId,
-		);
-		if (io) {
-			// Notifier le frontend (serveur/restaurateur)
-			const frontendRoom = `restaurant-${message.restaurantId}`;
-			console.log(
-				`🔍 [DEBUG VALIDATION] Émission vers frontend room: ${frontendRoom}`,
-			);
-			console.log(
-				`🔍 [DEBUG VALIDATION] Sockets dans ${frontendRoom}:`,
-				io.sockets.adapter.rooms.get(frontendRoom)?.size || 0,
-			);
-
-			io.to(frontendRoom).emit("client-message", {
-				type: "message-read",
-				data: {
-					messageId: message._id,
-					readAt: message.readAt,
+			const message = await ClientMessage.findByIdAndUpdate(
+				messageId,
+				{
+					status: "read",
+					readAt: new Date(),
 				},
-				timestamp: new Date().toISOString(),
-			});
+				{ new: true },
+			);
 
-			// Notifier le client (CLIENT-end) via reservationId
-			if (message.reservationId) {
-				const clientRoom = `reservation-${message.reservationId}`;
-				const clientPayload = {
-					type: "read",
+			if (!message) {
+				return res.status(404).json({
+					success: false,
+					message: "Message non trouvé",
+				});
+			}
+
+			// Notifier via WebSocket que le message a été lu
+			const io = req.app.get("io");
+			console.log("🔍 [DEBUG VALIDATION] io instance:", !!io);
+			console.log(
+				"🔍 [DEBUG VALIDATION] message.reservationId:",
+				message.reservationId,
+			);
+			if (io) {
+				// Notifier le frontend (serveur/restaurateur)
+				const frontendRoom = `restaurant-${message.restaurantId}`;
+				console.log(
+					`🔍 [DEBUG VALIDATION] Émission vers frontend room: ${frontendRoom}`,
+				);
+				console.log(
+					`🔍 [DEBUG VALIDATION] Sockets dans ${frontendRoom}:`,
+					io.sockets.adapter.rooms.get(frontendRoom)?.size || 0,
+				);
+
+				io.to(frontendRoom).emit("client-message", {
+					type: "message-read",
 					data: {
 						messageId: message._id,
 						readAt: message.readAt,
-						status: "read",
 					},
 					timestamp: new Date().toISOString(),
-				};
+				});
 
-				console.log(
-					`🔍 [DEBUG VALIDATION] Émission vers client room: ${clientRoom}`,
-				);
-				console.log(
-					`🔍 [DEBUG VALIDATION] Payload:`,
-					JSON.stringify(clientPayload, null, 2),
-				);
-				console.log(
-					`🔍 [DEBUG VALIDATION] Sockets dans ${clientRoom}:`,
-					io.sockets.adapter.rooms.get(clientRoom)?.size || 0,
-				);
+				// Notifier le client (CLIENT-end) via reservationId
+				if (message.reservationId) {
+					const clientRoom = `reservation-${message.reservationId}`;
+					const clientPayload = {
+						type: "read",
+						data: {
+							messageId: message._id,
+							readAt: message.readAt,
+							status: "read",
+						},
+						timestamp: new Date().toISOString(),
+					};
 
-				io.to(clientRoom).emit("message-status", clientPayload);
+					console.log(
+						`🔍 [DEBUG VALIDATION] Émission vers client room: ${clientRoom}`,
+					);
+					console.log(
+						`🔍 [DEBUG VALIDATION] Payload:`,
+						JSON.stringify(clientPayload, null, 2),
+					);
+					console.log(
+						`🔍 [DEBUG VALIDATION] Sockets dans ${clientRoom}:`,
+						io.sockets.adapter.rooms.get(clientRoom)?.size || 0,
+					);
 
-				console.log(
-					`✅ [DEBUG VALIDATION] Événement message-status émis vers ${clientRoom}`,
-				);
+					io.to(clientRoom).emit("message-status", clientPayload);
+
+					console.log(
+						`✅ [DEBUG VALIDATION] Événement message-status émis vers ${clientRoom}`,
+					);
+				} else {
+					console.warn(
+						"⚠️ [DEBUG VALIDATION] message.reservationId est null, pas d'émission vers client",
+					);
+				}
 			} else {
-				console.warn(
-					"⚠️ [DEBUG VALIDATION] message.reservationId est null, pas d'émission vers client",
-				);
+				console.error("❌ [DEBUG VALIDATION] io instance non disponible!");
 			}
-		} else {
-			console.error("❌ [DEBUG VALIDATION] io instance non disponible!");
-		}
 
-		res.json({
-			success: true,
-			message: "Message marqué comme lu",
-		});
-	} catch (error) {
-		console.error("❌ Erreur marquage message lu:", error);
-		res.status(500).json({
-			success: false,
-			message: "Erreur serveur",
-		});
-	}
-});
+			res.json({
+				success: true,
+				message: "Message marqué comme lu",
+			});
+		} catch (error) {
+			console.error("❌ Erreur marquage message lu:", error);
+			res.status(500).json({
+				success: false,
+				message: "Erreur serveur",
+			});
+		}
+	},
+);
 
 /**
  * PUT /client-messages/:messageId/read-all
  * Marque tous les messages d'une table comme lus
  */
-router.put("/read-all/:tableId", auth, checkRoles(["server", "admin"]), async (req, res) => {
-	try {
-		const { tableId } = req.params;
+router.put(
+	"/read-all/:tableId",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { tableId } = req.params;
 
-		const result = await ClientMessage.updateMany(
-			{
-				tableId,
-				status: "sent",
-			},
-			{
-				status: "read",
-				readAt: new Date(),
-			},
-		);
+			const result = await ClientMessage.updateMany(
+				{
+					tableId,
+					status: "sent",
+				},
+				{
+					status: "read",
+					readAt: new Date(),
+				},
+			);
 
-		res.json({
-			success: true,
-			message: `${result.modifiedCount} messages marqués comme lus`,
-		});
-	} catch (error) {
-		console.error("❌ Erreur marquage messages lus:", error);
-		res.status(500).json({
-			success: false,
-			message: "Erreur serveur",
-		});
-	}
-});
+			res.json({
+				success: true,
+				message: `${result.modifiedCount} messages marqués comme lus`,
+			});
+		} catch (error) {
+			console.error("❌ Erreur marquage messages lus:", error);
+			res.status(500).json({
+				success: false,
+				message: "Erreur serveur",
+			});
+		}
+	},
+);
 
 // ═══════════════════════════════════════════════════════════════════════
 // 📝 GESTION DES MESSAGES PRÉDÉFINIS (Admin)
@@ -361,110 +376,125 @@ router.put("/read-all/:tableId", auth, checkRoles(["server", "admin"]), async (r
  * POST /client-messages/predefined
  * Crée un nouveau message prédéfini
  */
-router.post("/predefined", auth, checkRoles(["server", "admin"]), async (req, res) => {
-	try {
-		const { text, category, icon, order, restaurantId } = req.body;
+router.post(
+	"/predefined",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { text, category, icon, order, restaurantId } = req.body;
 
-		if (!text || !restaurantId) {
-			return res.status(400).json({
+			if (!text || !restaurantId) {
+				return res.status(400).json({
+					success: false,
+					message: "Texte et restaurantId requis",
+				});
+			}
+
+			const message = new PredefinedMessage({
+				text,
+				category: category || "service",
+				icon: icon || "chatbubble-outline",
+				order: order || 0,
+				restaurantId,
+			});
+
+			await message.save();
+
+			res.status(201).json({
+				success: true,
+				message: "Message prédéfini créé",
+				data: message,
+			});
+		} catch (error) {
+			console.error("❌ Erreur création message prédéfini:", error);
+			res.status(500).json({
 				success: false,
-				message: "Texte et restaurantId requis",
+				message: "Erreur serveur",
 			});
 		}
-
-		const message = new PredefinedMessage({
-			text,
-			category: category || "service",
-			icon: icon || "chatbubble-outline",
-			order: order || 0,
-			restaurantId,
-		});
-
-		await message.save();
-
-		res.status(201).json({
-			success: true,
-			message: "Message prédéfini créé",
-			data: message,
-		});
-	} catch (error) {
-		console.error("❌ Erreur création message prédéfini:", error);
-		res.status(500).json({
-			success: false,
-			message: "Erreur serveur",
-		});
-	}
-});
+	},
+);
 
 /**
  * PUT /client-messages/predefined/:messageId
  * Modifie un message prédéfini
  */
-router.put("/predefined/:messageId", auth, checkRoles(["server", "admin"]), async (req, res) => {
-	try {
-		const { messageId } = req.params;
-		const { text, category, icon, order, isActive } = req.body;
+router.put(
+	"/predefined/:messageId",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { messageId } = req.params;
+			const { text, category, icon, order, isActive } = req.body;
 
-		const message = await PredefinedMessage.findByIdAndUpdate(
-			messageId,
-			{ text, category, icon, order, isActive },
-			{ new: true, runValidators: true },
-		);
+			const message = await PredefinedMessage.findByIdAndUpdate(
+				messageId,
+				{ text, category, icon, order, isActive },
+				{ new: true, runValidators: true },
+			);
 
-		if (!message) {
-			return res.status(404).json({
+			if (!message) {
+				return res.status(404).json({
+					success: false,
+					message: "Message non trouvé",
+				});
+			}
+
+			res.json({
+				success: true,
+				message: "Message prédéfini mis à jour",
+				data: message,
+			});
+		} catch (error) {
+			console.error("❌ Erreur modification message prédéfini:", error);
+			res.status(500).json({
 				success: false,
-				message: "Message non trouvé",
+				message: "Erreur serveur",
 			});
 		}
-
-		res.json({
-			success: true,
-			message: "Message prédéfini mis à jour",
-			data: message,
-		});
-	} catch (error) {
-		console.error("❌ Erreur modification message prédéfini:", error);
-		res.status(500).json({
-			success: false,
-			message: "Erreur serveur",
-		});
-	}
-});
+	},
+);
 
 /**
  * DELETE /client-messages/predefined/:messageId
  * Supprime un message prédéfini (soft delete)
  */
-router.delete("/predefined/:messageId", auth, checkRoles(["server", "admin"]), async (req, res) => {
-	try {
-		const { messageId } = req.params;
+router.delete(
+	"/predefined/:messageId",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { messageId } = req.params;
 
-		const message = await PredefinedMessage.findByIdAndUpdate(
-			messageId,
-			{ isActive: false },
-			{ new: true },
-		);
+			const message = await PredefinedMessage.findByIdAndUpdate(
+				messageId,
+				{ isActive: false },
+				{ new: true },
+			);
 
-		if (!message) {
-			return res.status(404).json({
+			if (!message) {
+				return res.status(404).json({
+					success: false,
+					message: "Message non trouvé",
+				});
+			}
+
+			res.json({
+				success: true,
+				message: "Message prédéfini désactivé",
+			});
+		} catch (error) {
+			console.error("❌ Erreur suppression message prédéfini:", error);
+			res.status(500).json({
 				success: false,
-				message: "Message non trouvé",
+				message: "Erreur serveur",
 			});
 		}
-
-		res.json({
-			success: true,
-			message: "Message prédéfini désactivé",
-		});
-	} catch (error) {
-		console.error("❌ Erreur suppression message prédéfini:", error);
-		res.status(500).json({
-			success: false,
-			message: "Erreur serveur",
-		});
-	}
-});
+	},
+);
 
 // ═══════════════════════════════════════════════════════════════════════
 // 💬 MESSAGERIE BIDIRECTIONNELLE (Conversation)
@@ -527,178 +557,193 @@ router.get("/conversation/:reservationId", async (req, res) => {
  * Récupère les réponses serveur prédéfinies
  * Route protégée (serveur/admin uniquement)
  */
-router.get("/server-responses/predefined/:restaurantId", auth, checkRoles(["server", "admin"]), async (req, res) => {
-	try {
-		const { restaurantId } = req.params;
+router.get(
+	"/server-responses/predefined/:restaurantId",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { restaurantId } = req.params;
 
-		// Récupérer réponses spécifiques restaurant + globales
-		const responses = await PredefinedServerResponse.find({
-			$or: [{ restaurantId }, { restaurantId: null }],
-			isActive: true,
-		})
-			.sort({ order: 1, createdAt: 1 })
-			.select("text category icon order");
+			// Récupérer réponses spécifiques restaurant + globales
+			const responses = await PredefinedServerResponse.find({
+				$or: [{ restaurantId }, { restaurantId: null }],
+				isActive: true,
+			})
+				.sort({ order: 1, createdAt: 1 })
+				.select("text category icon order");
 
-		res.json({
-			success: true,
-			responses,
-		});
-	} catch (error) {
-		console.error("❌ Erreur récupération réponses prédéfinies:", error);
-		res.status(500).json({
-			success: false,
-			message: "Erreur serveur",
-		});
-	}
-});
+			res.json({
+				success: true,
+				responses,
+			});
+		} catch (error) {
+			console.error("❌ Erreur récupération réponses prédéfinies:", error);
+			res.status(500).json({
+				success: false,
+				message: "Erreur serveur",
+			});
+		}
+	},
+);
 
 /**
  * POST /client-messages/server-responses/send
  * Envoie une réponse serveur au client
  * Route protégée (serveur/admin uniquement)
  */
-router.post("/server-responses/send", auth, checkRoles(["server", "admin"]), async (req, res) => {
-	try {
-		const {
-			clientMessageId,
-			responseText,
-			reservationId,
-			serverId,
-			serverName,
-		} = req.body;
+router.post(
+	"/server-responses/send",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const {
+				clientMessageId,
+				responseText,
+				reservationId,
+				serverId,
+				serverName,
+			} = req.body;
 
-		// Validation
-		if (!clientMessageId || !responseText || !reservationId || !serverId) {
-			return res.status(400).json({
-				success: false,
-				message:
-					"Champs requis manquants: clientMessageId, responseText, reservationId, serverId",
+			// Validation
+			if (!clientMessageId || !responseText || !reservationId || !serverId) {
+				return res.status(400).json({
+					success: false,
+					message:
+						"Champs requis manquants: clientMessageId, responseText, reservationId, serverId",
+				});
+			}
+
+			// Vérifier que le message client existe
+			const clientMessage = await ClientMessage.findById(clientMessageId);
+			if (!clientMessage) {
+				return res.status(404).json({
+					success: false,
+					message: "Message client non trouvé",
+				});
+			}
+
+			// Créer la réponse serveur
+			const serverResponse = new ServerResponse({
+				clientMessageId,
+				responseText,
+				reservationId,
+				restaurantId: clientMessage.restaurantId,
+				serverId,
+				serverName: serverName || "Serveur",
+				status: "sent",
 			});
-		}
 
-		// Vérifier que le message client existe
-		const clientMessage = await ClientMessage.findById(clientMessageId);
-		if (!clientMessage) {
-			return res.status(404).json({
-				success: false,
-				message: "Message client non trouvé",
-			});
-		}
+			await serverResponse.save();
 
-		// Créer la réponse serveur
-		const serverResponse = new ServerResponse({
-			clientMessageId,
-			responseText,
-			reservationId,
-			restaurantId: clientMessage.restaurantId,
-			serverId,
-			serverName: serverName || "Serveur",
-			status: "sent",
-		});
+			// Marquer le message client comme lu
+			if (clientMessage.status === "sent") {
+				clientMessage.status = "read";
+				clientMessage.readAt = new Date();
+				await clientMessage.save();
+			}
 
-		await serverResponse.save();
-
-		// Marquer le message client comme lu
-		if (clientMessage.status === "sent") {
-			clientMessage.status = "read";
-			clientMessage.readAt = new Date();
-			await clientMessage.save();
-		}
-
-		// Émettre événement WebSocket pour notifier le client
-		const io = req.app.get("io");
-		if (io) {
-			io.to(`restaurant-${clientMessage.restaurantId}`).emit(
-				"server-response",
-				{
-					type: "new-response",
-					data: {
-						responseId: serverResponse._id,
-						responseText: serverResponse.responseText,
-						serverName: serverResponse.serverName,
-						clientMessageId,
-						reservationId,
-						timestamp: serverResponse.createdAt,
+			// Émettre événement WebSocket pour notifier le client
+			const io = req.app.get("io");
+			if (io) {
+				io.to(`restaurant-${clientMessage.restaurantId}`).emit(
+					"server-response",
+					{
+						type: "new-response",
+						data: {
+							responseId: serverResponse._id,
+							responseText: serverResponse.responseText,
+							serverName: serverResponse.serverName,
+							clientMessageId,
+							reservationId,
+							timestamp: serverResponse.createdAt,
+						},
+						timestamp: new Date().toISOString(),
 					},
-					timestamp: new Date().toISOString(),
+				);
+
+				console.log(
+					`📤 Réponse serveur envoyée: "${responseText}" → Réservation ${reservationId}`,
+				);
+			}
+
+			res.status(201).json({
+				success: true,
+				message: "Réponse envoyée avec succès",
+				data: {
+					responseId: serverResponse._id,
+					responseText: serverResponse.responseText,
+					sentAt: serverResponse.createdAt,
 				},
-			);
-
-			console.log(
-				`📤 Réponse serveur envoyée: "${responseText}" → Réservation ${reservationId}`,
-			);
+			});
+		} catch (error) {
+			console.error("❌ Erreur envoi réponse serveur:", error);
+			res.status(500).json({
+				success: false,
+				message: "Erreur serveur lors de l'envoi de la réponse",
+			});
 		}
-
-		res.status(201).json({
-			success: true,
-			message: "Réponse envoyée avec succès",
-			data: {
-				responseId: serverResponse._id,
-				responseText: serverResponse.responseText,
-				sentAt: serverResponse.createdAt,
-			},
-		});
-	} catch (error) {
-		console.error("❌ Erreur envoi réponse serveur:", error);
-		res.status(500).json({
-			success: false,
-			message: "Erreur serveur lors de l'envoi de la réponse",
-		});
-	}
-});
+	},
+);
 
 /**
  * PUT /client-messages/toggle-messaging/:restaurantId
  * Active/Désactive la messagerie pour un restaurant
  * Route protégée (admin/manager uniquement)
  */
-router.put("/toggle-messaging/:restaurantId", auth, checkRoles(["admin"]), async (req, res) => {
-	try {
-		const { restaurantId } = req.params;
-		const { isEnabled } = req.body;
+router.put(
+	"/toggle-messaging/:restaurantId",
+	auth,
+	checkRoles(["admin"]),
+	async (req, res) => {
+		try {
+			const { restaurantId } = req.params;
+			const { isEnabled } = req.body;
 
-		if (typeof isEnabled !== "boolean") {
-			return res.status(400).json({
+			if (typeof isEnabled !== "boolean") {
+				return res.status(400).json({
+					success: false,
+					message: "isEnabled doit être un boolean",
+				});
+			}
+
+			const restaurant = await Restaurant.findByIdAndUpdate(
+				restaurantId,
+				{ isMessagingEnabled: isEnabled },
+				{ new: true },
+			).select("isMessagingEnabled");
+
+			if (!restaurant) {
+				return res.status(404).json({
+					success: false,
+					message: "Restaurant non trouvé",
+				});
+			}
+
+			// Notifier via WebSocket que la messagerie a été activée/désactivée
+			const io = req.app.get("io");
+			if (io) {
+				io.to(`restaurant-${restaurantId}`).emit("messaging-status-changed", {
+					isEnabled,
+					timestamp: new Date().toISOString(),
+				});
+			}
+
+			res.json({
+				success: true,
+				message: `Messagerie ${isEnabled ? "activée" : "désactivée"}`,
+				isMessagingEnabled: restaurant.isMessagingEnabled,
+			});
+		} catch (error) {
+			console.error("❌ Erreur toggle messagerie:", error);
+			res.status(500).json({
 				success: false,
-				message: "isEnabled doit être un boolean",
+				message: "Erreur serveur",
 			});
 		}
-
-		const restaurant = await Restaurant.findByIdAndUpdate(
-			restaurantId,
-			{ isMessagingEnabled: isEnabled },
-			{ new: true },
-		).select("isMessagingEnabled");
-
-		if (!restaurant) {
-			return res.status(404).json({
-				success: false,
-				message: "Restaurant non trouvé",
-			});
-		}
-
-		// Notifier via WebSocket que la messagerie a été activée/désactivée
-		const io = req.app.get("io");
-		if (io) {
-			io.to(`restaurant-${restaurantId}`).emit("messaging-status-changed", {
-				isEnabled,
-				timestamp: new Date().toISOString(),
-			});
-		}
-
-		res.json({
-			success: true,
-			message: `Messagerie ${isEnabled ? "activée" : "désactivée"}`,
-			isMessagingEnabled: restaurant.isMessagingEnabled,
-		});
-	} catch (error) {
-		console.error("❌ Erreur toggle messagerie:", error);
-		res.status(500).json({
-			success: false,
-			message: "Erreur serveur",
-		});
-	}
-});
+	},
+);
 
 /**
  * GET /client-messages/messaging-status/:restaurantId
@@ -741,123 +786,133 @@ router.get("/messaging-status/:restaurantId", async (req, res) => {
  * Récupère les notifications avec temps écoulé calculé
  * Pour alimenter l'inbox de notifications du dashboard serveur
  */
-router.get("/notifications/:restaurantId", auth, checkRoles(["server", "admin"]), async (req, res) => {
-	try {
-		const { restaurantId } = req.params;
-		const { limit = 50, unreadOnly = false } = req.query;
+router.get(
+	"/notifications/:restaurantId",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { restaurantId } = req.params;
+			const { limit = 50, unreadOnly = false } = req.query;
 
-		// Construire le filtre
-		const filter = {
-			restaurantId,
-		};
-
-		if (unreadOnly === "true") {
-			filter.status = "sent"; // Non lu = statut "sent"
-		}
-
-		const messages = await ClientMessage.find(filter)
-			.populate("tableId", "number")
-			.populate("predefinedMessageId", "icon category")
-			.sort({ createdAt: -1 })
-			.limit(parseInt(limit, 10));
-
-		// Calculer le temps écoulé pour chaque notification
-		const now = new Date();
-		const notifications = messages.map((msg) => {
-			const createdAt = new Date(msg.createdAt);
-			const elapsedMs = now - createdAt;
-			const elapsedSeconds = Math.floor(elapsedMs / 1000);
-			const minutes = Math.floor(elapsedSeconds / 60);
-			const seconds = elapsedSeconds % 60;
-
-			// Format mm:ss
-			const elapsedTime = `${minutes.toString().padStart(2, "0")}:${seconds
-				.toString()
-				.padStart(2, "0")}`;
-
-			return {
-				id: msg._id,
-				type: "MESSAGE",
-				title: `Table ${msg.tableId?.number || "?"}`,
-				message: msg.messageText,
-				category: msg.predefinedMessageId?.category || "general",
-				icon: msg.predefinedMessageId?.icon,
-				tableNumber: msg.tableId?.number,
-				tableId: msg.tableId?._id,
-				clientName: msg.clientName,
-				reservationId: msg.reservationId,
-				read: msg.status === "read",
-				timestamp: msg.createdAt,
-				elapsedTime,
-				elapsedMs,
+			// Construire le filtre
+			const filter = {
+				restaurantId,
 			};
-		});
 
-		// Compter les non lus
-		const unreadCount = await ClientMessage.countDocuments({
-			restaurantId,
-			status: "sent",
-		});
+			if (unreadOnly === "true") {
+				filter.status = "sent"; // Non lu = statut "sent"
+			}
 
-		res.json({
-			success: true,
-			notifications,
-			unreadCount,
-			total: notifications.length,
-		});
-	} catch (error) {
-		console.error("❌ Erreur récupération notifications:", error);
-		res.status(500).json({
-			success: false,
-			message: "Erreur serveur lors de la récupération des notifications",
-		});
-	}
-});
+			const messages = await ClientMessage.find(filter)
+				.populate("tableId", "number")
+				.populate("predefinedMessageId", "icon category")
+				.sort({ createdAt: -1 })
+				.limit(parseInt(limit, 10));
+
+			// Calculer le temps écoulé pour chaque notification
+			const now = new Date();
+			const notifications = messages.map((msg) => {
+				const createdAt = new Date(msg.createdAt);
+				const elapsedMs = now - createdAt;
+				const elapsedSeconds = Math.floor(elapsedMs / 1000);
+				const minutes = Math.floor(elapsedSeconds / 60);
+				const seconds = elapsedSeconds % 60;
+
+				// Format mm:ss
+				const elapsedTime = `${minutes.toString().padStart(2, "0")}:${seconds
+					.toString()
+					.padStart(2, "0")}`;
+
+				return {
+					id: msg._id,
+					type: "MESSAGE",
+					title: `Table ${msg.tableId?.number || "?"}`,
+					message: msg.messageText,
+					category: msg.predefinedMessageId?.category || "general",
+					icon: msg.predefinedMessageId?.icon,
+					tableNumber: msg.tableId?.number,
+					tableId: msg.tableId?._id,
+					clientName: msg.clientName,
+					reservationId: msg.reservationId,
+					read: msg.status === "read",
+					timestamp: msg.createdAt,
+					elapsedTime,
+					elapsedMs,
+				};
+			});
+
+			// Compter les non lus
+			const unreadCount = await ClientMessage.countDocuments({
+				restaurantId,
+				status: "sent",
+			});
+
+			res.json({
+				success: true,
+				notifications,
+				unreadCount,
+				total: notifications.length,
+			});
+		} catch (error) {
+			console.error("❌ Erreur récupération notifications:", error);
+			res.status(500).json({
+				success: false,
+				message: "Erreur serveur lors de la récupération des notifications",
+			});
+		}
+	},
+);
 
 /**
  * PUT /client-messages/notifications/mark-all-read/:restaurantId
  * Marque toutes les notifications d'un restaurant comme lues
  */
-router.put("/notifications/mark-all-read/:restaurantId", auth, checkRoles(["server", "admin"]), async (req, res) => {
-	try {
-		const { restaurantId } = req.params;
+router.put(
+	"/notifications/mark-all-read/:restaurantId",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { restaurantId } = req.params;
 
-		const result = await ClientMessage.updateMany(
-			{
-				restaurantId,
-				status: "sent",
-			},
-			{
-				status: "read",
-				readAt: new Date(),
-			},
-		);
-
-		// Notifier via WebSocket
-		const io = req.app.get("io");
-		if (io) {
-			io.to(`restaurant-${restaurantId}`).emit("client-message", {
-				type: "all-messages-read",
-				data: {
+			const result = await ClientMessage.updateMany(
+				{
 					restaurantId,
-					count: result.modifiedCount,
+					status: "sent",
 				},
-				timestamp: new Date().toISOString(),
+				{
+					status: "read",
+					readAt: new Date(),
+				},
+			);
+
+			// Notifier via WebSocket
+			const io = req.app.get("io");
+			if (io) {
+				io.to(`restaurant-${restaurantId}`).emit("client-message", {
+					type: "all-messages-read",
+					data: {
+						restaurantId,
+						count: result.modifiedCount,
+					},
+					timestamp: new Date().toISOString(),
+				});
+			}
+
+			res.json({
+				success: true,
+				message: `${result.modifiedCount} notification(s) marquée(s) comme lue(s)`,
+				modifiedCount: result.modifiedCount,
+			});
+		} catch (error) {
+			console.error("❌ Erreur marquage toutes notifications lues:", error);
+			res.status(500).json({
+				success: false,
+				message: "Erreur serveur",
 			});
 		}
-
-		res.json({
-			success: true,
-			message: `${result.modifiedCount} notification(s) marquée(s) comme lue(s)`,
-			modifiedCount: result.modifiedCount,
-		});
-	} catch (error) {
-		console.error("❌ Erreur marquage toutes notifications lues:", error);
-		res.status(500).json({
-			success: false,
-			message: "Erreur serveur",
-		});
-	}
-});
+	},
+);
 
 module.exports = router;

@@ -628,49 +628,54 @@ router.get("/active", auth, async (req, res) => {
 });
 
 // routes/orders.js
-router.post("/:id/mark-as-paid", auth, checkRoles(["server", "admin"]), async (req, res) => {
-	try {
-		const orderId = req.params.id;
+router.post(
+	"/:id/mark-as-paid",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const orderId = req.params.id;
 
-		// Trouver la commande
-		const order = await Order.findById(orderId);
-		if (!order) {
-			return res.status(404).json({ message: "Commande non trouvée." });
+			// Trouver la commande
+			const order = await Order.findById(orderId);
+			if (!order) {
+				return res.status(404).json({ message: "Commande non trouvée." });
+			}
+
+			// Mettre à jour simplement
+			order.paid = true;
+			order.status = "completed";
+			order.paidAt = new Date();
+
+			await order.save();
+
+			// ⚡ Émettre WebSocket pour notifier le frontend
+			const io = req.app.locals.io;
+			if (io && order.restaurantId) {
+				const { emitOrderEvent } = require("../utils/socketEmitter");
+				emitOrderEvent(
+					io,
+					order.restaurantId.toString(),
+					"updated",
+					order.toObject(),
+				);
+				console.log(`📡 WebSocket: Commande ${order._id} marquée payée`);
+			}
+
+			res.json({
+				success: true,
+				message: "Commande marquée comme payée",
+				order,
+			});
+		} catch (err) {
+			console.error("Erreur:", err);
+			res.status(500).json({
+				success: false,
+				message: "Erreur serveur",
+			});
 		}
-
-		// Mettre à jour simplement
-		order.paid = true;
-		order.status = "completed";
-		order.paidAt = new Date();
-
-		await order.save();
-
-		// ⚡ Émettre WebSocket pour notifier le frontend
-		const io = req.app.locals.io;
-		if (io && order.restaurantId) {
-			const { emitOrderEvent } = require("../utils/socketEmitter");
-			emitOrderEvent(
-				io,
-				order.restaurantId.toString(),
-				"updated",
-				order.toObject(),
-			);
-			console.log(`📡 WebSocket: Commande ${order._id} marquée payée`);
-		}
-
-		res.json({
-			success: true,
-			message: "Commande marquée comme payée",
-			order,
-		});
-	} catch (err) {
-		console.error("Erreur:", err);
-		res.status(500).json({
-			success: false,
-			message: "Erreur serveur",
-		});
-	}
-});
+	},
+);
 
 // PUT /orders/:orderId/items/:itemId/status - Mettre à jour le statut d'un item
 router.put(

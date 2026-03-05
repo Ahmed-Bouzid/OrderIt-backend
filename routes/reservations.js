@@ -864,6 +864,65 @@ router.delete(
 	},
 );
 
+// GET /restaurant/:restaurantId/monthly-counts - nombre de résas par jour pour un mois donné
+// Query params: year (YYYY), month (1-12)
+// Retourne: { "2026-03-01": 2, "2026-03-15": 1, ... }
+router.get(
+	"/restaurant/:restaurantId/monthly-counts",
+	auth,
+	validateObjectIds(["restaurantId"]),
+	checkRoles(["admin", "server"]),
+	checkUserRestaurant("restaurantId"),
+	async (req, res) => {
+		try {
+			const { restaurantId } = req.params;
+			const year = parseInt(req.query.year) || new Date().getFullYear();
+			const month = parseInt(req.query.month) || new Date().getMonth() + 1;
+
+			const startDate = new Date(year, month - 1, 1);
+			const endDate = new Date(year, month, 1);
+
+			const tables = await Table.find({ restaurantId }).select("_id");
+			const tableIds = tables.map((t) => t._id);
+
+			const counts = await Reservation.aggregate([
+				{
+					$match: {
+						$or: [
+							{ tableId: { $in: tableIds } },
+							{
+								restaurantId:
+									require("mongoose").Types.ObjectId.createFromHexString(
+										restaurantId,
+									),
+							},
+						],
+						reservationDate: { $gte: startDate, $lt: endDate },
+					},
+				},
+				{
+					$group: {
+						_id: {
+							$dateToString: { format: "%Y-%m-%d", date: "$reservationDate" },
+						},
+						count: { $sum: 1 },
+					},
+				},
+			]);
+
+			const result = {};
+			for (const entry of counts) {
+				result[entry._id] = entry.count;
+			}
+
+			res.json(result);
+		} catch (err) {
+			console.error("❌ [monthly-counts]", err);
+			res.status(500).json({ message: "Erreur server" });
+		}
+	},
+);
+
 // GET /restaurant/:restaurantId - toutes les réservations d'un restaurant avec filtres et pagination
 router.get(
 	"/restaurant/:restaurantId",

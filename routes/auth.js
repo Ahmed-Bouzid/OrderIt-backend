@@ -277,10 +277,14 @@ router.post("/logout-all", auth, async (req, res) => {
 			sameSite: "strict",
 		});
 
-		res.status(200).json({ message: "Déconnexion de tous les appareils réussie." });
+		res
+			.status(200)
+			.json({ message: "Déconnexion de tous les appareils réussie." });
 	} catch (err) {
 		console.error("Erreur logout-all :", err);
-		res.status(500).json({ message: "Erreur serveur lors de la déconnexion globale." });
+		res
+			.status(500)
+			.json({ message: "Erreur serveur lors de la déconnexion globale." });
 	}
 });
 
