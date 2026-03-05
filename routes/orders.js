@@ -628,7 +628,7 @@ router.get("/active", auth, async (req, res) => {
 });
 
 // routes/orders.js
-router.post("/:id/mark-as-paid", async (req, res) => {
+router.post("/:id/mark-as-paid", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
 		const orderId = req.params.id;
 
