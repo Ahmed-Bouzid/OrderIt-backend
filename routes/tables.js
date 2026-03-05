@@ -388,7 +388,11 @@ router.delete(
 			// Vérifier si la table existe et son statut
 			const table = await Table.findById(req.params.id);
 			if (!table) {
-				return res.status(404).json({ message: "Table non trouvée." });
+				console.warn(`⚠️ [TABLE DELETE] Table ${req.params.id} introuvable — déjà supprimée ?`);
+				return res.status(404).json({
+					message: "Table introuvable (déjà supprimée ou ID invalide).",
+					tableId: req.params.id,
+				});
 			}
 
 			// Interdire la suppression si la table est occupée
