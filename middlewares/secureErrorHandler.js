@@ -39,9 +39,7 @@ const SAFE_ERROR_MESSAGES = {
  * 🔒 Middleware central de gestion d'erreurs
  */
 const secureErrorHandler = (err, req, res, next) => {
-	// 🔍 TEMPORAIRE: Force mode debug même en production
-	const isProduction = false; // TEMPORAIRE POUR DEBUG AUTH
-	//const isProduction = process.env.NODE_ENV === "production";
+	const isProduction = process.env.NODE_ENV === "production";
 
 	// ✅ Logger l'erreur complète côté serveur (avec détails)
 	logger.error("Erreur interceptée:", {
