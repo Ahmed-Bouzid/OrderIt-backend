@@ -49,8 +49,19 @@ const strictLimiter = rateLimit({
 	legacyHeaders: false,
 });
 
+// 👥 Rate limiter pour la génération de tokens clients (QR scan)
+// Plafond modéré pour éviter le spam tout en laissant passer les vrais clients
+const clientTokenLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 minutes
+	max: 60, // 60 tokens max par IP (restaurant bondé ok)
+	message: "Trop de générations de tokens, réessayez plus tard.",
+	standardHeaders: true,
+	legacyHeaders: false,
+});
+
 // Export par défaut = general (pour compatibilité)
 module.exports = generalLimiter;
 module.exports.generalLimiter = generalLimiter;
 module.exports.strictLimiter = strictLimiter;
 module.exports.loginLimiter = loginLimiter;
+module.exports.clientTokenLimiter = clientTokenLimiter;

@@ -1,10 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
-const generateClientToken = require("../utils/generateClientToken"); // notre utilitaire
+const generateClientToken = require("../utils/generateClientToken");
+const { clientTokenLimiter } = require("../middlewares/rateLimiter");
 
 // Cette route permet à un client de générer un token limité
-router.post("/", async (req, res) => {
+router.post("/", clientTokenLimiter, async (req, res) => {
 	try {
 		const { pseudo, tableId, restaurantId } = req.body;
 
