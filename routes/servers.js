@@ -12,6 +12,7 @@ const checkUserRestaurantBody = require("../middlewares/checkUserRestaurantBody"
 const createServerValidation = require("../middlewares/createServerValidation");
 const validatePasswordComplexity = require("../middlewares/validatePasswordComplexity");
 const auth = require("../middlewares/auth");
+const { loginLimiter } = require("../middlewares/rateLimiter");
 const Server = require("../models/Server");
 const Restaurant = require("../models/Restaurant");
 const Admin = require("../models/Admin");
@@ -51,7 +52,7 @@ router.post("/admin", adminValidation, async (req, res) => {
 });
 
 // === Route login pour admin et server ===
-router.post("/login", async (req, res) => {
+router.post("/login", loginLimiter, async (req, res) => {
 	try {
 		const { email, password } = req.body;
 
