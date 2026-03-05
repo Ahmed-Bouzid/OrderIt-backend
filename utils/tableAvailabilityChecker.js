@@ -23,14 +23,124 @@ function parseTimeToDate(baseDate, timeString) {
 
 /**
  * Vérifie si deux créneaux horaires se chevauchent
- * @param {Date} start1 - Début créneau 1
- * @param {Date} end1 - Fin créneau 1
- * @param {Date} start2 - Début créneau 2
- * @param {Date} end2 - Fin créneau 2
+ * startA < endB AND endA > startB
+ * Couvre les cas limites : 18:30–19:30 vs 19:00–20:00 → overlap
+ * @param {Date} start1
+ * @param {Date} end1
+ * @param {Date} start2
+ * @param {Date} end2
  * @returns {boolean}
  */
 function timeSlotsOverlap(start1, end1, start2, end2) {
-	return start1 < end2 && start2 < end1;
+	return start1 < end2 && end1 > start2;
+}
+
+/**
+ * Vérifie si le créneau demandé est complet pour le restaurant.
+ * Compare le nombre de réservations actives en overlap avec le nombre total de tables.
+ *
+ * Robuste car :
+ * - Compte toutes les résas actives (avec ou sans tableId assigné)
+ * - Utilise restaurant.turnoverTime pour calculer la durée de chaque créneau
+ * - Ignore les foodtrucks (open seating, pas de notion de tables fixes)
+ *
+ * @param {Object} params
+ * @param {string} params.restaurantId
+ * @param {Date|string} params.reservationDate
+ * @param {string} params.reservationTime - format "HH:MM"
+ * @param {string} [params.excludeReservationId] - ID à exclure (cas modification)
+ * @returns {Promise<{
+ *   allowed: boolean,
+ *   occupiedCount: number,
+ *   totalTables: number,
+ *   duration: number
+ * }>}
+ */
+async function checkOverbooking({
+	restaurantId,
+	reservationDate,
+	reservationTime,
+	excludeReservationId = null,
+}) {
+	const Restaurant = require("../models/Restaurant");
+	const Table = require("../models/Table");
+
+	// Sans date/heure on ne peut pas calculer — on laisse passer
+	if (!reservationDate || !reservationTime) {
+		return { allowed: true, occupiedCount: 0, totalTables: 0, duration: 0 };
+	}
+
+	// Charger le restaurant pour le turnoverTime et la catégorie
+	const restaurant = await Restaurant.findById(restaurantId).select(
+		"turnoverTime category",
+	);
+
+	// Les foodtrucks ont une gestion différente (file d'attente, pas de tables fixes)
+	if (restaurant?.category === "foodtruck") {
+		return { allowed: true, occupiedCount: 0, totalTables: 0, duration: 0 };
+	}
+
+	const duration = restaurant?.turnoverTime || 120;
+
+	// Compter les tables actives (exclure les tables hors service)
+	const totalTables = await Table.countDocuments({
+		restaurantId,
+		status: { $ne: "unavailable" },
+	});
+
+	// Pas de tables configurées → on laisse passer (restaurant non encore configuré)
+	if (totalTables === 0) {
+		return { allowed: true, occupiedCount: 0, totalTables: 0, duration };
+	}
+
+	// Créneau demandé
+	const requestedStart = parseTimeToDate(
+		new Date(reservationDate),
+		reservationTime,
+	);
+	const requestedEnd = new Date(
+		requestedStart.getTime() + duration * 60 * 1000,
+	);
+
+	// Bornes du jour pour limiter la requête MongoDB
+	const startOfDay = new Date(reservationDate);
+	startOfDay.setHours(0, 0, 0, 0);
+	const endOfDay = new Date(reservationDate);
+	endOfDay.setHours(23, 59, 59, 999);
+
+	// Toutes les réservations actives du jour avec une heure définie
+	const activeReservations = await Reservation.find({
+		restaurantId,
+		reservationDate: { $gte: startOfDay, $lte: endOfDay },
+		status: { $in: ["en attente", "ouverte"] },
+		reservationTime: { $exists: true, $ne: "" },
+		...(excludeReservationId && { _id: { $ne: excludeReservationId } }),
+	}).select("reservationTime reservationDate");
+
+	// Compter celles qui chevauchent le créneau demandé
+	let overlappingCount = 0;
+	for (const resa of activeReservations) {
+		const resaStart = parseTimeToDate(
+			new Date(resa.reservationDate),
+			resa.reservationTime,
+		);
+		const resaEnd = new Date(resaStart.getTime() + duration * 60 * 1000);
+
+		if (timeSlotsOverlap(requestedStart, requestedEnd, resaStart, resaEnd)) {
+			overlappingCount++;
+			console.log(
+				`⚠️ [OVERBOOKING] Conflits: resa ${resa._id} (${resa.reservationTime}, durée ${duration}min)`,
+			);
+		}
+	}
+
+	const allowed = overlappingCount < totalTables;
+
+	console.log(
+		`${allowed ? "✅" : "❌"} [OVERBOOKING] ${overlappingCount}/${totalTables} tables occupées pour ${reservationTime} le ${new Date(reservationDate).toLocaleDateString("fr-FR")}`,
+	);
+
+	return { allowed, occupiedCount: overlappingCount, totalTables, duration };
 }
 
 /**
@@ -155,6 +265,7 @@ function enrichTablesWithAvailability(tables, occupiedTableIds) {
 }
 
 module.exports = {
+	checkOverbooking,
 	getAvailableTableIds,
 	enrichTablesWithAvailability,
 	parseTimeToDate,

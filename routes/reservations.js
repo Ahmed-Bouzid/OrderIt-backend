@@ -20,6 +20,7 @@ const {
 // ⭐ Import socket emitter
 const { emitReservationEvent } = require("../utils/socketEmitter");
 const { addAudit } = require("../utils/auditHelper");
+const { checkOverbooking } = require("../utils/tableAvailabilityChecker");
 
 // ⭐ Helper pour accéder à io via req.app
 const getIO = (req) => req.app.locals.io;
@@ -43,6 +44,21 @@ router.post(
 		}
 
 		try {
+			// ⭐ Vérification anti-overbooking avant toute création
+			const { allowed, occupiedCount, totalTables } = await checkOverbooking({
+				restaurantId: req.body.restaurantId,
+				reservationDate: req.body.reservationDate,
+				reservationTime: req.body.reservationTime,
+			});
+
+			if (!allowed) {
+				return res.status(409).json({
+					message: `Complet : toutes les tables sont occupées sur ce créneau (${occupiedCount}/${totalTables}).`,
+					occupiedCount,
+					totalTables,
+				});
+			}
+
 			const reservation = new Reservation(req.body);
 			await reservation.save();
 
