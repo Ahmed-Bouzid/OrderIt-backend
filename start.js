@@ -1,4 +1,3 @@
-console.log("=== [DEBUG] DEMARRAGE start.js ===");
 require("dotenv").config();
 const mongoose = require("mongoose");
 const http = require("http");
@@ -61,7 +60,9 @@ io.use((socket, next) => {
 
 	// ✅ Si token présent, vérifier et authentifier
 	try {
-		const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
+		const jwtSecret = process.env.JWT_SECRET;
+		if (!jwtSecret) return next(new Error("Configuration serveur invalide"));
+		const decoded = jwt.verify(token, jwtSecret);
 		
 		// ✅ Support des tokens clients (clientId) ET tokens serveur/admin (id)
 		socket.userId = decoded.id || decoded.clientId || null;
