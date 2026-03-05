@@ -20,9 +20,7 @@ const initEmailService = async () => {
 	const apiKey = process.env.RESEND_API_KEY;
 
 	if (!apiKey) {
-		console.warn(
-			"⚠️ [EMAIL] RESEND_API_KEY non configuré - emails désactivés",
-		);
+		console.warn("⚠️ [EMAIL] RESEND_API_KEY non configuré - emails désactivés");
 		return false;
 	}
 
@@ -46,8 +44,7 @@ const sendEmail = async ({ to, subject, text, html }) => {
 	}
 
 	try {
-		const from =
-			process.env.EMAIL_FROM || "SunnyGo <onboarding@resend.dev>";
+		const from = process.env.EMAIL_FROM || "SunnyGo <onboarding@resend.dev>";
 
 		const { data, error } = await resend.emails.send({
 			from,

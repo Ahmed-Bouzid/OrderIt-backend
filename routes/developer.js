@@ -266,7 +266,8 @@ router.post("/import-menu", auth, checkDeveloper, async (req, res) => {
 										id: choice.id || `choice-${cidx}`,
 										name: choice.name || "",
 										description: choice.description || "",
-										priceAdjustment: choice.priceAdjustment || choice.price || 0,
+										priceAdjustment:
+											choice.priceAdjustment || choice.price || 0,
 										available: choice.available ?? true,
 									}))
 								: [],

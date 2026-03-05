@@ -37,5 +37,13 @@ const tableUpdateValidationRules = [
 		.optional()
 		.isFloat({ min: 0.5, max: 2.5 })
 		.withMessage("La taille doit être un nombre entre 0.5 et 2.5."),
+	body("sizeW")
+		.optional()
+		.isFloat({ min: 0.5, max: 3 })
+		.withMessage("sizeW doit être un nombre entre 0.5 et 3."),
+	body("sizeH")
+		.optional()
+		.isFloat({ min: 0.5, max: 3 })
+		.withMessage("sizeH doit être un nombre entre 0.5 et 3."),
 ];
 module.exports = tableUpdateValidationRules;

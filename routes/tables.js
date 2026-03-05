@@ -227,6 +227,8 @@ router.put(
 			"status",
 			"position",
 			"size",
+			"sizeW",
+			"sizeH",
 		];
 		const updates = Object.fromEntries(
 			Object.entries(req.body).filter(([key]) => allowedFields.includes(key)),
@@ -388,7 +390,9 @@ router.delete(
 			// Vérifier si la table existe et son statut
 			const table = await Table.findById(req.params.id);
 			if (!table) {
-				console.warn(`⚠️ [TABLE DELETE] Table ${req.params.id} introuvable — déjà supprimée ?`);
+				console.warn(
+					`⚠️ [TABLE DELETE] Table ${req.params.id} introuvable — déjà supprimée ?`,
+				);
 				return res.status(404).json({
 					message: "Table introuvable (déjà supprimée ou ID invalide).",
 					tableId: req.params.id,

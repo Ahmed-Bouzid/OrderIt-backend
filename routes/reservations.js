@@ -82,7 +82,13 @@ router.post(
 		}
 
 		try {
-			const { tableId, clientName, allergies, restrictions, restaurantId: bodyRestaurantId } = req.body;
+			const {
+				tableId,
+				clientName,
+				allergies,
+				restrictions,
+				restaurantId: bodyRestaurantId,
+			} = req.body;
 			const tableIdFinal = tableId || "1";
 
 			// Génère la note à partir des allergies/restrictions
@@ -104,7 +110,8 @@ router.post(
 			// Priorité : restaurantId du body (plus fiable), sinon table.restaurantId
 			let restaurant = null;
 			let isFoodtruck = false;
-			const restaurantIdToUse = bodyRestaurantId || (table && table.restaurantId);
+			const restaurantIdToUse =
+				bodyRestaurantId || (table && table.restaurantId);
 			if (restaurantIdToUse) {
 				restaurant = await Restaurant.findById(restaurantIdToUse);
 				isFoodtruck = restaurant?.category === "foodtruck";
@@ -169,7 +176,9 @@ router.post(
 			}
 			// CAS 2b: Foodtruck + dernière résa terminée → reset table + nouvelle résa individuelle
 			else if (lastReservation?.status === "terminée" && isFoodtruck) {
-				console.log("🚚 [RESERVATION] Foodtruck - Résa précédente terminée, reset table + nouvelle résa");
+				console.log(
+					"🚚 [RESERVATION] Foodtruck - Résa précédente terminée, reset table + nouvelle résa",
+				);
 				table.guests = [];
 				table.status = "available";
 				table.markModified("guests");
@@ -900,7 +909,9 @@ router.get(
 			const tableIds = tables.map((t) => t._id);
 
 			console.log("\n🔵 [DEBUG RESA API] ===============================");
-			console.log("🔵 [DEBUG RESA API] GET /reservations/restaurant/:restaurantId");
+			console.log(
+				"🔵 [DEBUG RESA API] GET /reservations/restaurant/:restaurantId",
+			);
 			console.log("🔵 RestaurantId:", req.params.restaurantId);
 			console.log("🔵 Tables trouvées:", tables.length);
 			if (tables.length === 0) {

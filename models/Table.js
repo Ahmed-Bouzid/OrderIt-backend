@@ -47,6 +47,19 @@ const tableSchema = new mongoose.Schema(
 			min: 0.5,
 			max: 2.5,
 		},
+		// Taille indépendante largeur/hauteur (plan de salle)
+		sizeW: {
+			type: Number,
+			default: 1,
+			min: 0.5,
+			max: 3,
+		},
+		sizeH: {
+			type: Number,
+			default: 1,
+			min: 0.5,
+			max: 3,
+		},
 		qrCodeUrl: {
 			type: String,
 			required: false,
