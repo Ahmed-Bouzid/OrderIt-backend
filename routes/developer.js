@@ -347,7 +347,7 @@ router.post("/create-restaurant", auth, checkDeveloper, async (req, res) => {
 
 		// Hash du mot de passe
 		const bcrypt = require("bcrypt");
-		const passwordHash = await bcrypt.hash(password, 10);
+		const passwordHash = await bcrypt.hash(password, 12);
 
 		// Créer le restaurant
 		const restaurant = await Restaurant.create({

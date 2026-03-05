@@ -314,7 +314,7 @@ router.post(
 			}
 
 			// Hasher et sauvegarder le nouveau mot de passe
-			const salt = await bcrypt.genSalt(10);
+			const salt = await bcrypt.genSalt(12);
 			const newPasswordHash = await bcrypt.hash(newPassword, salt);
 
 			user.passwordHash = newPasswordHash;
@@ -582,7 +582,7 @@ router.post(
 			}
 
 			// Hasher et sauvegarder le nouveau mot de passe
-			const salt = await bcrypt.genSalt(10);
+			const salt = await bcrypt.genSalt(12);
 			user.passwordHash = await bcrypt.hash(newPassword, salt);
 			await user.save();
 

@@ -33,7 +33,7 @@ router.post(
 				return res.status(400).json({ message: "Email déjà utilisé." });
 			}
 
-			const passwordHash = await bcrypt.hash(password, 10);
+			const passwordHash = await bcrypt.hash(password, 12);
 
 			const newRestaurant = new Restaurant({
 				name,
@@ -157,7 +157,7 @@ router.post(
 					.json({ message: "serverId ou email déjà utilisés." });
 			}
 
-			const passwordHash = await bcrypt.hash(password, 10);
+			const passwordHash = await bcrypt.hash(password, 12);
 
 			const newServer = new Server({
 				restaurantId,
@@ -259,7 +259,7 @@ router.put(
 
 			// 🔐 Si mot de passe modifié, on le hash puis on supprime l’ancien champ
 			if (updates.password) {
-				updates.passwordHash = await bcrypt.hash(updates.password, 10);
+				updates.passwordHash = await bcrypt.hash(updates.password, 12);
 				delete updates.password;
 			}
 

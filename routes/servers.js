@@ -32,7 +32,7 @@ router.post("/admin", adminValidation, async (req, res) => {
 		}
 
 		const { email, password, name, serverId } = req.body;
-		const passwordHash = await bcrypt.hash(password, 10);
+		const passwordHash = await bcrypt.hash(password, 12);
 
 		const newAdmin = new Admin({
 			name,
@@ -147,7 +147,7 @@ router.post(
 			}
 
 			// Hash du mot de passe
-			const passwordHash = await bcrypt.hash(password, 10);
+			const passwordHash = await bcrypt.hash(password, 12);
 
 			const newServer = new Server({
 				name,
@@ -218,7 +218,7 @@ router.put(
 
 			// Si mot de passe modifié, re-hasher
 			if (password) {
-				filteredUpdates.passwordHash = await bcrypt.hash(password, 10);
+				filteredUpdates.passwordHash = await bcrypt.hash(password, 12);
 			}
 
 			const updatedServer = await Server.findByIdAndUpdate(
