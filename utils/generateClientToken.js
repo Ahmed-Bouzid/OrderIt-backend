@@ -18,7 +18,8 @@ function generateClientToken({
 	if (!restaurantId) throw new Error("restaurantId obligatoire");
 
 	const JWT_SECRET = process.env.JWT_SECRET;
-	if (!JWT_SECRET) throw new Error("JWT_SECRET manquant dans les variables d'environnement");
+	if (!JWT_SECRET)
+		throw new Error("JWT_SECRET manquant dans les variables d'environnement");
 
 	const payload = {
 		id: clientId || null,
