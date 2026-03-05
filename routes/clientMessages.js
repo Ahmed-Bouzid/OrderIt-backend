@@ -1,5 +1,7 @@
 const express = require("express");
 const router = express.Router();
+const auth = require("../middlewares/auth");
+const checkRoles = require("../middlewares/checkRoles");
 const PredefinedMessage = require("../models/PredefinedMessage");
 const ClientMessage = require("../models/ClientMessage");
 const ServerResponse = require("../models/ServerResponse");
@@ -189,7 +191,7 @@ router.get("/history/:reservationId", async (req, res) => {
  * Récupère tous les messages non lus d'un restaurant (pour le dashboard serveur)
  * Route protégée
  */
-router.get("/restaurant/:restaurantId", async (req, res) => {
+router.get("/restaurant/:restaurantId", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
 		const { restaurantId } = req.params;
 		const { status = "sent" } = req.query;
@@ -220,7 +222,7 @@ router.get("/restaurant/:restaurantId", async (req, res) => {
  * PUT /client-messages/:messageId/read
  * Marque un message comme lu
  */
-router.put("/:messageId/read", async (req, res) => {
+router.put("/:messageId/read", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
 		const { messageId } = req.params;
 
@@ -323,7 +325,7 @@ router.put("/:messageId/read", async (req, res) => {
  * PUT /client-messages/:messageId/read-all
  * Marque tous les messages d'une table comme lus
  */
-router.put("/read-all/:tableId", async (req, res) => {
+router.put("/read-all/:tableId", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
 		const { tableId } = req.params;
 
@@ -359,7 +361,7 @@ router.put("/read-all/:tableId", async (req, res) => {
  * POST /client-messages/predefined
  * Crée un nouveau message prédéfini
  */
-router.post("/predefined", async (req, res) => {
+router.post("/predefined", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
 		const { text, category, icon, order, restaurantId } = req.body;
 
@@ -398,7 +400,7 @@ router.post("/predefined", async (req, res) => {
  * PUT /client-messages/predefined/:messageId
  * Modifie un message prédéfini
  */
-router.put("/predefined/:messageId", async (req, res) => {
+router.put("/predefined/:messageId", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
 		const { messageId } = req.params;
 		const { text, category, icon, order, isActive } = req.body;
@@ -434,7 +436,7 @@ router.put("/predefined/:messageId", async (req, res) => {
  * DELETE /client-messages/predefined/:messageId
  * Supprime un message prédéfini (soft delete)
  */
-router.delete("/predefined/:messageId", async (req, res) => {
+router.delete("/predefined/:messageId", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
 		const { messageId } = req.params;
 
@@ -525,7 +527,7 @@ router.get("/conversation/:reservationId", async (req, res) => {
  * Récupère les réponses serveur prédéfinies
  * Route protégée (serveur/admin uniquement)
  */
-router.get("/server-responses/predefined/:restaurantId", async (req, res) => {
+router.get("/server-responses/predefined/:restaurantId", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
 		const { restaurantId } = req.params;
 
@@ -555,7 +557,7 @@ router.get("/server-responses/predefined/:restaurantId", async (req, res) => {
  * Envoie une réponse serveur au client
  * Route protégée (serveur/admin uniquement)
  */
-router.post("/server-responses/send", async (req, res) => {
+router.post("/server-responses/send", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
 		const {
 			clientMessageId,
@@ -650,7 +652,7 @@ router.post("/server-responses/send", async (req, res) => {
  * Active/Désactive la messagerie pour un restaurant
  * Route protégée (admin/manager uniquement)
  */
-router.put("/toggle-messaging/:restaurantId", async (req, res) => {
+router.put("/toggle-messaging/:restaurantId", auth, checkRoles(["admin"]), async (req, res) => {
 	try {
 		const { restaurantId } = req.params;
 		const { isEnabled } = req.body;
@@ -739,7 +741,7 @@ router.get("/messaging-status/:restaurantId", async (req, res) => {
  * Récupère les notifications avec temps écoulé calculé
  * Pour alimenter l'inbox de notifications du dashboard serveur
  */
-router.get("/notifications/:restaurantId", async (req, res) => {
+router.get("/notifications/:restaurantId", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
 		const { restaurantId } = req.params;
 		const { limit = 50, unreadOnly = false } = req.query;
@@ -816,7 +818,7 @@ router.get("/notifications/:restaurantId", async (req, res) => {
  * PUT /client-messages/notifications/mark-all-read/:restaurantId
  * Marque toutes les notifications d'un restaurant comme lues
  */
-router.put("/notifications/mark-all-read/:restaurantId", async (req, res) => {
+router.put("/notifications/mark-all-read/:restaurantId", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
 		const { restaurantId } = req.params;
 
