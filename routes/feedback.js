@@ -51,13 +51,6 @@ router.post("/", auth, async (req, res) => {
 
 		await feedback.save();
 
-		// Log pour suivi
-		console.log(`[FEEDBACK] Nouveau feedback reçu de ${req.user.email}`, {
-			feedbackId: feedback._id,
-			category,
-			includeLogs: includeLogs || false,
-		});
-
 		res.status(201).json({
 			message: "Merci pour votre retour ! Votre feedback a bien été envoyé.",
 			feedbackId: feedback._id,
@@ -116,7 +109,7 @@ router.get("/", auth, checkRoles(["admin", "manager"]), async (req, res) => {
 	} catch (error) {
 		console.error(
 			"[FEEDBACK] Erreur lors de la récupération des feedbacks:",
-			error
+			error,
 		);
 		res.status(500).json({
 			message: "Erreur lors de la récupération des feedbacks.",
@@ -157,7 +150,7 @@ router.patch("/:id", auth, checkRoles(["admin"]), async (req, res) => {
 	} catch (error) {
 		console.error(
 			"[FEEDBACK] Erreur lors de la mise à jour du feedback:",
-			error
+			error,
 		);
 		res.status(500).json({
 			message: "Erreur lors de la mise à jour du feedback.",
@@ -181,7 +174,7 @@ router.delete("/:id", auth, checkRoles(["admin"]), async (req, res) => {
 	} catch (error) {
 		console.error(
 			"[FEEDBACK] Erreur lors de la suppression du feedback:",
-			error
+			error,
 		);
 		res.status(500).json({
 			message: "Erreur lors de la suppression du feedback.",

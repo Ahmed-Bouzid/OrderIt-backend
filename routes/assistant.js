@@ -57,16 +57,6 @@ router.post(
 		try {
 			const { restaurantId, date, time, people } = req.body;
 
-			console.log(
-				"🔍 [ASSISTANT] Vérification disponibilité (table par table):",
-				{
-					restaurantId,
-					date,
-					time,
-					people,
-				}
-			);
-
 			// Utiliser le nouveau service basé sur les tables
 			const result = await checkTableAvailability({
 				restaurantId,
@@ -85,7 +75,7 @@ router.post(
 				error: error.message,
 			});
 		}
-	}
+	},
 );
 
 /**
@@ -100,9 +90,8 @@ router.get(
 		try {
 			const { restaurantId } = req.params;
 
-			const restaurant = await Restaurant.findById(restaurantId).select(
-				"turnoverTime"
-			);
+			const restaurant =
+				await Restaurant.findById(restaurantId).select("turnoverTime");
 
 			if (!restaurant) {
 				return res.status(404).json({ message: "Restaurant non trouvé" });
@@ -117,7 +106,7 @@ router.get(
 				message: "Erreur lors de la récupération des paramètres",
 			});
 		}
-	}
+	},
 );
 
 /**
@@ -152,7 +141,7 @@ router.put(
 			const restaurant = await Restaurant.findByIdAndUpdate(
 				restaurantId,
 				{ turnoverTime },
-				{ new: true }
+				{ new: true },
 			).select("turnoverTime");
 
 			if (!restaurant) {
@@ -160,7 +149,7 @@ router.put(
 			}
 
 			console.log(
-				`✅ Assistant - Turnover mis à jour: ${turnoverTime} min pour restaurant ${restaurantId}`
+				`✅ Assistant - Turnover mis à jour: ${turnoverTime} min pour restaurant ${restaurantId}`,
 			);
 
 			res.json({
@@ -173,7 +162,7 @@ router.put(
 				message: "Erreur lors de la mise à jour des paramètres",
 			});
 		}
-	}
+	},
 );
 
 /**
@@ -186,10 +175,6 @@ router.post(
 	auth,
 	checkRoles(["admin", "server"]),
 	async (req, res) => {
-		console.log("🔵 [ROUTE] /auto-assign-tables APPELÉE");
-		console.log("🔵 [ROUTE] Body reçu:", JSON.stringify(req.body, null, 2));
-		console.log("🔵 [ROUTE] User:", req.user?.email, "| Role:", req.user?.role);
-
 		try {
 			const { date, restaurantId } = req.body;
 
@@ -211,23 +196,12 @@ router.post(
 				});
 			}
 
-			console.log("🤖 [ROUTE] Attribution automatique:", {
-				date,
-				restaurantId,
-				user: req.user?.email,
-			});
-
 			const {
 				autoAssignTables,
 			} = require("../services/tableAssignmentService");
 
-			console.log("⚙️ [ROUTE] Appel service autoAssignTables...");
 			const result = await autoAssignTables(restaurantId, new Date(date));
 
-			console.log(
-				"✅ [ROUTE] Résultat service:",
-				JSON.stringify(result, null, 2)
-			);
 			res.json(result);
 		} catch (error) {
 			console.error("❌ [ROUTE] Erreur attribution:", error);
@@ -238,7 +212,7 @@ router.post(
 				error: error.message,
 			});
 		}
-	}
+	},
 );
 
 /**
@@ -308,7 +282,7 @@ router.post(
 			}
 
 			console.log(
-				`✅ [CLEAR] ${clearedCount} attributions supprimées sur ${reservations.length} réservations`
+				`✅ [CLEAR] ${clearedCount} attributions supprimées sur ${reservations.length} réservations`,
 			);
 
 			res.json({
@@ -325,7 +299,7 @@ router.post(
 				error: error.message,
 			});
 		}
-	}
+	},
 );
 
 module.exports = router;

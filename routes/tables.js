@@ -202,14 +202,6 @@ router.put(
 	checkRoles(["admin"]),
 	tableUpdateValidationRules,
 	async (req, res) => {
-		console.log("🔍 [TABLE UPDATE] Début modification table");
-		console.log("📋 [TABLE UPDATE] ID table:", req.params.id);
-		console.log(
-			"📦 [TABLE UPDATE] Body reçu:",
-			JSON.stringify(req.body, null, 2),
-		);
-		console.log("👤 [TABLE UPDATE] User:", req.user?.email || req.user?.id);
-
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
 			console.log(
