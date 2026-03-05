@@ -71,9 +71,6 @@ const verifyMFA = async (req, res, next) => {
 		});
 
 		if (!verified) {
-			// Log tentative échouée pour monitoring
-			console.warn(`⚠️ Tentative MFA échouée pour ${user.email} (${userId})`);
-
 			return res.status(403).json({
 				message: "Code MFA invalide",
 				code: "MFA_INVALID",
@@ -81,7 +78,6 @@ const verifyMFA = async (req, res, next) => {
 		}
 
 		// Code MFA valide, continuer
-		console.log(`✅ MFA validé pour ${user.email}`);
 		next();
 	} catch (error) {
 		console.error("❌ Erreur vérification MFA:", error);

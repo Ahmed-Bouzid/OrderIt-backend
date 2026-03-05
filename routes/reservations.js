@@ -540,51 +540,21 @@ router.put(
 	auth,
 	checkRoles(["admin", "server"]),
 	async (req, res) => {
-		console.log("🔍 [DEBUG] /:id/status - Début de la requête");
-		console.log("🔍 [DEBUG] Méthode:", req.method);
-		console.log("🔍 [DEBUG] URL:", req.originalUrl);
-		console.log("🔍 [DEBUG] Paramètres:", req.params);
-		console.log("🔍 [DEBUG] Body:", req.body);
-		console.log(
-			"🔍 [DEBUG] Headers - Authorization:",
-			req.headers.authorization ? "PRÉSENT" : "ABSENT",
-		);
-
-		if (req.headers.authorization) {
-			console.log(
-				"🔍 [DEBUG] Token (début):",
-				req.headers.authorization.substring(0, 30) + "...",
-			);
-		}
-
 		try {
 			const { status } = req.body; // le nouveau statut envoyé par le front
-			console.log("[DEBUG] Statut demandé:", status);
 
 			const allowedStatuses = ["en attente", "ouverte", "terminée", "annulée"];
 
 			// Vérification que le statut demandé est valide
 			if (!allowedStatuses.includes(status)) {
-				console.log("❌ [DEBUG] Statut invalide rejeté:", status);
 				return res.status(400).json({ message: "Statut invalide" });
 			}
 
-			console.log("[DEBUG] Recherche réservation ID:", req.params.id);
 			const reservation = await Reservation.findById(req.params.id);
 
 			if (!reservation) {
-				console.log("❌ [DEBUG] Réservation non trouvée:", req.params.id);
 				return res.status(404).json({ message: "Réservation non trouvée" });
 			}
-
-			console.log(
-				"[DEBUG] Transition:",
-				reservation.status,
-				"→",
-				status,
-				"isPresent:",
-				reservation.isPresent,
-			);
 
 			// ⭐ RÈGLE MÉTIER: Réservation terminée/annulée ne peut plus être modifiée
 			if (

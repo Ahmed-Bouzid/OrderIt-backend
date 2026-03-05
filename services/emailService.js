@@ -55,14 +55,13 @@ const sendEmail = async ({ to, subject, text, html }) => {
 		});
 
 		if (error) {
-			console.error(`❌ [EMAIL] Erreur Resend à ${to}:`, error.message);
+			console.error("❌ [EMAIL] Erreur Resend:", error.message);
 			return { success: false, error: error.message };
 		}
 
-		console.log(`✅ [EMAIL] Email envoyé à ${to} - ID: ${data.id}`);
 		return { success: true, messageId: data.id };
 	} catch (error) {
-		console.error(`❌ [EMAIL] Erreur envoi à ${to}:`, error.message);
+		console.error("❌ [EMAIL] Erreur envoi:", error.message);
 		return { success: false, error: error.message };
 	}
 };

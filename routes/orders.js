@@ -15,11 +15,6 @@ router.post(
 	"/",
 	auth, // middleware qui décode le JWT et met req.user
 	async (req, res) => {
-		console.log(
-			"📥 POST /orders - Body reçu:",
-			JSON.stringify(req.body, null, 2),
-		);
-		console.log("📥 POST /orders - User:", req.user);
 		const { role, tableId: clientTableId } = req.user; // token limité pour client ou token serveur/admin
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
@@ -495,17 +490,6 @@ router.get(
 	validateObjectIds(["reservationId"]),
 	async (req, res) => {
 		try {
-			console.log(
-				"[DEBUG] GET /reservation/:reservationId",
-				req.params.reservationId,
-			);
-			// Log user info
-			if (req.user) {
-				console.log("[DEBUG] User:", req.user);
-			} else {
-				console.log("[DEBUG] Pas de req.user");
-			}
-			// Log query
 			const query = {
 				reservationId: req.params.reservationId,
 				paid: { $ne: true },
@@ -607,16 +591,8 @@ router.put(
 
 // routes/orders.js
 router.get("/active", auth, async (req, res) => {
-	console.log("OKOKOKOKOKOK");
-
 	try {
-		console.log("📡 Route /active appelée");
-		console.log("👤 User:", req.user);
-		console.log("📨 Headers:", req.headers);
-
 		const { role, tableId } = req.user;
-
-		console.log(`🔍 Recherche pour: role=${role}, tableId=${tableId}`);
 
 		let query = { paid: false };
 
@@ -624,8 +600,6 @@ router.get("/active", auth, async (req, res) => {
 			query.tableId = tableId;
 			query.origin = "client";
 		}
-
-		console.log("🔍 Query MongoDB:", JSON.stringify(query));
 
 		const activeOrders = await Order.find(query)
 			.sort({ createdAt: -1 })

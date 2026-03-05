@@ -189,7 +189,6 @@ router.post("/verify", auth, strictLimiter, async (req, res) => {
 		}
 
 		// Code invalide
-		console.warn(`⚠️ Code MFA invalide pour ${user.email}`);
 		res.status(403).json({
 			message: "Code MFA invalide",
 			valid: false,
