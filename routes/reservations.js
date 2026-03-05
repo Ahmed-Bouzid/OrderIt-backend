@@ -879,8 +879,10 @@ router.get(
 			const year = parseInt(req.query.year) || new Date().getFullYear();
 			const month = parseInt(req.query.month) || new Date().getMonth() + 1;
 
-			const startDate = new Date(year, month - 1, 1);
-			const endDate = new Date(year, month, 1);
+			// Bornes en UTC tenant compte d'Europe/Paris (max offset = +2h été)
+			// On élargit d'1 jour de chaque côté pour couvrir tous les cas DST
+			const startDate = new Date(Date.UTC(year, month - 1, 1) - 2 * 60 * 60 * 1000);
+			const endDate = new Date(Date.UTC(year, month, 1) + 2 * 60 * 60 * 1000);
 
 			const tables = await Table.find({ restaurantId }).select("_id");
 			const tableIds = tables.map((t) => t._id);
@@ -903,7 +905,11 @@ router.get(
 				{
 					$group: {
 						_id: {
-							$dateToString: { format: "%Y-%m-%d", date: "$reservationDate" },
+							$dateToString: {
+								format: "%Y-%m-%d",
+								date: "$reservationDate",
+								timezone: "Europe/Paris",
+							},
 						},
 						count: { $sum: 1 },
 					},
