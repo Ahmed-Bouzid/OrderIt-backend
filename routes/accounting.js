@@ -96,11 +96,6 @@ router.get(
 	checkRoles(["admin", "manager", "developer"]),
 	async (req, res) => {
 		try {
-			console.log(
-				"💰 [ACCOUNTING] Génération résumé comptable pour:",
-				req.user.email,
-			);
-
 			const { restaurantId } = req.user;
 			const {
 				period = "today",
@@ -508,10 +503,6 @@ router.get(
 				endDate: customEnd,
 				format = "csv",
 			} = req.query;
-
-			console.log(
-				`📤 [ACCOUNTING] Export demandé pour ${req.user.email}, période: ${period}`,
-			);
 
 			const { startDate, endDate } = getPeriodDates(
 				period,

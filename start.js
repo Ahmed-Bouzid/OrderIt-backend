@@ -43,10 +43,6 @@ const io = new Server(server, {
 // ⭐ Enregistrer io dans l'app Express (CRUCIAL pour les routes)
 app.set("io", io);
 
-// ⭐ AJOUTE CE LOG IMPORTANT
-io.engine.on("connection", (socket) => {
-	console.log("🔄 Socket.io engine connection");
-});
 // ⭐ Middleware d'authentification Socket.io (optionnel pour clients publics)
 io.use((socket, next) => {
 	const token = socket.handshake.auth.token;
@@ -63,7 +59,7 @@ io.use((socket, next) => {
 		const jwtSecret = process.env.JWT_SECRET;
 		if (!jwtSecret) return next(new Error("Configuration serveur invalide"));
 		const decoded = jwt.verify(token, jwtSecret);
-		
+
 		// ✅ Support des tokens clients (clientId) ET tokens serveur/admin (id)
 		socket.userId = decoded.id || decoded.clientId || null;
 		socket.clientId = decoded.clientId || null;
@@ -71,7 +67,7 @@ io.use((socket, next) => {
 		socket.tableId = decoded.tableId || null;
 		socket.userType = decoded.userType || decoded.role || "client";
 		socket.isPublicClient = false;
-		
+
 		const userIdentifier = socket.userId || socket.clientId || "unknown";
 		console.log(
 			`🔐 Connexion Socket authentifiée: ${socket.userType} (${userIdentifier})`,
