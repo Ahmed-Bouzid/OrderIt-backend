@@ -1,9 +1,6 @@
 // utils/generateClientToken.js
 const jwt = require("jsonwebtoken");
 
-// ⚠️ En prod, stocke ça dans tes variables d'environnement
-const JWT_SECRET = process.env.JWT_SECRET || "secret_dev";
-
 /**
  * Génère un token JWT pour un client limité
  * @param {string} clientId - identifiant unique du client (optionnel si tu veux suivre)
@@ -18,8 +15,10 @@ function generateClientToken({
 	expiresIn = 3600,
 }) {
 	// ✅ Validation assouplie : tableId optionnel pour foodtrucks
-	if (!restaurantId)
-		throw new Error("restaurantId obligatoire");
+	if (!restaurantId) throw new Error("restaurantId obligatoire");
+
+	const JWT_SECRET = process.env.JWT_SECRET;
+	if (!JWT_SECRET) throw new Error("JWT_SECRET manquant dans les variables d'environnement");
 
 	const payload = {
 		id: clientId || null,
