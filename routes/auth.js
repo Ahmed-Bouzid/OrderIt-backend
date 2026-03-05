@@ -75,7 +75,6 @@ router.post("/login", loginLimiter, async (req, res) => {
 
 		const payload = {
 			id: user._id,
-			email: user.email,
 			role: user.role,
 			userType,
 			restaurantId: user.restaurantId || null,
@@ -180,7 +179,6 @@ router.post("/refresh", strictLimiter, async (req, res) => {
 
 				const payload = {
 					id: user._id,
-					email: user.email,
 					role: user.role,
 					userType: user instanceof Admin ? "admin" : "server",
 					restaurantId: user.restaurantId || null,
@@ -261,6 +259,28 @@ router.post("/logout", async (req, res) => {
 	} catch (err) {
 		console.error("Erreur logout :", err);
 		res.status(500).json({ message: "Erreur server lors de la déconnexion." });
+	}
+});
+
+// POST /logout-all - Déconnecte tous les appareils (révoque tous les refresh tokens)
+router.post("/logout-all", auth, async (req, res) => {
+	try {
+		const userId = req.user.id;
+
+		// Révoquer tous les refresh tokens de cet utilisateur
+		await RefreshTokenStore.deleteAllByUserId(userId);
+
+		// Nettoyer le cookie sur cet appareil
+		res.clearCookie("refreshToken", {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === "production",
+			sameSite: "strict",
+		});
+
+		res.status(200).json({ message: "Déconnexion de tous les appareils réussie." });
+	} catch (err) {
+		console.error("Erreur logout-all :", err);
+		res.status(500).json({ message: "Erreur serveur lors de la déconnexion globale." });
 	}
 });
 

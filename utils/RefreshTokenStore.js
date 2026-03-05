@@ -19,6 +19,10 @@ class RefreshTokenStore {
 	async remove(token) {
 		await RefreshToken.deleteOne({ token });
 	}
+
+	async deleteAllByUserId(userId) {
+		await RefreshToken.deleteMany({ userId });
+	}
 }
 
 module.exports = new RefreshTokenStore();
