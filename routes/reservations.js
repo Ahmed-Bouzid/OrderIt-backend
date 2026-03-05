@@ -21,6 +21,7 @@ const {
 const { emitReservationEvent } = require("../utils/socketEmitter");
 const { addAudit } = require("../utils/auditHelper");
 const { checkOverbooking } = require("../utils/tableAvailabilityChecker");
+const { getAvailableSlotsForDay } = require("../utils/slotGenerator");
 
 // ⭐ Helper pour accéder à io via req.app
 const getIO = (req) => req.app.locals.io;
@@ -941,6 +942,39 @@ router.get(
 		} catch (err) {
 			console.error("❌ [monthly-counts]", err);
 			res.status(500).json({ message: "Erreur server" });
+		}
+	},
+);
+
+// GET /restaurant/:restaurantId/available-slots - créneaux disponibles pour un jour donné
+// Query params: date (YYYY-MM-DD, requis), step (minutes, défaut 15), includeZero (bool, défaut false)
+// Retourne: [{ time: "18:00", availableTables: 4, totalTables: 10 }, ...]
+router.get(
+	"/restaurant/:restaurantId/available-slots",
+	auth,
+	validateObjectIds(["restaurantId"]),
+	checkRoles(["admin", "server"]),
+	checkUserRestaurant("restaurantId"),
+	async (req, res) => {
+		try {
+			const { restaurantId } = req.params;
+			const { date, step, includeZero } = req.query;
+
+			if (!date) {
+				return res.status(400).json({ message: "Paramètre date requis (YYYY-MM-DD)" });
+			}
+
+			const slots = await getAvailableSlotsForDay({
+				restaurantId,
+				date: new Date(date),
+				stepMinutes: step ? parseInt(step) : 15,
+				includeZero: includeZero === "true",
+			});
+
+			res.json(slots);
+		} catch (err) {
+			console.error("❌ [available-slots]", err);
+			res.status(500).json({ message: "Erreur serveur" });
 		}
 	},
 );
