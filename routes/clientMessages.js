@@ -124,13 +124,6 @@ router.post("/send", async (req, res) => {
 				timestamp: new Date().toISOString(),
 			};
 
-			console.log(`🔍 [DEBUG] Émission vers room "${roomName}"`);
-			console.log(`🔍 [DEBUG] Payload:`, JSON.stringify(payload, null, 2));
-			console.log(
-				`🔍 [DEBUG] Sockets dans la room:`,
-				io.sockets.adapter.rooms.get(roomName)?.size || 0,
-			);
-
 			io.to(roomName).emit("client-message", payload);
 
 			console.log(

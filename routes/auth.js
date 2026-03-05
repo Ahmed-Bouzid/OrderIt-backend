@@ -18,24 +18,19 @@ router.post("/login", loginLimiter, async (req, res) => {
 	try {
 		const { email, password } = req.body;
 
-
 		let user = await Admin.findOne({ email });
 		let userType = "admin";
-
 
 		if (!user) {
 			user = await Server.findOne({ email });
 			userType = "server";
-
 		}
 
 		if (!user) {
 			return res.status(401).json({ message: "Identifiants invalides." });
 		}
 
-
 		const validPassword = await bcrypt.compare(password, user.passwordHash);
-
 
 		if (!validPassword) {
 			return res.status(401).json({ message: "Identifiants invalides." });
@@ -151,7 +146,6 @@ router.post("/login", loginLimiter, async (req, res) => {
 			response.restaurants = restaurants;
 			response.isDeveloper = true;
 		}
-
 
 		return res.json(response);
 	} catch (err) {
@@ -326,7 +320,6 @@ router.post(
 			user.passwordHash = newPasswordHash;
 			await user.save();
 
-			console.log(`✅ Mot de passe modifié pour ${user.email}`);
 			res.status(200).json({ message: "Mot de passe modifié avec succès." });
 		} catch (err) {
 			console.error("Erreur change-password:", err);
@@ -371,8 +364,6 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 			return res.status(400).json({ message: "Email Google manquant" });
 		}
 
-		console.log(`🔐 [GOOGLE AUTH] Tentative connexion: ${email}`);
-
 		// Chercher user existant (Admin ou Server) par googleId ou email
 		let user = await Admin.findOne({ $or: [{ googleId }, { email }] });
 		let userType = "admin";
@@ -387,7 +378,6 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 			user.googleId = googleId;
 			user.authProvider = "google";
 			await user.save();
-			console.log(`🔗 [GOOGLE AUTH] Compte lié: ${email}`);
 		}
 
 		// Si user n'existe pas, créer un nouveau compte Admin
@@ -412,7 +402,6 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 			});
 
 			userType = "admin";
-			console.log(`✅ [GOOGLE AUTH] Nouveau compte créé: ${email}`);
 		}
 
 		// Récupérer catégorie restaurant si applicable
@@ -423,13 +412,9 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 			const restaurant = await Restaurant.findById(user.restaurantId);
 
 			if (restaurant && !restaurant.active) {
-				console.log(
-					`🚫 Connexion refusée - Restaurant désactivé: ${restaurant.name}`,
-				);
 				return res.status(403).json({
 					message: "Restaurant désactivé",
 					code: "RESTAURANT_DISABLED",
-					restaurantName: restaurant.name,
 				});
 			}
 
@@ -470,8 +455,6 @@ router.post("/google-login", loginLimiter, async (req, res) => {
 
 		await RefreshTokenStore.add(refreshToken);
 
-		console.log(`✅ [GOOGLE AUTH] Connexion réussie: ${email}`);
-
 		res.status(200).json({
 			message: "Connexion Google réussie",
 			accessToken,
@@ -502,7 +485,6 @@ router.post("/forgot-password", strictLimiter, async (req, res) => {
 		}
 
 		const normalizedEmail = email.toLowerCase().trim();
-		console.log(`🔐 [FORGOT-PASSWORD] Demande pour: ${normalizedEmail}`);
 
 		// Chercher l'utilisateur (Admin ou Server)
 		let user = await Admin.findOne({ email: normalizedEmail });
@@ -515,7 +497,6 @@ router.post("/forgot-password", strictLimiter, async (req, res) => {
 
 		// SÉCURITÉ: Toujours répondre succès même si email non trouvé (anti-énumération)
 		if (!user) {
-			console.log(`⚠️ [FORGOT-PASSWORD] Email non trouvé: ${normalizedEmail}`);
 			return res.status(200).json({
 				message:
 					"Si cet email existe, un code de réinitialisation a été envoyé.",
@@ -524,7 +505,6 @@ router.post("/forgot-password", strictLimiter, async (req, res) => {
 
 		// Vérifier si l'utilisateur utilise OAuth (pas de mot de passe)
 		if (user.authProvider === "google" && !user.passwordHash) {
-			console.log(`⚠️ [FORGOT-PASSWORD] Compte OAuth: ${normalizedEmail}`);
 			return res.status(200).json({
 				message:
 					"Si cet email existe, un code de réinitialisation a été envoyé.",
@@ -537,8 +517,6 @@ router.post("/forgot-password", strictLimiter, async (req, res) => {
 			user._id,
 			userType,
 		);
-
-		console.log(`✅ [FORGOT-PASSWORD] Token généré pour: ${normalizedEmail}`);
 
 		// Envoyer l'email
 		const emailResult = await sendPasswordResetEmail(
@@ -578,7 +556,6 @@ router.post(
 			}
 
 			const normalizedEmail = email.toLowerCase().trim();
-			console.log(`🔐 [RESET-PASSWORD] Tentative pour: ${normalizedEmail}`);
 
 			// Vérifier le token
 			const verification = await PasswordReset.verifyToken(
@@ -589,9 +566,6 @@ router.post(
 			if (!verification.valid) {
 				// Incrémenter les tentatives échouées
 				await PasswordReset.incrementAttempts(normalizedEmail);
-				console.log(
-					`⚠️ [RESET-PASSWORD] Token invalide pour: ${normalizedEmail}`,
-				);
 				return res.status(400).json({ message: verification.error });
 			}
 
@@ -617,10 +591,6 @@ router.post(
 
 			// Supprimer tous les tokens de reset pour cet email
 			await PasswordReset.deleteMany({ email: normalizedEmail });
-
-			console.log(
-				`✅ [RESET-PASSWORD] Mot de passe réinitialisé pour: ${normalizedEmail}`,
-			);
 
 			res.status(200).json({
 				message:
@@ -665,8 +635,6 @@ router.post("/verify-reset-token", strictLimiter, async (req, res) => {
 // TEMPORAIRE - GET /auth/accounting-summary pour test
 router.get("/accounting-summary", auth, async (req, res) => {
 	try {
-		console.log("💰 [TEMP-ACCOUNTING] Test endpoint appelé");
-
 		// Données de test basiques pour valider que l'endpoint fonctionne
 		const testData = {
 			success: true,
@@ -681,7 +649,6 @@ router.get("/accounting-summary", auth, async (req, res) => {
 			},
 		};
 
-		console.log("✅ [TEMP-ACCOUNTING] Données test retournées");
 		res.json(testData);
 	} catch (error) {
 		console.error("❌ [TEMP-ACCOUNTING] Erreur:", error);

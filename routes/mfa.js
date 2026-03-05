@@ -117,8 +117,6 @@ router.post("/verify-setup", auth, strictLimiter, async (req, res) => {
 		user.mfaEnabled = true;
 		await user.save();
 
-		console.log(`✅ MFA activé pour ${user.email} (${user.role})`);
-
 		res.json({
 			message: "MFA activé avec succès !",
 			mfaEnabled: true,
@@ -172,15 +170,13 @@ router.post("/verify", auth, strictLimiter, async (req, res) => {
 
 		// Si code TOTP invalide, essayer avec les backup codes
 		const backupCodeMatch = user.mfaBackupCodes.find(
-			(bc) => bc.code === code.toUpperCase() && !bc.used
+			(bc) => bc.code === code.toUpperCase() && !bc.used,
 		);
 
 		if (backupCodeMatch) {
 			// Marquer le backup code comme utilisé
 			backupCodeMatch.used = true;
 			await user.save();
-
-			console.log(`✅ Backup code utilisé pour ${user.email}`);
 
 			return res.json({
 				message: "Backup code valide (usage unique)",
@@ -260,8 +256,6 @@ router.post("/disable", auth, strictLimiter, async (req, res) => {
 		user.mfaSecret = null;
 		user.mfaBackupCodes = [];
 		await user.save();
-
-		console.log(`⚠️ MFA désactivé pour ${user.email}`);
 
 		res.json({
 			message: "MFA désactivé avec succès",
