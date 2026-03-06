@@ -107,6 +107,7 @@ app.use("/messages", auth, require("./routes/messages")); // 📨 Route messager
 app.use("/servers", require("./routes/servers"));
 app.use("/reservations", require("./routes/reservations"));
 app.use("/assistant", require("./routes/assistant")); // ⭐ Assistant intelligent réservations
+app.use("/ai", require("./routes/ai")); // 🤖 Fonctions IA — créneaux, heatmap, prédiction, liste attente
 app.use("/developer", require("./routes/developer")); // 🔧 Routes développeur
 app.use("/api/developer", require("./routes/api/developerFeatures")); // 🛠️ Routes gestion fonctionnalités payantes
 app.use("/crm", auth, require("./routes/crm")); // 📊 Routes CRM - Performance des équipes

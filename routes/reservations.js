@@ -960,7 +960,7 @@ router.get(
 	async (req, res) => {
 		try {
 			const { restaurantId } = req.params;
-			const { date, step, includeZero } = req.query;
+			const { date, step, includeZero, guests } = req.query;
 
 			if (!date) {
 				return res
@@ -973,6 +973,7 @@ router.get(
 				date: new Date(date),
 				stepMinutes: step ? parseInt(step) : 15,
 				includeZero: includeZero === "true",
+				guests: guests ? parseInt(guests) : 0,
 			});
 
 			res.json(slots);

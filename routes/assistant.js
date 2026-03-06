@@ -12,6 +12,7 @@ const {
 	checkTableAvailability,
 } = require("../services/tableAvailabilityService"); // Nouveau (table par table)
 const Restaurant = require("../models/Restaurant");
+const { getAvailableSlotsForDay } = require("../utils/slotGenerator");
 
 /**
  * POST /assistant/check-availability
@@ -298,6 +299,145 @@ router.post(
 				message: "Erreur lors de la suppression des attributions",
 				error: error.message,
 			});
+		}
+	},
+);
+
+/**
+ * Raisonne sur les créneaux disponibles et retourne les meilleures suggestions.
+ * Catégorise par service (déjeuner 11-15h / dîner 18-23h), choisit le créneau
+ * le plus disponible par service + un 3e créneau s'il n'est pas déjà proposé.
+ *
+ * @param {Array} slots - résultat de getAvailableSlotsForDay
+ * @returns {{ summary: string, suggestions: Array }}
+ */
+function reasonAboutSlots(slots) {
+	if (slots.length === 0) {
+		return {
+			summary: "Aucun créneau disponible pour ce jour.",
+			suggestions: [],
+		};
+	}
+
+	const getHour = (time) => parseInt(time.split(":")[0]);
+
+	const lunchSlots = slots.filter((s) => {
+		const h = getHour(s.time);
+		return h >= 11 && h < 15;
+	});
+	const dinnerSlots = slots.filter((s) => {
+		const h = getHour(s.time);
+		return h >= 18 && h < 23;
+	});
+
+	const makeSuggestion = (slot, label) => {
+		const fillRate = 1 - slot.availableTables / slot.totalTables;
+		let reason;
+		if (fillRate === 0) reason = "Service vide, toutes les tables libres";
+		else if (fillRate < 0.3) reason = "Service calme, large choix de tables";
+		else if (fillRate < 0.6)
+			reason = "Service à moitié rempli, bonne disponibilité";
+		else reason = "Service chargé, quelques tables restantes";
+		return { ...slot, label, reason };
+	};
+
+	const suggestions = [];
+
+	if (lunchSlots.length > 0) {
+		const best = lunchSlots.reduce((a, b) =>
+			a.availableTables >= b.availableTables ? a : b,
+		);
+		suggestions.push(makeSuggestion(best, "Déjeuner"));
+	}
+
+	if (dinnerSlots.length > 0) {
+		const best = dinnerSlots.reduce((a, b) =>
+			a.availableTables >= b.availableTables ? a : b,
+		);
+		suggestions.push(makeSuggestion(best, "Dîner"));
+	}
+
+	// Aucun service standard détecté (horaires atypiques) → top 3 par disponibilité
+	if (suggestions.length === 0) {
+		[...slots]
+			.sort((a, b) => b.availableTables - a.availableTables)
+			.slice(0, 3)
+			.forEach((s, i) =>
+				suggestions.push(
+					makeSuggestion(
+						s,
+						i === 0 ? "Meilleur créneau" : `Option ${i + 1}`,
+					),
+				),
+			);
+	}
+
+	// Si déjeuner + dîner uniquement, ajouter le créneau le plus disponible hors ces deux
+	if (suggestions.length === 2) {
+		const already = new Set(suggestions.map((s) => s.time));
+		const extra = [...slots]
+			.sort((a, b) => b.availableTables - a.availableTables)
+			.find((s) => !already.has(s.time));
+		if (extra) suggestions.push(makeSuggestion(extra, "Plus de disponibilité"));
+	}
+
+	const summary =
+		slots.length === 1
+			? "Un seul créneau disponible ce jour."
+			: `${slots.length} créneaux disponibles. Voici mes recommandations pour votre groupe.`;
+
+	return { summary, suggestions };
+}
+
+/**
+ * POST /assistant/suggest
+ * Analyse le planning d'un jour et retourne les meilleures suggestions de créneaux
+ * Body: { restaurantId, date, people }
+ * Retourne: { summary, suggestions: [{ time, availableTables, totalTables, label, reason }] }
+ */
+router.post(
+	"/suggest",
+	auth,
+	checkRoles(["admin", "server"]),
+	[
+		body("restaurantId")
+			.notEmpty()
+			.withMessage("Restaurant ID requis")
+			.isMongoId()
+			.withMessage("Restaurant ID invalide"),
+		body("date")
+			.notEmpty()
+			.withMessage("Date requise")
+			.isISO8601()
+			.withMessage("Format de date invalide (YYYY-MM-DD attendu)"),
+		body("people").optional().isInt({ min: 1, max: 300 }),
+	],
+	async (req, res) => {
+		const errors = validationResult(req);
+		if (!errors.isEmpty()) {
+			return res.status(400).json({ errors: errors.array() });
+		}
+		try {
+			const { restaurantId, date, people } = req.body;
+
+			const slots = await getAvailableSlotsForDay({
+				restaurantId,
+				date: new Date(date),
+				stepMinutes: 15,
+				includeZero: false,
+				guests: people ? parseInt(people) : 0,
+			});
+
+			const result = reasonAboutSlots(slots);
+
+			console.log(
+				`✨ [SUGGEST] ${result.suggestions.length} suggestions — ${date}, ${people || "?"} pers.`,
+			);
+
+			res.json(result);
+		} catch (err) {
+			console.error("❌ [SUGGEST]", err);
+			res.status(500).json({ message: "Erreur serveur" });
 		}
 	},
 );
