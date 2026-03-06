@@ -170,7 +170,7 @@ async function getAvailableTableIds({
 		// Si pas de date/heure, on ne peut pas déterminer la disponibilité
 		if (!reservationDate || !reservationTime) {
 			console.log(
-				"⚠️ [AVAILABILITY] Date ou heure manquante - retour tableau vide"
+				"⚠️ [AVAILABILITY] Date ou heure manquante - retour tableau vide",
 			);
 			return [];
 		}
@@ -178,10 +178,10 @@ async function getAvailableTableIds({
 		// Parser la date et l'heure de début
 		const requestedStart = parseTimeToDate(
 			new Date(reservationDate),
-			reservationTime
+			reservationTime,
 		);
 		const requestedEnd = new Date(
-			requestedStart.getTime() + duration * 60 * 1000
+			requestedStart.getTime() + duration * 60 * 1000,
 		);
 
 		console.log("📅 [AVAILABILITY] Créneau demandé:", {
@@ -207,7 +207,7 @@ async function getAvailableTableIds({
 		}).select("tableId reservationDate reservationTime");
 
 		console.log(
-			`📊 [AVAILABILITY] ${activeReservations.length} réservations actives trouvées`
+			`📊 [AVAILABILITY] ${activeReservations.length} réservations actives trouvées`,
 		);
 
 		// Construire la liste des tables occupées pour ce créneau
@@ -219,7 +219,7 @@ async function getAvailableTableIds({
 			// Calculer le créneau de la réservation existante
 			const resaStart = parseTimeToDate(
 				new Date(resa.reservationDate),
-				resa.reservationTime
+				resa.reservationTime,
 			);
 			const resaEnd = new Date(resaStart.getTime() + duration * 60 * 1000);
 
@@ -236,7 +236,7 @@ async function getAvailableTableIds({
 		// Retourner le Set converti en Array pour faciliter l'usage
 		const occupiedIds = Array.from(occupiedTableIds);
 		console.log(
-			`✅ [AVAILABILITY] ${occupiedIds.length} tables occupées pour ce créneau`
+			`✅ [AVAILABILITY] ${occupiedIds.length} tables occupées pour ce créneau`,
 		);
 
 		return occupiedIds;

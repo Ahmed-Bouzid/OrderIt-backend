@@ -898,7 +898,9 @@ router.get(
 
 			// Bornes en UTC tenant compte d'Europe/Paris (max offset = +2h été)
 			// On élargit d'1 jour de chaque côté pour couvrir tous les cas DST
-			const startDate = new Date(Date.UTC(year, month - 1, 1) - 2 * 60 * 60 * 1000);
+			const startDate = new Date(
+				Date.UTC(year, month - 1, 1) - 2 * 60 * 60 * 1000,
+			);
 			const endDate = new Date(Date.UTC(year, month, 1) + 2 * 60 * 60 * 1000);
 
 			const tables = await Table.find({ restaurantId }).select("_id");
@@ -961,7 +963,9 @@ router.get(
 			const { date, step, includeZero } = req.query;
 
 			if (!date) {
-				return res.status(400).json({ message: "Paramètre date requis (YYYY-MM-DD)" });
+				return res
+					.status(400)
+					.json({ message: "Paramètre date requis (YYYY-MM-DD)" });
 			}
 
 			const slots = await getAvailableSlotsForDay({

@@ -47,9 +47,7 @@ function generateRawSlots(openTime, closeTime, duration, step = 15) {
 	for (let m = openMinutes; m <= lastStart; m += step) {
 		const h = Math.floor(m / 60);
 		const min = m % 60;
-		slots.push(
-			`${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`,
-		);
+		slots.push(`${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`);
 	}
 	return slots;
 }
@@ -115,7 +113,10 @@ async function getAvailableSlotsForDay({
 
 	// Pré-calculer les plages de chaque réservation existante (une seule fois)
 	const reservationRanges = activeReservations.map((r) => {
-		const start = parseTimeToDate(new Date(r.reservationDate), r.reservationTime);
+		const start = parseTimeToDate(
+			new Date(r.reservationDate),
+			r.reservationTime,
+		);
 		const end = new Date(start.getTime() + duration * 60 * 1000);
 		return { start, end };
 	});
