@@ -22,11 +22,11 @@ const Table = require("../models/Table");
 const {
 	getAvailableSlotsForDay,
 	generateRawSlots,
-} = require("./slotGenerator");
+} = require("../utils/slotGenerator");
 const {
 	parseTimeToDate,
 	timeSlotsOverlap,
-} = require("./tableAvailabilityChecker");
+} = require("../utils/tableAvailabilityChecker");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS INTERNES
