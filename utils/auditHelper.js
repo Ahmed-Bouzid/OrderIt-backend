@@ -179,7 +179,6 @@ async function addAudit(reservation, action, user, data = {}) {
 		message,
 		metadata: data,
 	});
-
 }
 
 module.exports = {

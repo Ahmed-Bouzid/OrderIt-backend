@@ -66,7 +66,9 @@ router.post(
 
 			// ⭐ Audit : création
 			const user = await getAuditUser(req);
-			await addAudit(reservation, "created", user, { clientName: req.body.clientName });
+			await addAudit(reservation, "created", user, {
+				clientName: req.body.clientName,
+			});
 			await reservation.save();
 
 			// ⭐ Émettre l'événement WebSocket
@@ -231,7 +233,12 @@ router.post(
 			});
 
 			// ⭐ Audit : création client
-			await addAudit(reservation, "created_client", { id: null, type: "system", name: clientName || "Client" }, { clientName });
+			await addAudit(
+				reservation,
+				"created_client",
+				{ id: null, type: "system", name: clientName || "Client" },
+				{ clientName },
+			);
 			await reservation.save();
 			await reservation.populate("tableId");
 
@@ -276,7 +283,12 @@ router.post("/client/reservations/join/:id", async (req, res) => {
 
 	// ⭐ Audit : client rejoint
 	const { clientName } = req.body;
-	await addAudit(reservation, "joined", { id: null, type: "system", name: clientName || "Client" }, { clientName: clientName || "Client" });
+	await addAudit(
+		reservation,
+		"joined",
+		{ id: null, type: "system", name: clientName || "Client" },
+		{ clientName: clientName || "Client" },
+	);
 	await reservation.save();
 
 	// Ajout du client dans guests de la table (si non déjà présent)
@@ -656,7 +668,10 @@ router.put(
 
 			// ⭐ Audit : changement de statut
 			const user = await getAuditUser(req);
-			await addAudit(reservation, "status_changed", user, { oldValue: oldStatus, newValue: status });
+			await addAudit(reservation, "status_changed", user, {
+				oldValue: oldStatus,
+				newValue: status,
+			});
 			await reservation.save();
 
 			// ⭐ Émettre l'événement WebSocket
@@ -714,9 +729,15 @@ router.put(
 
 			// ⭐ Audit : paiement
 			const user = await getAuditUser(req);
-			await addAudit(reservation, "payment", user, { amount: reservation.totalAmount, paymentMethod: paymentMethod || reservation.paymentMethod });
+			await addAudit(reservation, "payment", user, {
+				amount: reservation.totalAmount,
+				paymentMethod: paymentMethod || reservation.paymentMethod,
+			});
 			if (oldPayStatus !== "terminée") {
-				await addAudit(reservation, "status_changed", user, { oldValue: oldPayStatus, newValue: "terminée" });
+				await addAudit(reservation, "status_changed", user, {
+					oldValue: oldPayStatus,
+					newValue: "terminée",
+				});
 			}
 			await reservation.save();
 
@@ -808,7 +829,11 @@ router.patch(
 
 			// ⭐ Audit : changement statut cuisine
 			const user = await getAuditUser(req);
-			await addAudit(reservation, "dish_status_changed", user, { oldValue: oldDish, newValue: dishStatus, dishStatus });
+			await addAudit(reservation, "dish_status_changed", user, {
+				oldValue: oldDish,
+				newValue: dishStatus,
+				dishStatus,
+			});
 			await reservation.save();
 
 			// Émettre événement WebSocket
@@ -924,7 +949,9 @@ router.delete(
 
 			// ⭐ Audit : suppression (sauvegardé avant delete)
 			const user = await getAuditUser(req);
-			await addAudit(toDelete, "deleted", user, { clientName: toDelete.clientName });
+			await addAudit(toDelete, "deleted", user, {
+				clientName: toDelete.clientName,
+			});
 			await toDelete.save();
 			await Reservation.findByIdAndDelete(req.params.id);
 			res.json({ message: "Réservation supprimée" });
@@ -1143,7 +1170,12 @@ router.put("/client/:id/close", async (req, res) => {
 		reservation.isPresent = false;
 
 		// ⭐ Audit : fermeture client
-		await addAudit(reservation, "closed_client", { id: null, type: "system", name: "Client" }, { oldValue: oldClientStatus, newValue: "terminée" });
+		await addAudit(
+			reservation,
+			"closed_client",
+			{ id: null, type: "system", name: "Client" },
+			{ oldValue: oldClientStatus, newValue: "terminée" },
+		);
 
 		// Si la réservation a des orderIds, on force toutes les commandes à paid (tous champs cohérents)
 
