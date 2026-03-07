@@ -9,6 +9,8 @@ const orderValidationRules = require("../middlewares/orderValidationRules");
 const Table = require("../models/Table");
 const Product = require("../models/Product");
 const Order = require("../models/Order");
+const Reservation = require("../models/Reservation");
+const { addAudit, getAuditUser } = require("../utils/auditHelper");
 const { validationResult } = require("express-validator");
 
 router.post(
@@ -46,7 +48,6 @@ router.post(
 
 			// 🔍 Si reservationId fourni et pas de serverId, récupérer depuis la réservation
 			if (reservationId && !serverId) {
-				const Reservation = require("../models/Reservation");
 				const reservation =
 					await Reservation.findById(reservationId).select("serverId");
 				if (reservation && reservation.serverId) {
@@ -100,7 +101,6 @@ router.post(
 				}),
 			);
 
-
 			// Vérification du total
 			const calculatedTotal = enrichedItems.reduce(
 				(sum, i) => sum + i.price * i.quantity,
@@ -128,6 +128,24 @@ router.post(
 			});
 
 			await order.save();
+
+			// ⭐ Audit : commande envoyée (si liée à une réservation)
+			if (reservationId) {
+				try {
+					const reservation = await Reservation.findById(reservationId);
+					if (reservation) {
+						const user = await getAuditUser(req);
+						await addAudit(reservation, "order_sent", user, {
+							orderItems: enrichedItems,
+							total,
+							orderId: order._id,
+						});
+						await reservation.save();
+					}
+				} catch (auditErr) {
+					console.error("⚠️ Erreur audit order_sent:", auditErr.message);
+				}
+			}
 
 			// ⭐ Émettre événement WebSocket pour notifier le frontend
 			const io = req.app.locals.io;
@@ -182,14 +200,12 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			}
 		}
 
-
 		let orders = await Order.find(query)
 			.populate("tableId", "number")
 			.populate("serverId", "name serverId")
 			.populate("restaurantId", "name")
 			.populate("reservationId", "status") // ⭐ Populate pour info supplémentaire
 			.sort({ createdAt: -1 }); // Du plus récent au plus ancien (pour Express Orders)
-
 
 		// Log des détails de chaque commande
 		orders.forEach((order, index) => {
@@ -230,7 +246,6 @@ router.patch(
 
 			order.isMade = isMade;
 			await order.save();
-
 
 			// ⚡ Émettre l'événement WebSocket
 			const io = req.app.get("io");
@@ -292,7 +307,6 @@ router.patch(
 				{ _id: { $in: orderIds } },
 				{ $set: { isMade } },
 			);
-
 
 			// ⚡ Émettre l'événement WebSocket pour chaque commande
 			const orders = await Order.find({ _id: { $in: orderIds } }).select(
@@ -393,7 +407,6 @@ router.patch(
 			order.completedAt = new Date();
 			await order.save();
 
-
 			// ⚡ Émettre via WebSocket pour masquer côté frontend
 			const io = req.app.locals.io;
 			if (io && order.restaurantId) {
@@ -464,8 +477,7 @@ router.get(
 
 			if (orders.length === 0) {
 			} else {
-				orders.forEach((order, idx) => {
-				});
+				orders.forEach((order, idx) => {});
 			}
 			res.json(orders);
 		} catch (err) {
@@ -558,10 +570,8 @@ router.get("/active", auth, async (req, res) => {
 			.sort({ createdAt: -1 })
 			.limit(10);
 
-
 		// Log détaillé de chaque commande
-		activeOrders.forEach((order, i) => {
-		});
+		activeOrders.forEach((order, i) => {});
 
 		res.json(activeOrders);
 	} catch (error) {
@@ -682,7 +692,6 @@ router.put(
 			// Sauvegarder la commande
 			await order.save();
 
-
 			res.json({
 				success: true,
 				message: "Statut de l'item mis à jour.",
@@ -757,7 +766,6 @@ router.put(
 					await order.save();
 				}
 			}
-
 
 			res.json({
 				success: true,
