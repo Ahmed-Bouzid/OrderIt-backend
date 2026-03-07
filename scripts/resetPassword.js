@@ -49,10 +49,6 @@ function askPasswordHidden(prompt) {
 
 async function resetPassword() {
 	try {
-		console.log("🔧 SCRIPT DE RÉINITIALISATION DE MOTS DE PASSE");
-		console.log(
-			"⚠️  DÉVELOPPEMENT UNIQUEMENT - NE PAS UTILISER EN PRODUCTION\n",
-		);
 
 		// Récupérer les données de manière interactive
 		const restaurantId = await askQuestion("🏪 ID du restaurant: ");
@@ -64,12 +60,10 @@ async function resetPassword() {
 
 		// Validation basique
 		if (!restaurantId || !email || !newPassword) {
-			console.log("❌ Tous les champs sont requis");
 			process.exit(1);
 		}
 
 		if (newPassword.length < 8) {
-			console.log("❌ Le mot de passe doit faire au moins 8 caractères");
 			process.exit(1);
 		}
 
@@ -78,12 +72,10 @@ async function resetPassword() {
 			`\n⚠️  CONFIRMER: Réinitialiser le mot de passe pour ${email} ? (oui/non): `,
 		);
 		if (confirm.toLowerCase() !== "oui" && confirm.toLowerCase() !== "yes") {
-			console.log("❌ Opération annulée");
 			process.exit(0);
 		}
 
 		await mongoose.connect(process.env.MONGO_URI);
-		console.log("✅ Connecté à MongoDB");
 
 		const db = mongoose.connection.db;
 
@@ -100,7 +92,6 @@ async function resetPassword() {
 			await db
 				.collection("admins")
 				.updateOne({ email: email }, { $set: { passwordHash: hash } });
-			console.log("✅ Mot de passe admin mis à jour!");
 		} else {
 			// Créer un nouvel admin lié au restaurant
 			await db.collection("admins").insertOne({
@@ -112,15 +103,8 @@ async function resetPassword() {
 				restaurantId: new mongoose.Types.ObjectId(restaurantId),
 				createdAt: new Date(),
 			});
-			console.log("✅ Nouvel admin créé et lié au restaurant!");
 		}
 
-		console.log("\n🎉 SUCCÈS !");
-		console.log("📧 Email:", email);
-		console.log(
-			"🔑 Le mot de passe a été défini (mot de passe masqué pour sécurité)",
-		);
-		console.log("\n✅ Tu peux maintenant te connecter !");
 
 		await mongoose.disconnect();
 		rl.close();
@@ -134,7 +118,6 @@ async function resetPassword() {
 
 // Vérification de l'environnement
 if (process.env.NODE_ENV === "production") {
-	console.log("🚨 ERREUR: Ce script ne doit PAS être utilisé en production!");
 	process.exit(1);
 }
 

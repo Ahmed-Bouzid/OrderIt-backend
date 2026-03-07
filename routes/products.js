@@ -187,10 +187,6 @@ router.get(
 	checkUserRestaurant("restaurantId"),
 	async (req, res) => {
 		try {
-			console.log(
-				"📦 [BACKEND] Requête low-stock pour restaurantId:",
-				req.params.restaurantId
-			);
 
 			// Vérifier d'abord tous les produits quantifiables
 			const allQuantifiable = await Product.find({
@@ -200,15 +196,8 @@ router.get(
 				.select("name category quantity lowStockThreshold quantifiable")
 				.maxTimeMS(10000);
 
-			console.log(
-				"📦 [BACKEND] Tous produits quantifiables:",
-				allQuantifiable.length
-			);
 			allQuantifiable.forEach((p) => {
 				const isLow = p.quantity <= p.lowStockThreshold;
-				console.log(
-					`  - ${p.name}: qty=${p.quantity}, threshold=${p.lowStockThreshold}, isLow=${isLow} (${p.quantity} <= ${p.lowStockThreshold})`
-				);
 			});
 
 			// Utiliser $ifNull pour gérer le cas où lowStockThreshold n'existe pas (valeur par défaut: 5)
@@ -223,13 +212,7 @@ router.get(
 				.sort({ quantity: 1 })
 				.maxTimeMS(10000);
 
-			console.log("📦 [BACKEND] Produits trouvés:", products.length);
 			products.forEach((p, idx) => {
-				console.log(
-					`  ${idx + 1}. ${p.name} - catégorie: "${p.category}" - qty: ${
-						p.quantity
-					}/${p.lowStockThreshold}`
-				);
 			});
 
 			// Grouper par catégorie
@@ -243,7 +226,6 @@ router.get(
 
 			products.forEach((p) => {
 				const cat = p.category?.toLowerCase() || "autre";
-				console.log(`📦 [BACKEND] Groupement: "${p.category}" -> "${cat}"`);
 				if (grouped[cat]) {
 					grouped[cat].push(p);
 				} else {
@@ -251,13 +233,6 @@ router.get(
 				}
 			});
 
-			console.log("📦 [BACKEND] Résultat groupé:", {
-				boisson: grouped.boisson.length,
-				plat: grouped.plat.length,
-				dessert: grouped.dessert.length,
-				entree: grouped.entree.length,
-				autre: grouped.autre.length,
-			});
 
 			res.json({ lowStockProducts: grouped, total: products.length });
 		} catch (err) {

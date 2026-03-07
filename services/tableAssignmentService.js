@@ -16,7 +16,7 @@ async function isTableAvailable(
 	date,
 	startTime,
 	turnoverTime = 120,
-	excludeReservationId = null
+	excludeReservationId = null,
 ) {
 	// Construire les bornes du créneau
 	const startDate = new Date(date);
@@ -44,10 +44,6 @@ async function isTableAvailable(
 
 	const reservations = await Reservation.find(query);
 
-	console.log(
-		`🔍 [AVAILABLE] Table ${tableId} à ${startTime}: ${reservations.length} réservations existantes`
-	);
-
 	// Vérifier les chevauchements
 	for (const resa of reservations) {
 		const resaStart = new Date(resa.reservationDate);
@@ -59,9 +55,6 @@ async function isTableAvailable(
 
 		// Chevauchement si [start1, end1] ∩ [start2, end2] ≠ ∅
 		if (startDate < resaEnd && endDate > resaStart) {
-			console.log(
-				`⚠️ [AVAILABLE] Conflit détecté: ${resa.clientName} (${resa.reservationTime}) chevauche ${startTime}`
-			);
 			return false; // Chevauchement détecté
 		}
 	}
@@ -97,11 +90,6 @@ async function getTableUsageCount(tableId, date) {
  * @returns {Promise<Object>}
  */
 async function autoAssignTables(restaurantId, date) {
-	console.log(
-		"🤖 [AUTO-ASSIGN] Début attribution automatique OPTIMISÉE pour",
-		date
-	);
-
 	try {
 		// Récupérer le turnover time du restaurant (default: 120min)
 		const restaurant = await Restaurant.findById(restaurantId);
@@ -119,16 +107,7 @@ async function autoAssignTables(restaurantId, date) {
 			status: { $in: ["en attente", "ouverte"] },
 		});
 
-		console.log(
-			`📊 [AUTO-ASSIGN] ${allReservations.length} réservations totales du jour`
-		);
-
 		const unassignedCount = allReservations.filter((r) => !r.tableId).length;
-		console.log(
-			`📊 [AUTO-ASSIGN] ${unassignedCount} sans table, ${
-				allReservations.length - unassignedCount
-			} avec table`
-		);
 
 		if (allReservations.length === 0) {
 			return {
@@ -142,35 +121,12 @@ async function autoAssignTables(restaurantId, date) {
 		}
 
 		// 2️⃣ Récupérer toutes les tables actives du restaurant
-		console.log(
-			`🔍 [AUTO-ASSIGN] Recherche tables pour restaurantId: ${restaurantId}`
-		);
 
 		// Charger TOUTES les tables
 		const allTablesDirect = await Table.find({ restaurantId: restaurantId });
-		console.log(
-			`🔍 [AUTO-ASSIGN] TOUTES tables (sans filtre statut): ${allTablesDirect.length}`
-		);
-		allTablesDirect.forEach((t, i) =>
-			console.log(
-				`    [${i + 1}] ${t._id.toString().slice(-8)} | status: "${
-					t.status
-				}" | cap: ${t.capacity}`
-			)
-		);
 
 		// Filtrer en JavaScript pour exclure seulement "unavailable"
 		const tables = allTablesDirect.filter((t) => t.status !== "unavailable");
-		console.log(
-			`🪑 [AUTO-ASSIGN] Tables FILTRÉES (available/occupied): ${tables.length}`
-		);
-		tables.forEach((t, i) =>
-			console.log(
-				`  [${i + 1}] ${t._id.toString().slice(-8)} | status: "${
-					t.status
-				}" | cap: ${t.capacity}`
-			)
-		);
 
 		// 3️⃣ Sauvegarder les anciennes attributions pour traçabilité
 		const oldAssignments = new Map();
@@ -181,7 +137,6 @@ async function autoAssignTables(restaurantId, date) {
 		});
 
 		// 4️⃣ RÉINITIALISER toutes les tables (permettre réassignation)
-		console.log("🔄 [AUTO-ASSIGN] Réinitialisation des attributions...");
 		for (const reservation of allReservations) {
 			reservation.tableId = undefined;
 		}
@@ -197,11 +152,6 @@ async function autoAssignTables(restaurantId, date) {
 			const timeB = b.reservationTime || "00:00";
 			return timeA.localeCompare(timeB);
 		});
-		console.log(
-			`📋 [AUTO-ASSIGN] Ordre optimisé: ${allReservations
-				.map((r) => `${r.clientName}(${r.nbPersonnes}p-${r.reservationTime})`)
-				.join(", ")}`
-		);
 
 		const results = {
 			assigned: [],
@@ -217,23 +167,12 @@ async function autoAssignTables(restaurantId, date) {
 			const resaId = reservation._id.toString();
 			const hadTable = oldAssignments.has(resaId);
 
-			console.log(
-				`\n🎯 [AUTO-ASSIGN] Traitement: ${
-					reservation.clientName
-				} (${nbPersonnes}p à ${reservationTime})${
-					hadTable ? " [avait table]" : " [nouvelle]"
-				}`
-			);
-
 			// Filtrer les tables avec capacité suffisante
 			const suitableTables = tables.filter(
-				(table) => table.capacity >= nbPersonnes
+				(table) => table.capacity >= nbPersonnes,
 			);
 
 			if (suitableTables.length === 0) {
-				console.log(
-					`❌ [AUTO-ASSIGN] Aucune table assez grande pour ${nbPersonnes} personnes`
-				);
 				results.unassigned.push({
 					reservationId: reservation._id,
 					clientName: reservation.clientName,
@@ -256,8 +195,8 @@ async function autoAssignTables(restaurantId, date) {
 					reservationTime,
 					turnoverTime,
 					allReservations.filter(
-						(r) => r.tableId && r._id.toString() !== reservation._id.toString()
-					)
+						(r) => r.tableId && r._id.toString() !== reservation._id.toString(),
+					),
 				);
 
 				if (isAvailable) {
@@ -270,9 +209,6 @@ async function autoAssignTables(restaurantId, date) {
 			}
 
 			if (availableTables.length === 0) {
-				console.log(
-					`❌ [AUTO-ASSIGN] Aucune table disponible pour ${reservation.clientName} à ${reservationTime} (${suitableTables.length} tables de capacité suffisante vérifiées)`
-				);
 				results.unassigned.push({
 					reservationId: reservation._id,
 					clientName: reservation.clientName,
@@ -298,14 +234,6 @@ async function autoAssignTables(restaurantId, date) {
 			// Attribuer la table
 			reservation.tableId = bestTable._id;
 
-			console.log(
-				`✅ [AUTO-ASSIGN] ${reservation.clientName} → ${bestTable.number}${
-					hadTable && oldAssignments.get(resaId) !== bestTable._id.toString()
-						? " [RÉASSIGNÉ]"
-						: ""
-				}`
-			);
-
 			// Vérifier si c'est une réassignation
 			if (hadTable) {
 				if (oldAssignments.get(resaId) !== bestTable._id.toString()) {
@@ -328,15 +256,9 @@ async function autoAssignTables(restaurantId, date) {
 		}
 
 		// 7️⃣ Sauvegarder toutes les réservations (nouvelles attributions + réassignations)
-		console.log("\n💾 [AUTO-ASSIGN] Sauvegarde des attributions...");
 		for (const reservation of allReservations) {
 			await reservation.save();
 		}
-
-		console.log("\n📊 [AUTO-ASSIGN] RÉSULTATS FINAUX:");
-		console.log(`  ✅ Nouvelles attributions: ${results.assigned.length}`);
-		console.log(`  🔄 Réassignations: ${results.reassigned.length}`);
-		console.log(`  ❌ Sans table: ${results.unassigned.length}`);
 
 		const finalResult = {
 			status: "success",
@@ -349,11 +271,6 @@ async function autoAssignTables(restaurantId, date) {
 				unassigned: results.unassigned,
 			},
 		};
-
-		console.log(
-			"\n🎯 [AUTO-ASSIGN] Retour:",
-			JSON.stringify(finalResult, null, 2)
-		);
 
 		return finalResult;
 	} catch (error) {
@@ -371,12 +288,8 @@ async function isTableAvailableForReservations(
 	date,
 	startTime,
 	turnoverTime,
-	reservationsWithTables
+	reservationsWithTables,
 ) {
-	console.log(
-		`🔍 [AVAILABLE] Vérif table ${tableId} pour ${startTime} | Réservations déjà attribuées: ${reservationsWithTables.length}`
-	);
-
 	// Construire les bornes du créneau
 	const startDate = new Date(date);
 	const [hours, minutes] = startTime.split(":");
@@ -385,17 +298,9 @@ async function isTableAvailableForReservations(
 	const endDate = new Date(startDate);
 	endDate.setMinutes(endDate.getMinutes() + turnoverTime);
 
-	console.log(
-		`📅 [AVAILABLE] Créneau testé: ${startDate.toISOString()} → ${endDate.toISOString()}`
-	);
-
 	// Vérifier les chevauchements avec les réservations déjà attribuées
 	for (const resa of reservationsWithTables) {
 		if (resa.tableId?.toString() !== tableId.toString()) continue;
-
-		console.log(
-			`🔎 [AVAILABLE] Résa ${resa.clientName} sur cette table à ${resa.reservationTime}`
-		);
 
 		const resaStart = new Date(resa.reservationDate);
 		const [rHours, rMinutes] = (resa.reservationTime || "00:00").split(":");
@@ -404,18 +309,12 @@ async function isTableAvailableForReservations(
 		const resaEnd = new Date(resaStart);
 		resaEnd.setMinutes(resaEnd.getMinutes() + turnoverTime);
 
-		console.log(
-			`📅 [AVAILABLE] Créneau existant: ${resaStart.toISOString()} → ${resaEnd.toISOString()}`
-		);
-
 		// Chevauchement si [start1, end1] ∩ [start2, end2] ≠ ∅
 		if (startDate < resaEnd && endDate > resaStart) {
-			console.log(`❌ [AVAILABLE] CONFLIT DÉTECTÉ !`);
 			return false;
 		}
 	}
 
-	console.log(`✅ [AVAILABLE] Table disponible`);
 	return true;
 }
 

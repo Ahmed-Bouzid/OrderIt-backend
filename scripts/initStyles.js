@@ -230,11 +230,9 @@ async function initStyles() {
 		}
 
 		await mongoose.connect(mongoUri);
-		console.log("✅ Connecté à MongoDB");
 
 		// Vérifier si des styles existent déjà
 		const existingCount = await Style.countDocuments();
-		console.log(`📊 Styles existants: ${existingCount}`);
 
 		// Insérer ou mettre à jour les styles système
 		let created = 0;
@@ -250,29 +248,19 @@ async function initStyles() {
 						...styleData,
 						updatedAt: Date.now(),
 					});
-					console.log(`🔄 Style mis à jour: ${styleData.name}`);
 					updated++;
 				} else {
-					console.log(
-						`⏭️  Style personnalisé existant, non modifié: ${styleData.name}`,
-					);
 				}
 			} else {
 				// Créer nouveau style
 				const style = new Style(styleData);
 				await style.save();
-				console.log(`✨ Style créé: ${styleData.name}`);
 				created++;
 			}
 		}
 
-		console.log("\n📈 Résumé:");
-		console.log(`   ✅ Créés: ${created}`);
-		console.log(`   🔄 Mis à jour: ${updated}`);
-		console.log(`   📦 Total: ${await Style.countDocuments()}`);
 
 		await mongoose.connection.close();
-		console.log("\n✅ Déconnexion MongoDB");
 		process.exit(0);
 	} catch (error) {
 		console.error("❌ Erreur:", error.message);

@@ -85,16 +85,11 @@ async function initResponses() {
 	try {
 		// Connexion MongoDB
 		await mongoose.connect(process.env.MONGO_URI);
-		console.log("✅ Connecté à MongoDB");
 
 		const restaurantId = process.argv[2] || null;
 
 		if (restaurantId) {
-			console.log(
-				`📝 Création des réponses pour le restaurant: ${restaurantId}`,
-			);
 		} else {
-			console.log("📝 Création des réponses globales (restaurantId: null)");
 		}
 
 		// Supprimer les anciennes réponses du restaurant (ou globales)
@@ -110,7 +105,6 @@ async function initResponses() {
 
 		await PredefinedServerResponse.insertMany(responses);
 
-		console.log(`✅ ${responses.length} réponses prédéfinies créées`);
 
 		// Stats par catégorie
 		const stats = {};
@@ -118,9 +112,7 @@ async function initResponses() {
 			stats[r.category] = (stats[r.category] || 0) + 1;
 		});
 
-		console.log("\n📊 Résumé par catégorie:");
 		Object.entries(stats).forEach(([cat, count]) => {
-			console.log(`   ${cat}: ${count} réponses`);
 		});
 
 		process.exit(0);

@@ -128,17 +128,11 @@ async function checkOverbooking({
 
 		if (timeSlotsOverlap(requestedStart, requestedEnd, resaStart, resaEnd)) {
 			overlappingCount++;
-			console.log(
-				`⚠️ [OVERBOOKING] Conflits: resa ${resa._id} (${resa.reservationTime}, durée ${duration}min)`,
-			);
 		}
 	}
 
 	const allowed = overlappingCount < totalTables;
 
-	console.log(
-		`${allowed ? "✅" : "❌"} [OVERBOOKING] ${overlappingCount}/${totalTables} tables occupées pour ${reservationTime} le ${new Date(reservationDate).toLocaleDateString("fr-FR")}`,
-	);
 
 	return { allowed, occupiedCount: overlappingCount, totalTables, duration };
 }
@@ -160,18 +154,9 @@ async function getAvailableTableIds({
 	excludeReservationId = null,
 }) {
 	try {
-		console.log("🔍 [AVAILABILITY] Vérification disponibilité tables:", {
-			restaurantId,
-			date: reservationDate,
-			time: reservationTime,
-			duration,
-		});
 
 		// Si pas de date/heure, on ne peut pas déterminer la disponibilité
 		if (!reservationDate || !reservationTime) {
-			console.log(
-				"⚠️ [AVAILABILITY] Date ou heure manquante - retour tableau vide",
-			);
 			return [];
 		}
 
@@ -184,10 +169,6 @@ async function getAvailableTableIds({
 			requestedStart.getTime() + duration * 60 * 1000,
 		);
 
-		console.log("📅 [AVAILABILITY] Créneau demandé:", {
-			start: requestedStart.toISOString(),
-			end: requestedEnd.toISOString(),
-		});
 
 		// Récupérer toutes les réservations actives du restaurant pour ce jour
 		const startOfDay = new Date(reservationDate);
@@ -206,9 +187,6 @@ async function getAvailableTableIds({
 			...(excludeReservationId && { _id: { $ne: excludeReservationId } }),
 		}).select("tableId reservationDate reservationTime");
 
-		console.log(
-			`📊 [AVAILABILITY] ${activeReservations.length} réservations actives trouvées`,
-		);
 
 		// Construire la liste des tables occupées pour ce créneau
 		const occupiedTableIds = new Set();
@@ -226,18 +204,11 @@ async function getAvailableTableIds({
 			// Vérifier si les créneaux se chevauchent
 			if (timeSlotsOverlap(requestedStart, requestedEnd, resaStart, resaEnd)) {
 				occupiedTableIds.add(resa.tableId.toString());
-				console.log(`❌ [AVAILABILITY] Table ${resa.tableId} occupée:`, {
-					resaStart: resaStart.toISOString(),
-					resaEnd: resaEnd.toISOString(),
-				});
 			}
 		}
 
 		// Retourner le Set converti en Array pour faciliter l'usage
 		const occupiedIds = Array.from(occupiedTableIds);
-		console.log(
-			`✅ [AVAILABILITY] ${occupiedIds.length} tables occupées pour ce créneau`,
-		);
 
 		return occupiedIds;
 	} catch (error) {

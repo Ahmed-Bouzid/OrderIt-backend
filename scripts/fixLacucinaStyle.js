@@ -12,11 +12,6 @@ async function fixLacucina() {
 			{ new: true },
 		).select("name category styleKey");
 
-		console.log("\n✅ Lacucinadinini mis à jour:");
-		console.log("   Nom:", result.name);
-		console.log("   Catégorie:", result.category);
-		console.log("   Style:", result.styleKey);
-		console.log("   ID:", result._id);
 
 		await mongoose.disconnect();
 		process.exit(0);

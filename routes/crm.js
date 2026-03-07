@@ -43,9 +43,6 @@ router.get(
 			// Calculer les dates selon la période
 			const { start, end } = getPeriodDates(period, startDate, endDate);
 
-			console.log(
-				`📊 [CRM] Dashboard ${period} pour restaurant ${targetRestaurantId} du ${start} au ${end}`,
-			);
 
 			// Récupérer toutes les données en parallèle
 			const [
@@ -168,9 +165,6 @@ router.get(
 			const restaurantId = req.user.restaurantId;
 			const { start, end } = getPeriodDates(period);
 
-			console.log(
-				`👥 [CRM] Analyse serveurs restaurant ${restaurantId} du ${start} au ${end}`,
-			);
 
 			// Récupérer tous les serveurs du restaurant
 			const servers = await Server.find({ restaurantId }).select(
@@ -1029,9 +1023,6 @@ router.get(
 						(1000 * 60)
 					: 0;
 
-			console.log(
-				`🧑‍💼 [CRM] Détail serveur ${server.name}: ${totalOrders} commandes, ${totalRevenue.toFixed(2)}€`,
-			);
 
 			res.json({
 				success: true,
@@ -1161,7 +1152,6 @@ router.put(
 			// Stocker directement dans le document Server (champ dynamique MongoDB)
 			await Server.findByIdAndUpdate(serverId, { $set: { objectives } });
 
-			console.log(`🎯 [CRM] Objectifs mis à jour pour serveur ${server.name}`);
 			res.json({ success: true, data: objectives });
 		} catch (error) {
 			console.error("❌ [CRM] Erreur mise à jour objectifs:", error);

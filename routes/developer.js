@@ -165,9 +165,6 @@ router.post("/import-menu", auth, checkDeveloper, async (req, res) => {
 			});
 		}
 
-		console.log(
-			`📸 Import menu pour ${restaurant.name} (${restaurant_id}) - ${menu.length} catégories`,
-		);
 
 		// Fonction pour normaliser les catégories (éviter les doublons)
 		const normalizeCategory = (categoryName) => {
@@ -205,11 +202,7 @@ router.post("/import-menu", auth, checkDeveloper, async (req, res) => {
 			}
 		});
 
-		console.log(
-			`📂 ${existingCategories.length} catégories existantes, ${newCategories.size} nouvelles`,
-		);
 		if (newCategories.size > 0) {
-			console.log("🆕 Nouvelles catégories:", [...newCategories].join(", "));
 		}
 
 		// Archiver l'ancien menu (soft delete)
@@ -218,7 +211,6 @@ router.post("/import-menu", auth, checkDeveloper, async (req, res) => {
 			{ $set: { archived: true, available: false } },
 		);
 
-		console.log(`🗄️ ${archivedCount.modifiedCount} produits archivés`);
 
 		// Importer le nouveau menu
 		let totalImported = 0;
@@ -296,7 +288,6 @@ router.post("/import-menu", auth, checkDeveloper, async (req, res) => {
 			}
 		}
 
-		console.log(`✅ ${totalImported} produits importés avec succès`);
 
 		res.json({
 			status: "success",
@@ -360,7 +351,6 @@ router.post("/create-restaurant", auth, checkDeveloper, async (req, res) => {
 			active: true,
 		});
 
-		console.log(`✅ Restaurant créé: ${restaurant.name} (${restaurant._id})`);
 
 		// Créer un admin pour ce restaurant
 		const Admin = require("../models/Admin");
@@ -374,7 +364,6 @@ router.post("/create-restaurant", auth, checkDeveloper, async (req, res) => {
 			restaurantId: restaurant._id,
 		});
 
-		console.log(`✅ Admin créé: ${admin.name} (${admin._id})`);
 
 		res.status(201).json({
 			status: "success",
@@ -449,11 +438,6 @@ router.patch(
 			restaurant.active = !restaurant.active;
 			await restaurant.save();
 
-			console.log(
-				`🔄 Restaurant ${restaurant.name} ${
-					restaurant.active ? "activé" : "désactivé"
-				}`,
-			);
 
 			res.json({
 				status: "success",
@@ -499,9 +483,6 @@ router.delete(
 
 			const result = await Table.deleteMany({ restaurantId: id });
 
-			console.log(
-				`🗑️ Developer: Suppression de ${result.deletedCount} tables du restaurant ${restaurant.name}`,
-			);
 
 			res.json({
 				status: "success",
@@ -542,9 +523,6 @@ router.delete(
 
 			const result = await Server.deleteMany({ restaurantId: id });
 
-			console.log(
-				`🗑️ Developer: Suppression de ${result.deletedCount} employés du restaurant ${restaurant.name}`,
-			);
 
 			res.json({
 				status: "success",
@@ -585,9 +563,6 @@ router.delete(
 
 			const result = await Product.deleteMany({ restaurantId: id });
 
-			console.log(
-				`🗑️ Developer: Suppression de ${result.deletedCount} produits du restaurant ${restaurant.name}`,
-			);
 
 			res.json({
 				status: "success",
@@ -635,11 +610,6 @@ router.delete("/restaurants/:id", auth, checkDeveloper, async (req, res) => {
 		// Supprimer le restaurant lui-même
 		await Restaurant.findByIdAndDelete(id);
 
-		console.log(`🗑️ Developer: Restaurant ${restaurantName} complètement supprimé
-  - ${tables.deletedCount} tables
-  - ${servers.deletedCount} employés
-  - ${products.deletedCount} produits
-  - ${reservations.deletedCount} réservations`);
 
 		res.json({
 			status: "success",
@@ -780,7 +750,6 @@ router.post("/styles", auth, checkDeveloper, async (req, res) => {
 			active: true,
 		});
 
-		console.log(`✨ Style créé: ${style.name} (${style.key})`);
 
 		res.status(201).json({
 			status: "success",
@@ -851,7 +820,6 @@ router.put("/styles/:key", auth, checkDeveloper, async (req, res) => {
 
 		await style.save();
 
-		console.log(`🔄 Style mis à jour: ${style.name} (${style.key})`);
 
 		res.json({
 			status: "success",
@@ -918,7 +886,6 @@ router.delete("/styles/:key", auth, checkDeveloper, async (req, res) => {
 
 		await Style.findByIdAndDelete(style._id);
 
-		console.log(`🗑️ Style supprimé: ${style.name} (${style.key})`);
 
 		res.json({
 			status: "success",
@@ -973,9 +940,6 @@ router.post("/apply-style", auth, checkDeveloper, async (req, res) => {
 		restaurant.styleKey = style.key;
 		await restaurant.save();
 
-		console.log(
-			`🎨 Style '${style.name}' appliqué au restaurant ${restaurant.name}`,
-		);
 
 		// ⭐ NOUVEAU : Émettre un événement WebSocket pour notifier tous les clients connectés
 		const { emitStyleAppliedEvent } = require("../utils/socketEmitter");
@@ -1086,9 +1050,6 @@ router.put(
 				return res.status(404).json({ message: "Restaurant non trouvé" });
 			}
 
-			console.log(
-				`✅ [DEVELOPER] Catégorie mise à jour pour ${restaurant.name}: ${category}`,
-			);
 
 			res.json({
 				status: "success",
@@ -1131,10 +1092,6 @@ router.put(
 			restaurant.featureOverrides = new Map(Object.entries(overrides));
 			await restaurant.save();
 
-			console.log(
-				`✅ [DEVELOPER] featureOverrides mis à jour pour ${restaurant.name}:`,
-				overrides,
-			);
 
 			res.json({
 				status: "success",

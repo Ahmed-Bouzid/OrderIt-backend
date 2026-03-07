@@ -176,7 +176,4 @@ function injectMiddlewareInFile(filePath, method, route, roles) {
 for (const rule of rules) {
 	const filePath = path.join(__dirname, "routes", rule.file);
 	injectMiddlewareInFile(filePath, rule.method, rule.route, rule.roles);
-	console.log(
-		`Modifié ${rule.file} route ${rule.method.toUpperCase()} ${rule.route}`
-	);
 }

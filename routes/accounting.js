@@ -110,9 +110,6 @@ router.get(
 				customEnd,
 			);
 
-			console.log(
-				`📅 [ACCOUNTING] Période: ${period}, du ${startDate.toISOString()} au ${endDate.toISOString()}`,
-			);
 
 			// Récupération des commandes de la période
 			const orders = await Order.find({
@@ -121,7 +118,6 @@ router.get(
 				status: { $ne: "cancelled" },
 			});
 
-			console.log(`📊 [ACCOUNTING] Commandes trouvées: ${orders.length}`);
 
 			// ═══ CALCULS DE BASE ═══
 			const totalRevenue = orders.reduce(
@@ -269,7 +265,6 @@ router.get(
 				},
 			};
 
-			console.log("✅ [ACCOUNTING] Résumé généré avec succès");
 			res.json(result);
 		} catch (error) {
 			console.error("❌ [ACCOUNTING] Erreur génération résumé:", error);
@@ -646,7 +641,6 @@ router.get(
 			res.write(csvContent);
 			res.end();
 
-			console.log(`✅ [ACCOUNTING] Export généré: ${filename}`);
 		} catch (error) {
 			console.error("❌ [ACCOUNTING] Erreur génération export:", error);
 			res.status(500).json({

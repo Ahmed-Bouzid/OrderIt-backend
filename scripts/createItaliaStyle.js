@@ -123,58 +123,35 @@ const ITALIA_STYLE = {
 
 async function createItaliaStyle() {
 	try {
-		console.log("🔌 Connexion à MongoDB...");
 		await mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI);
-		console.log("✅ Connecté à MongoDB");
 
 		// 1. Vérifier si le style existe déjà
 		const existingStyle = await Style.findOne({ key: "italia" });
 		if (existingStyle) {
-			console.log("⚠️  Style 'italia' existe déjà, mise à jour...");
 			await Style.updateOne({ key: "italia" }, { $set: ITALIA_STYLE });
-			console.log("✅ Style 'italia' mis à jour");
 		} else {
-			console.log("🆕 Création du style 'italia'...");
 			await Style.create(ITALIA_STYLE);
-			console.log("✅ Style 'italia' créé");
 		}
 
 		// 2. Afficher le style créé
 		const style = await Style.findOne({ key: "italia" });
-		console.log("\n📄 Style créé:", {
-			name: style.name,
-			key: style.key,
-			description: style.description,
-			useCustomHeader: style.config.useCustomHeader,
-			backgroundImage: style.config.backgroundImage,
-		});
 
 		// 3. Proposer d'assigner à Lacucinadinini
 		const lacucinaDinini = await Restaurant.findById(
 			"6970ef6594abf8bacd9d804d",
 		);
 		if (lacucinaDinini) {
-			console.log(
-				`\n🍝 Restaurant trouvé: ${lacucinaDinini.name} (${lacucinaDinini._id})`,
-			);
-			console.log(`   Style actuel: ${lacucinaDinini.styleKey}`);
-
 			// Assigner automatiquement
 			await Restaurant.updateOne(
 				{ _id: "6970ef6594abf8bacd9d804d" },
 				{ $set: { styleKey: "italia" } },
 			);
-			console.log("✅ Style 'italia' assigné à Lacucinadinini");
 		} else {
-			console.log("\n⚠️  Restaurant Lacucinadinini non trouvé");
 		}
-
-		console.log("\n✅ Terminé !");
 	} catch (error) {
 		console.error("❌ Erreur:", error);
 	} finally {
 		await mongoose.disconnect();
-		console.log("🔌 Déconnecté de MongoDB");
 	}
 }
 

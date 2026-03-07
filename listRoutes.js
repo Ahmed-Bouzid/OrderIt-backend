@@ -13,7 +13,6 @@ async function listRoutes() {
 	for (const file of files) {
 		const content = fs.readFileSync(path.join(ROUTES_DIR, file), "utf-8");
 		let match;
-		console.log(`\nFichier: ${file}`);
 		while ((match = routeRegex.exec(content)) !== null) {
 			const method = match[1].toUpperCase();
 			const routePath = match[2];
@@ -21,8 +20,6 @@ async function listRoutes() {
 			const middlewares = middlewaresRaw.match(middlewareRegex) || [];
 			const middlewaresClean =
 				middlewares.map((mw) => mw.trim()).join(", ") || "Aucun";
-			console.log(`  Route ${method}: "${routePath}"`);
-			console.log(`    - Middlewares présents ? ${middlewaresClean}`);
 		}
 	}
 }

@@ -68,9 +68,7 @@ function sanitizeData(data) {
 const secureLogger = {
 	info: (message, data = null) => {
 		if (isProduction) {
-			console.log(`[INFO] ${message}`, data ? sanitizeData(data) : "");
 		} else {
-			console.log(`[INFO] ${message}`, data || "");
 		}
 	},
 
@@ -95,7 +93,6 @@ const secureLogger = {
 	debug: (message, data = null) => {
 		if (!isProduction) {
 			// ✅ Debug uniquement en développement
-			console.log(`[DEBUG] ${message}`, data || "");
 		}
 	},
 

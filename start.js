@@ -83,6 +83,8 @@ io.use((socket, next) => {
 const restaurantConnections = new Map();
 const tableConnections = new Map(); // Connexions par table
 const missedEvents = new Map(); // Événements manqués par client (replay après reconnexion)
+// ⭐ Tracking des serveurs/admins connectés par restaurant { restaurantId -> Map<userId, {socketId, name, userType}> }
+const onlineStaff = new Map();
 
 // ⭐ Helper : Enregistrer un événement manqué pour replay
 const storeMissedEvent = (socketId, event, data) => {
@@ -143,6 +145,28 @@ io.on("connection", (socket) => {
 			restaurantConnections.set(socket.restaurantId, []);
 		}
 		restaurantConnections.get(socket.restaurantId).push(socket.id);
+
+		// ⭐ Tracker les serveurs/admins connectés
+		if (
+			socket.userId &&
+			(socket.userType === "server" || socket.userType === "admin")
+		) {
+			if (!onlineStaff.has(socket.restaurantId)) {
+				onlineStaff.set(socket.restaurantId, new Map());
+			}
+			onlineStaff.get(socket.restaurantId).set(socket.userId, {
+				socketId: socket.id,
+				userType: socket.userType,
+				connectedAt: new Date().toISOString(),
+			});
+			console.log(
+				`👤 Staff online: ${socket.userType} ${socket.userId} (restaurant ${socket.restaurantId})`,
+			);
+			// Notifier les autres de la mise à jour du staff en ligne
+			io.to(`restaurant-${socket.restaurantId}`).emit("staff-online-update", {
+				onlineUserIds: Array.from(onlineStaff.get(socket.restaurantId).keys()),
+			});
+		}
 	}
 
 	// Joindre une room de restaurant (manuel avec ACK)
@@ -303,12 +327,32 @@ io.on("connection", (socket) => {
 			},
 			5 * 60 * 1000,
 		);
+
+		// ⭐ Nettoyer le tracking staff en ligne
+		if (
+			socket.restaurantId &&
+			socket.userId &&
+			(socket.userType === "server" || socket.userType === "admin")
+		) {
+			const staffMap = onlineStaff.get(socket.restaurantId);
+			if (staffMap) {
+				staffMap.delete(socket.userId);
+				console.log(
+					`👤 Staff offline: ${socket.userType} ${socket.userId} (restaurant ${socket.restaurantId})`,
+				);
+				// Notifier les autres
+				io.to(`restaurant-${socket.restaurantId}`).emit("staff-online-update", {
+					onlineUserIds: Array.from(staffMap.keys()),
+				});
+			}
+		}
 	});
 });
 
 // ⭐ Exposer io globalement pour les routes
 app.locals.io = io;
 app.locals.restaurantConnections = restaurantConnections;
+app.locals.onlineStaff = onlineStaff; // ⭐ Exposer pour les routes
 
 // ⭐ Exporter io pour l'utiliser dans les modèles
 module.exports.io = io;

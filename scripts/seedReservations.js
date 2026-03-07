@@ -474,17 +474,12 @@ const reservations = [
 
 async function seedReservations() {
 	try {
-		console.log("🔗 Connexion à MongoDB...");
 		await mongoose.connect(process.env.MONGO_URI);
-		console.log("✅ Connecté à MongoDB");
 
-		console.log(`📝 Insertion de ${reservations.length} réservations...`);
 
 		const result = await Reservation.insertMany(reservations);
 
-		console.log(`✅ ${result.length} réservations créées avec succès !`);
 
-		console.log("\n📊 Résumé par jour:");
 		const day10 = result.filter((r) =>
 			r.reservationDate.toISOString().includes("2026-01-10"),
 		);
@@ -492,33 +487,20 @@ async function seedReservations() {
 			r.reservationDate.toISOString().includes("2026-01-11"),
 		);
 
-		console.log(`   10 janvier: ${day10.length} réservations`);
-		console.log(`   11 janvier: ${day11.length} réservations`);
 
-		console.log("\n📋 Horaires du 10 janvier:");
 		day10
 			.sort((a, b) => a.reservationTime.localeCompare(b.reservationTime))
 			.forEach((r) => {
-				console.log(
-					`   ${r.reservationTime} - ${r.clientName} (${r.nbPersonnes} pers.)`,
-				);
 			});
 
-		console.log("\n📋 Horaires du 11 janvier:");
 		day11
 			.sort((a, b) => a.reservationTime.localeCompare(b.reservationTime))
 			.forEach((r) => {
-				console.log(
-					`   ${r.reservationTime} - ${r.clientName} (${r.nbPersonnes} pers.)`,
-				);
 			});
 
-		console.log("\n👥 Total personnes:");
 		const totalPeople = result.reduce((sum, r) => sum + r.nbPersonnes, 0);
-		console.log(`   ${totalPeople} personnes au total`);
 
 		await mongoose.connection.close();
-		console.log("\n✅ Script terminé avec succès !");
 	} catch (error) {
 		console.error("❌ Erreur:", error);
 		process.exit(1);

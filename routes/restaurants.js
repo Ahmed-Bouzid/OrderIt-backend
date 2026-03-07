@@ -10,6 +10,7 @@ const checkRoles = require("../middlewares/checkRoles");
 const Restaurant = require("../models/Restaurant");
 const Product = require("../models/Product");
 const Server = require("../models/Server");
+const Admin = require("../models/Admin");
 const Style = require("../models/Style");
 const auth = require("../middlewares/auth");
 const productValidationRules = require("../middlewares/productValidationRules");
@@ -208,7 +209,29 @@ router.get(
 			const servers = await Server.find({ restaurantId }).select(
 				"-passwordHash",
 			);
-			res.json(servers);
+
+			// ⭐ Enrichir avec le statut en ligne (WebSocket)
+			const onlineStaff = req.app.locals.onlineStaff;
+			const staffMap = onlineStaff?.get(restaurantId);
+			const onlineUserIds = staffMap ? Array.from(staffMap.keys()) : [];
+
+			// Inclure les admins connectés aussi
+			const admins = await Admin.find({ restaurantId }).select(
+				"_id name email role serverId",
+			);
+
+			const allStaff = [
+				...servers.map((s) => ({
+					...s.toObject(),
+					isOnline: onlineUserIds.includes(s._id.toString()),
+				})),
+				...admins.map((a) => ({
+					...a.toObject(),
+					isOnline: onlineUserIds.includes(a._id.toString()),
+				})),
+			];
+
+			res.json(allStaff);
 		} catch (err) {
 			console.error(err);
 			res.status(500).json({
@@ -301,17 +324,11 @@ router.delete(
 			const deletedProducts = await Product.deleteMany({
 				restaurantId: req.params.id,
 			});
-			console.log(
-				`🗑️ ${deletedProducts.deletedCount} produits supprimés pour le restaurant ${restaurant.name}`,
-			);
 
 			// 🗑️ Supprimer tous les serveurs du restaurant
 			const deletedServers = await Server.deleteMany({
 				restaurantId: req.params.id,
 			});
-			console.log(
-				`🗑️ ${deletedServers.deletedCount} serveurs supprimés pour le restaurant ${restaurant.name}`,
-			);
 
 			// 🗑️ Supprimer le restaurant
 			await Restaurant.findByIdAndDelete(req.params.id);
@@ -505,9 +522,6 @@ router.delete(
 				restaurantId: req.params.id,
 			});
 
-			console.log(
-				`🗑️ ${deletedTables.deletedCount} tables supprimées pour ${restaurant.name}`,
-			);
 
 			res.json({
 				message: "Tables supprimées.",
@@ -536,9 +550,6 @@ router.delete(
 				restaurantId: req.params.id,
 			});
 
-			console.log(
-				`🗑️ ${deletedServers.deletedCount} serveurs supprimés pour ${restaurant.name}`,
-			);
 
 			res.json({
 				message: "Serveurs supprimés.",
@@ -572,9 +583,6 @@ router.delete(
 				$set: { products: [] },
 			});
 
-			console.log(
-				`🗑️ ${deletedProducts.deletedCount} produits supprimés pour ${restaurant.name}`,
-			);
 
 			res.json({
 				message: "Produits supprimés.",

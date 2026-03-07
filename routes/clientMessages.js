@@ -102,7 +102,6 @@ router.post("/send", async (req, res) => {
 
 		// Émettre l'événement WebSocket pour notifier le serveur
 		const io = req.app.get("io");
-		console.log("🔍 [DEBUG] io instance:", !!io);
 		if (io) {
 			// Récupérer les infos de la table pour la notification
 			const table = await Table.findById(reservation.tableId._id).select(
@@ -128,9 +127,6 @@ router.post("/send", async (req, res) => {
 
 			io.to(roomName).emit("client-message", payload);
 
-			console.log(
-				`📡 Message client envoyé vers room ${roomName}: Table ${table?.number} - "${predefinedMessage.text}"`,
-			);
 		} else {
 			console.error("❌ [DEBUG] io instance non disponible!");
 		}
@@ -253,21 +249,9 @@ router.put(
 
 			// Notifier via WebSocket que le message a été lu
 			const io = req.app.get("io");
-			console.log("🔍 [DEBUG VALIDATION] io instance:", !!io);
-			console.log(
-				"🔍 [DEBUG VALIDATION] message.reservationId:",
-				message.reservationId,
-			);
 			if (io) {
 				// Notifier le frontend (serveur/restaurateur)
 				const frontendRoom = `restaurant-${message.restaurantId}`;
-				console.log(
-					`🔍 [DEBUG VALIDATION] Émission vers frontend room: ${frontendRoom}`,
-				);
-				console.log(
-					`🔍 [DEBUG VALIDATION] Sockets dans ${frontendRoom}:`,
-					io.sockets.adapter.rooms.get(frontendRoom)?.size || 0,
-				);
 
 				io.to(frontendRoom).emit("client-message", {
 					type: "message-read",
@@ -291,23 +275,9 @@ router.put(
 						timestamp: new Date().toISOString(),
 					};
 
-					console.log(
-						`🔍 [DEBUG VALIDATION] Émission vers client room: ${clientRoom}`,
-					);
-					console.log(
-						`🔍 [DEBUG VALIDATION] Payload:`,
-						JSON.stringify(clientPayload, null, 2),
-					);
-					console.log(
-						`🔍 [DEBUG VALIDATION] Sockets dans ${clientRoom}:`,
-						io.sockets.adapter.rooms.get(clientRoom)?.size || 0,
-					);
 
 					io.to(clientRoom).emit("message-status", clientPayload);
 
-					console.log(
-						`✅ [DEBUG VALIDATION] Événement message-status émis vers ${clientRoom}`,
-					);
 				} else {
 					console.warn(
 						"⚠️ [DEBUG VALIDATION] message.reservationId est null, pas d'émission vers client",
@@ -663,9 +633,6 @@ router.post(
 					},
 				);
 
-				console.log(
-					`📤 Réponse serveur envoyée: "${responseText}" → Réservation ${reservationId}`,
-				);
 			}
 
 			res.status(201).json({

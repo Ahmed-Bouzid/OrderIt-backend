@@ -82,20 +82,16 @@ require("dotenv").config();
 mongoose
 	.connect(process.env.MONGO_URI)
 	.then(async () => {
-		console.log("✅ Connecté à MongoDB");
 		const Allergen = require("../models/Allergen");
 
 		for (const allergen of allergens) {
 			const existing = await Allergen.findOne({ name: allergen.name });
 			if (!existing) {
 				await Allergen.create(allergen);
-				console.log(`✅ Allergène créé: ${allergen.name}`);
 			} else {
-				console.log(`⏭️  Allergène existe déjà: ${allergen.name}`);
 			}
 		}
 
-		console.log("\n✅ Initialisation terminée!");
 		process.exit(0);
 	})
 	.catch((err) => {

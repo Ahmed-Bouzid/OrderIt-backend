@@ -59,9 +59,6 @@ const getUniqueSharedTable = async (restaurantId) => {
 			);
 		}
 
-		console.log(
-			`🍔 [FOODTRUCK] Table unique récupérée: ${table.number} (ID: ${table._id})`,
-		);
 
 		return {
 			_id: table._id,
@@ -93,9 +90,6 @@ const createTemporaryTable = async (restaurantId) => {
 
 		await tempTable.save();
 
-		console.log(
-			`🥤 [SNACK] Table temporaire créée: ${tempNumber} (ID: ${tempTable._id})`,
-		);
 
 		return {
 			_id: tempTable._id,
@@ -122,9 +116,6 @@ const getTableById = async (restaurantId, tableId) => {
 			throw new Error(`🚫 Table ${tableId} non trouvée`);
 		}
 
-		console.log(
-			`🍽️ [RESTAURANT] Table récupérée: ${table.number} (ID: ${table._id})`,
-		);
 
 		return {
 			_id: table._id,
@@ -151,9 +142,6 @@ const cleanupTemporaryTables = async (maxAgeHours = 24) => {
 			createdAt: { $lt: cutoffDate },
 		});
 
-		console.log(
-			`🧹 [CLEANUP] ${result.deletedCount} tables temporaires supprimées`,
-		);
 
 		return result.deletedCount;
 	} catch (error) {

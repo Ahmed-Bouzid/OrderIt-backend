@@ -47,9 +47,6 @@ router.post("/login", loginLimiter, async (req, res) => {
 
 			// 🚨 COMMENTÉ TEMPORAIREMENT : Vérification d'abonnement désactivée
 			/* if (restaurant && !restaurant.active) {
-				console.log(
-					`🚫 Connexion refusée - Restaurant désactivé: ${restaurant.name} (${user.email})`,
-				);
 				return res.status(403).json({
 					message:
 						"Restaurant désactivé - Veuillez procéder au paiement pour réactiver votre compte",
@@ -245,7 +242,6 @@ router.post("/logout", async (req, res) => {
 				await jwtBlacklist.add(token);
 			} catch (err) {
 				if (err.name === "TokenExpiredError") {
-					console.log("JWT déjà expiré, pas besoin de blacklist");
 				} else {
 					console.error(
 						"Erreur lors de la vérification du JWT dans logout :",

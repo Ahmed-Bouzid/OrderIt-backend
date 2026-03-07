@@ -51,7 +51,6 @@ router.post(
 					await Reservation.findById(reservationId).select("serverId");
 				if (reservation && reservation.serverId) {
 					serverId = reservation.serverId;
-					console.log("✅ ServerId récupéré depuis réservation:", serverId);
 				}
 			}
 
@@ -90,9 +89,6 @@ router.post(
 								category = categoryMapping[category];
 							}
 
-							console.log(
-								`🔄 Catégorie normalisée: ${product.category} → ${category}`,
-							);
 							return { ...item, category };
 						}
 					}
@@ -104,7 +100,6 @@ router.post(
 				}),
 			);
 
-			console.log("🔍 Items enrichis avec catégories:", enrichedItems);
 
 			// Vérification du total
 			const calculatedTotal = enrichedItems.reduce(
@@ -144,9 +139,6 @@ router.post(
 					"created",
 					order.toObject(),
 				);
-				console.log(
-					`📡 WebSocket: Nouvelle commande ${order._id} émise vers restaurant ${order.restaurantId}`,
-				);
 			}
 
 			// 🔔 Réponse
@@ -165,11 +157,6 @@ router.post(
 router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
 		const { restaurantId, status, origin } = req.query;
-		console.log(`📦 [GET /orders] Paramètres reçus:`, {
-			restaurantId,
-			status,
-			origin,
-		});
 
 		const query = {};
 
@@ -195,7 +182,6 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			}
 		}
 
-		console.log(`📦 [GET /orders] Query MongoDB:`, JSON.stringify(query));
 
 		let orders = await Order.find(query)
 			.populate("tableId", "number")
@@ -204,20 +190,13 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			.populate("reservationId", "status") // ⭐ Populate pour info supplémentaire
 			.sort({ createdAt: -1 }); // Du plus récent au plus ancien (pour Express Orders)
 
-		console.log(`📦 [GET /orders] Commandes trouvées: ${orders.length}`);
 
 		// Log des détails de chaque commande
 		orders.forEach((order, index) => {
 			const resaStatus = order.reservationId?.status || "AUCUNE RESA";
 			const orderStatus = order.orderStatus;
-			console.log(
-				`   [${index + 1}] Order ${order._id} | orderStatus: ${orderStatus} | reservationStatus: ${resaStatus} | origin: ${order.origin}`,
-			);
 		});
 
-		console.log(
-			`✅ [GET /orders] Envoi de ${orders.length} commandes au frontend`,
-		);
 		res.json({ orders });
 	} catch (err) {
 		console.error("❌ [GET /orders] Erreur:", err);
@@ -252,9 +231,6 @@ router.patch(
 			order.isMade = isMade;
 			await order.save();
 
-			console.log(
-				`✅ [MARK MADE] Commande ${orderId} marquée isMade=${isMade}`,
-			);
 
 			// ⚡ Émettre l'événement WebSocket
 			const io = req.app.get("io");
@@ -317,9 +293,6 @@ router.patch(
 				{ $set: { isMade } },
 			);
 
-			console.log(
-				`✅ [BULK MARK MADE] ${result.modifiedCount} commandes marquées isMade=${isMade}`,
-			);
 
 			// ⚡ Émettre l'événement WebSocket pour chaque commande
 			const orders = await Order.find({ _id: { $in: orderIds } }).select(
@@ -388,9 +361,6 @@ router.patch(
 					"statusUpdated",
 					order.toObject(),
 				);
-				console.log(
-					`📡 WebSocket: Urgence commande ${order._id} → ${isUrgent}`,
-				);
 			}
 
 			res.json(order);
@@ -423,9 +393,6 @@ router.patch(
 			order.completedAt = new Date();
 			await order.save();
 
-			console.log(
-				`✅ Commande ${order._id} marquée comme terminée (dismissed)`,
-			);
 
 			// ⚡ Émettre via WebSocket pour masquer côté frontend
 			const io = req.app.locals.io;
@@ -434,9 +401,6 @@ router.patch(
 				emitOrderEvent(io, order.restaurantId.toString(), "dismissed", {
 					_id: order._id,
 				});
-				console.log(
-					`📡 WebSocket: Commande ${order._id} retirée de l'affichage`,
-				);
 			}
 
 			res.json({
@@ -494,24 +458,13 @@ router.get(
 				reservationId: req.params.reservationId,
 				paid: { $ne: true },
 			};
-			console.log("[DEBUG] Query utilisée:", query);
 			const orders = await Order.find(query)
 				.populate("tableId", "number")
 				.populate("serverId", "firstName lastName");
 
-			console.log(`[DEBUG] Nb commandes trouvées: ${orders.length}`);
 			if (orders.length === 0) {
-				console.log("[DEBUG] Aucune commande trouvée pour cette réservation.");
 			} else {
 				orders.forEach((order, idx) => {
-					console.log(`[DEBUG] Order[${idx}]:`, {
-						_id: order._id,
-						tableId: order.tableId,
-						reservationId: order.reservationId,
-						status: order.status,
-						paid: order.paid,
-						items: order.items?.length,
-					});
 				});
 			}
 			res.json(orders);
@@ -605,15 +558,9 @@ router.get("/active", auth, async (req, res) => {
 			.sort({ createdAt: -1 })
 			.limit(10);
 
-		console.log("✅ Nombre de commandes trouvées:", activeOrders.length);
 
 		// Log détaillé de chaque commande
 		activeOrders.forEach((order, i) => {
-			console.log(
-				`   ${i + 1}. ID: ${order._id}, paid: ${order.paid}, table: ${
-					order.tableId
-				}`,
-			);
 		});
 
 		res.json(activeOrders);
@@ -659,7 +606,6 @@ router.post(
 					"updated",
 					order.toObject(),
 				);
-				console.log(`📡 WebSocket: Commande ${order._id} marquée payée`);
 			}
 
 			res.json({
@@ -725,20 +671,17 @@ router.put(
 			// Démarrer le timer si passage en préparation
 			if (status === "preparing" && !item.startTime) {
 				item.startTime = new Date();
-				console.log(`⏱️  Timer démarré pour item ${itemId}: ${item.name}`);
 			}
 
 			// Arrêter le timer si passage en servi
 			if (status === "served" && item.startTime && !item.endTime) {
 				item.endTime = new Date();
 				const duration = Math.floor((item.endTime - item.startTime) / 1000);
-				console.log(`✅ Item ${itemId} servi après ${duration}s`);
 			}
 
 			// Sauvegarder la commande
 			await order.save();
 
-			console.log(`🔄 Item ${itemId} mis à jour: ${oldStatus} → ${status}`);
 
 			res.json({
 				success: true,
@@ -815,9 +758,6 @@ router.put(
 				}
 			}
 
-			console.log(
-				`✅ [FINALIZE] ${totalUpdated} items mis à jour en "${status}" pour réservation ${reservationId}`,
-			);
 
 			res.json({
 				success: true,

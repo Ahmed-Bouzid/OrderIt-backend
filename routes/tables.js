@@ -91,21 +91,12 @@ router.get(
 			const { restaurantId } = req.params;
 			const { date, time, excludeReservationId } = req.query;
 
-			console.log("🔄 [TABLES] Fetch tables disponibilité:", {
-				restaurantId,
-				date,
-				time,
-				excludeReservationId,
-			});
 
 			// Récupérer toutes les tables du restaurant
 			const tables = await Table.find({ restaurantId }).maxTimeMS(10000);
 
 			// Si pas de date/heure, retourner toutes les tables comme disponibles
 			if (!date || !time) {
-				console.log(
-					"⚠️ [TABLES] Pas de date/heure - toutes tables disponibles",
-				);
 				const enrichedTables = tables.map((t) => ({
 					...t.toObject(),
 					isAvailable: true,
@@ -128,7 +119,6 @@ router.get(
 				occupiedTableIds,
 			);
 
-			console.log(`✅ [TABLES] ${tables.length} tables retournées`);
 			res.json(enrichedTables);
 		} catch (err) {
 			console.error("🚨 [TABLES] Erreur fetch disponibilité:", err);
@@ -150,12 +140,10 @@ router.get(
 		try {
 			const restaurantId = req.params.restaurantId;
 
-			console.log("🔄 Fetch tables pour restaurantId:", restaurantId);
 
 			// Mongoose convertit automatiquement les strings en ObjectId
 			const tables = await Table.find({ restaurantId }).maxTimeMS(10000);
 
-			console.log(`📊 Tables trouvées: ${tables.length}`);
 			res.json(tables);
 		} catch (err) {
 			console.error("🚨 Erreur fetch tables:", err);
@@ -204,10 +192,6 @@ router.put(
 	async (req, res) => {
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
-			console.log(
-				"❌ [TABLE UPDATE] Erreurs de validation:",
-				JSON.stringify(errors.array(), null, 2),
-			);
 			return res.status(400).json({ errors: errors.array() });
 		}
 
@@ -226,17 +210,12 @@ router.put(
 			Object.entries(req.body).filter(([key]) => allowedFields.includes(key)),
 		);
 
-		console.log(
-			"🔧 [TABLE UPDATE] Champs filtrés pour update:",
-			JSON.stringify(updates, null, 2),
-		);
 
 		// Validation du status si fourni
 		if (
 			updates.status &&
 			!Object.values(TABLE_STATUS).includes(updates.status)
 		) {
-			console.log("❌ [TABLE UPDATE] Statut invalide:", updates.status);
 			return res.status(400).json({
 				message: `Statut invalide. Valeurs autorisées: ${Object.values(
 					TABLE_STATUS,
@@ -247,9 +226,7 @@ router.put(
 		// Validation de la capacité si fournie
 		if (updates.capacity !== undefined) {
 			const cap = parseInt(updates.capacity);
-			console.log("🔍 [TABLE UPDATE] Validation capacité:", cap);
 			if (isNaN(cap) || cap < 1 || cap > 50) {
-				console.log("❌ [TABLE UPDATE] Capacité invalide:", cap);
 				return res.status(400).json({
 					message: "Capacité invalide. Doit être entre 1 et 50.",
 				});
@@ -261,66 +238,37 @@ router.put(
 			// Vérifier que la table existe d'abord
 			const existingTable = await Table.findById(req.params.id);
 			if (!existingTable) {
-				console.log("❌ [TABLE UPDATE] Table non trouvée:", req.params.id);
 				return res.status(404).json({ message: "Table non trouvée." });
 			}
-			console.log("✅ [TABLE UPDATE] Table existante trouvée:", {
-				id: existingTable._id,
-				number: existingTable.number,
-				restaurantId: existingTable.restaurantId,
-				capacity: existingTable.capacity,
-			});
 
 			// Vérifier si le nouveau numéro existe déjà (si on change le number)
 			if (updates.number && updates.number !== existingTable.number) {
-				console.log(
-					"🔍 [TABLE UPDATE] Vérification unicité du nouveau numéro:",
-					updates.number,
-				);
 				const duplicateTable = await Table.findOne({
 					restaurantId: existingTable.restaurantId,
 					number: updates.number,
 					_id: { $ne: req.params.id },
 				});
 				if (duplicateTable) {
-					console.log(
-						"❌ [TABLE UPDATE] Numéro déjà utilisé:",
-						updates.number,
-						"par table:",
-						duplicateTable._id,
-					);
 					return res.status(400).json({
 						message: `Le numéro ${updates.number} est déjà utilisé par une autre table.`,
 					});
 				}
 			}
 
-			console.log("🔄 [TABLE UPDATE] Lancement findByIdAndUpdate...");
 			const updated = await Table.findByIdAndUpdate(req.params.id, updates, {
 				new: true,
 				runValidators: true,
 			});
 
 			if (!updated) {
-				console.log(
-					"❌ [TABLE UPDATE] Table non trouvée après update (ne devrait pas arriver):",
-					req.params.id,
-				);
 				return res.status(404).json({ message: "Table non trouvée." });
 			}
 
-			console.log("✅ [TABLE UPDATE] Table mise à jour avec succès:", {
-				id: updated._id,
-				number: updated.number,
-				capacity: updated.capacity,
-				status: updated.status,
-			});
 
 			// ⭐ Émettre l'événement WebSocket
 			try {
 				const io = getIO(req);
 				if (io && updated.restaurantId) {
-					console.log("📡 [TABLE UPDATE] Émission WebSocket...");
 					emitTableEvent(
 						io,
 						updated.restaurantId,

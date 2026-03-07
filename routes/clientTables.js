@@ -8,9 +8,6 @@ router.get(
 	"/:tableId/guests",
 	validateObjectIds(["tableId"]),
 	async (req, res) => {
-		console.log(
-			`[CLIENT-END][API] GET /client-tables/${req.params.tableId}/guests appelée`
-		);
 		try {
 			const table = await Table.findById(req.params.tableId).select(
 				"guests number isAvailable"
@@ -18,12 +15,6 @@ router.get(
 			if (!table) {
 				return res.status(404).json({ message: "Table non trouvée" });
 			}
-			console.log("📋 [CLIENT-TABLES] Guests récupérés:", {
-				tableId: req.params.tableId,
-				number: table.number,
-				guests: table.guests,
-				isAvailable: table.isAvailable,
-			});
 			res.json({
 				guests: table.guests,
 				number: table.number,

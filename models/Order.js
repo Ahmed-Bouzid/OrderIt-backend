@@ -321,9 +321,6 @@ orderSchema.post("save", async function (doc) {
 
 				// Sauvegarder la réservation (le middleware pre('save') de Reservation calculera automatiquement totalAmount)
 				await reservation.save();
-				console.log(
-					`✅ Réservation ${reservation._id} mise à jour avec commande ${doc._id}, totalAmount: ${reservation.totalAmount}€`,
-				);
 
 				// ⭐ Émettre événement WebSocket pour notifier les clients
 				const { emitReservationEvent } = require("../utils/socketEmitter");

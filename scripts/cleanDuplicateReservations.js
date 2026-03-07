@@ -12,9 +12,7 @@ require("dotenv").config();
 
 async function cleanDuplicates() {
 	try {
-		console.log("🔗 Connexion à MongoDB...");
 		await mongoose.connect(process.env.MONGO_URI);
-		console.log("✅ Connecté à MongoDB");
 
 		// Nettoyer les deux jours
 		const days = [
@@ -39,9 +37,6 @@ async function cleanDuplicates() {
 				reservationDate: { $gte: startDate, $lte: endDate },
 			}).sort({ reservationTime: 1, clientName: 1 });
 
-			console.log(
-				`\n📋 Trouvé ${reservations.length} réservations le ${day.name}`,
-			);
 
 			// Grouper par heure + nom client
 			const groups = {};
@@ -53,34 +48,26 @@ async function cleanDuplicates() {
 				groups[key].push(res);
 			}
 
-			console.log("\n🔍 Analyse des doublons:");
 			let duplicateCount = 0;
 			const toDelete = [];
 
 			for (const [key, group] of Object.entries(groups)) {
 				if (group.length > 1) {
 					const [time, name] = key.split("_");
-					console.log(
-						`   ⚠️  ${time} - ${name}: ${group.length} réservations (doublon)`,
-					);
 					duplicateCount += group.length - 1;
 
 					// Garder le premier, supprimer les autres
 					for (let i = 1; i < group.length; i++) {
 						toDelete.push(group[i]._id);
-						console.log(`      ❌ Suppression: ${group[i]._id}`);
 					}
 				}
 			}
 
 			if (toDelete.length > 0) {
-				console.log(`\n🗑️  Suppression de ${toDelete.length} doublons...`);
 				const result = await Reservation.deleteMany({
 					_id: { $in: toDelete },
 				});
-				console.log(`✅ ${result.deletedCount} réservations supprimées`);
 			} else {
-				console.log("\n✅ Aucun doublon trouvé");
 			}
 
 			// Afficher le résultat final
@@ -89,12 +76,7 @@ async function cleanDuplicates() {
 				reservationDate: { $gte: startDate, $lte: endDate },
 			}).sort({ reservationTime: 1 });
 
-			console.log(`\n📊 Après nettoyage: ${remaining.length} réservations`);
-			console.log(`\n📋 Liste finale ${day.name}:`);
 			remaining.forEach((r) => {
-				console.log(
-					`   ${r.reservationTime} - ${r.clientName} (${r.nbPersonnes} pers.)`,
-				);
 			});
 		}
 
@@ -115,13 +97,8 @@ async function cleanDuplicates() {
 			},
 		});
 
-		console.log("\n📈 Statistiques finales:");
-		console.log(`   10 janvier: ${total10} réservations`);
-		console.log(`   11 janvier: ${total11} réservations`);
-		console.log(`   Total: ${total10 + total11} réservations`);
 
 		await mongoose.connection.close();
-		console.log("\n✅ Nettoyage terminé !");
 	} catch (error) {
 		console.error("❌ Erreur:", error);
 		process.exit(1);

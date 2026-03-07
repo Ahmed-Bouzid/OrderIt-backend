@@ -75,9 +75,6 @@ const emitEvent = (
 		const roomName = `restaurant-${restaurantId}`;
 		io.to(roomName).emit(channel, payload);
 
-		console.log(
-			`📡 [${channel}] ${eventType} → room ${roomName} ${options.user_id ? `(User: ${options.user_id})` : ""}`,
-		);
 
 		return true;
 	} catch (error) {
@@ -115,7 +112,6 @@ const emitTableEvent = (io, restaurantId, eventName, data, options = {}) => {
 			timestamp: new Date().toISOString(),
 			table_id: options.table_id,
 		});
-		console.log(`📡 [table_status_updated] → room ${tableRoomName}`);
 	}
 
 	return success;
@@ -139,7 +135,6 @@ const emitProductEvent = (io, restaurantId, eventName, data) => {
 			timestamp: new Date().toISOString(),
 			restaurant_id: restaurantId,
 		});
-		console.log(`📡 [menu_updated] déclenché suite à ${eventName}`);
 	}
 
 	return success;
@@ -218,9 +213,6 @@ const emitStyleAppliedEvent = (
 		const roomName = `restaurant-${restaurantId}`;
 		io.to(roomName).emit("style_applied", payload);
 
-		console.log(
-			`🎨 [style_applied] Style "${styleKey}" → room ${roomName} ${appliedBy ? `(par ${appliedBy})` : ""}`,
-		);
 
 		return true;
 	} catch (error) {
@@ -293,9 +285,6 @@ const emitPaymentCompleted = (
 	};
 
 	io.to(roomName).emit("payment-completed", payload);
-	console.log(
-		`📡 [payment-completed] Table ${tableNumber} - ${amount}€ → room ${roomName}`,
-	);
 
 	return true;
 };

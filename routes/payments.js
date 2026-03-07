@@ -50,11 +50,6 @@ router.post(
 				metadata = {},
 			} = req.body;
 
-			console.log(
-				`💳 Création PaymentIntent - Order: ${orderId}, Amount: ${
-					amount / 100
-				}€, Tip: ${tipAmount / 100}€`,
-			);
 
 			// Vérifier que Stripe est configuré
 			if (!stripeService.isConfigured()) {
@@ -129,7 +124,6 @@ router.post(
 		try {
 			const { paymentIntentId, paymentMethodId } = req.body;
 
-			console.log(`🔐 Confirmation PaymentIntent: ${paymentIntentId}`);
 
 			const paymentIntent = await stripeService.confirmPaymentIntent(
 				paymentIntentId,
@@ -170,7 +164,6 @@ router.post(
 		try {
 			const { paymentIntentId } = req.body;
 
-			console.log(`🧪 Confirmation avec carte test 4242: ${paymentIntentId}`);
 
 			const paymentIntent =
 				await stripeService.confirmWithTestCard(paymentIntentId);
@@ -210,7 +203,6 @@ router.post(
 		try {
 			const { paymentIntentId } = req.body;
 
-			console.log(`🚫 Annulation PaymentIntent: ${paymentIntentId}`);
 
 			const paymentIntent =
 				await stripeService.cancelPaymentIntent(paymentIntentId);
@@ -266,7 +258,6 @@ router.get("/:paymentId/status", auth, async (req, res) => {
 							order.paymentMethod = payment.paymentMethod;
 							await order.save();
 
-							console.log(`✅ Commande ${order._id} marquée comme payée`);
 						}
 					}
 				}
@@ -434,11 +425,6 @@ router.post(
 		try {
 			const { orderId, amount, tipAmount = 0 } = req.body;
 
-			console.log(
-				`🎭 Création paiement FAKE - Order: ${orderId}, Amount: ${
-					amount / 100
-				}€`,
-			);
 
 			const result = await stripeService.createFakePayment(
 				orderId,
@@ -509,7 +495,6 @@ router.post(
 			// Vérifier la signature du webhook
 			const event = stripeService.verifyWebhookSignature(req.body, sig);
 
-			console.log(`📡 Webhook Stripe: ${event.type} - ${event.id}`);
 
 			// Traiter l'événement
 			const result = await stripeService.handleWebhookEvent(event);
@@ -550,9 +535,6 @@ router.post(
 							tableId: order.tableId,
 						});
 
-						console.log(
-							`📡 WebSocket émis: payment_succeeded + payment-completed pour order ${order._id}`,
-						);
 					}
 				}
 			}

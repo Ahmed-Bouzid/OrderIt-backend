@@ -21,6 +21,12 @@ const reservationSchema = new mongoose.Schema(
 			index: true,
 		},
 
+		// ⭐ Nom du serveur/admin qui a ouvert la réservation (dénormalisé pour affichage)
+		openedBy: {
+			type: String,
+			default: null,
+		},
+
 		// ⭐⭐ NOUVEAU : Liste des commandes liées à cette réservation ⭐⭐
 		orderIds: [
 			{
@@ -50,6 +56,10 @@ const reservationSchema = new mongoose.Schema(
 		allergies: { type: String, default: "" },
 		restrictions: { type: String, default: "" },
 		notes: { type: String, default: "" },
+
+		// ⭐ Notes staff (visibles uniquement côté serveur/admin)
+		staffNotes: { type: String, default: "" },
+		staffNotesUpdatedAt: { type: Date },
 
 		orderSummary: { type: String, default: "" },
 		dishStatus: {
@@ -105,7 +115,7 @@ const reservationSchema = new mongoose.Schema(
 	{
 		toJSON: { virtuals: true },
 		toObject: { virtuals: true },
-	}
+	},
 );
 
 // ⭐⭐ VIRTUEL : Récupérer toutes les commandes avec populate

@@ -54,16 +54,8 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 		// Vérifier les erreurs de validation
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
-			console.log("❌ [CLIENT-FEEDBACK] Erreurs de validation détaillées:");
 			errors.array().forEach((error, index) => {
-				console.log(
-					`  ${index + 1}. Champ '${error.param}': ${error.msg} (valeur: "${error.value}")`,
-				);
 			});
-			console.log(
-				"❌ [CLIENT-FEEDBACK] Corps de la requête complet:",
-				req.body,
-			);
 
 			logger.warn("Erreurs validation feedback", {
 				errorsCount: errors.array().length,
@@ -76,10 +68,6 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 			});
 		}
 
-		console.log(
-			"✅ [CLIENT-FEEDBACK] Validation réussie, données reçues:",
-			req.body,
-		);
 
 		const {
 			restaurantId,
@@ -103,9 +91,6 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 
 		if (allPositive && !comment.trim()) {
 			// Client très satisfait sans commentaire → pas de stockage, juste log
-			console.log(
-				"✅ [CLIENT-FEEDBACK] Client très satisfait sans commentaire - pas de stockage",
-			);
 			return res.status(200).json({
 				success: true,
 				message: "Merci pour votre retour positif !",
@@ -169,28 +154,12 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 		feedbackDoc.overallSatisfied = overallSatisfied;
 		feedbackDoc.feedbackType = feedbackType;
 
-		console.log("🔍 [CLIENT-FEEDBACK] Tentative d'enregistrement avec:", {
-			restaurantId,
-			serviceRating,
-			foodQuality,
-			venueExperience,
-			overallSatisfied,
-			feedbackType,
-			hasComment: !!comment.trim(),
-			hasTableId: !!feedbackDoc.tableId,
-			hasReservationId: !!feedbackDoc.reservationId,
-		});
 
 		// Créer l'enregistrement feedback
 		const clientFeedback = new ClientFeedback(feedbackDoc);
 
-		console.log("💾 [CLIENT-FEEDBACK] Appel save() en cours...");
 		await clientFeedback.save();
-		console.log("✅ [CLIENT-FEEDBACK] save() réussi!");
 
-		console.log(
-			`✅ [CLIENT-FEEDBACK] Feedback enregistré - Type: ${clientFeedback.feedbackType}, ID: ${clientFeedback._id}`,
-		);
 
 		// ⭐ Émettre événement WebSocket pour notifier le frontend (non-bloquant)
 		try {
@@ -209,9 +178,6 @@ router.post("/submit", validateClientFeedback, async (req, res) => {
 						tableId: clientFeedback.tableId,
 						clientName: clientFeedback.clientName || "Client",
 					},
-				);
-				console.log(
-					`📡 WebSocket: Feedback ${clientFeedback._id} émis vers restaurant ${clientFeedback.restaurantId}`,
 				);
 			}
 		} catch (wsError) {
@@ -275,9 +241,6 @@ router.get("/stats/:restaurantId", async (req, res) => {
 		const { restaurantId } = req.params;
 		const { days = 30 } = req.query;
 
-		console.log(
-			`📊 [CLIENT-FEEDBACK] Demande stats restaurant ${restaurantId} (${days} jours)`,
-		);
 
 		if (!restaurantId || !restaurantId.match(/^[0-9a-fA-F]{24}$/)) {
 			return res.status(400).json({
@@ -291,7 +254,6 @@ router.get("/stats/:restaurantId", async (req, res) => {
 			parseInt(days),
 		);
 
-		console.log(`✅ [CLIENT-FEEDBACK] Stats calculées:`, stats);
 
 		res.json({
 			success: true,
@@ -319,9 +281,6 @@ router.get("/improvement/:restaurantId", async (req, res) => {
 		const { restaurantId } = req.params;
 		const { limit = 50 } = req.query;
 
-		console.log(
-			`💡 [CLIENT-FEEDBACK] Demande feedbacks amélioration restaurant ${restaurantId}`,
-		);
 
 		if (!restaurantId || !restaurantId.match(/^[0-9a-fA-F]{24}$/)) {
 			return res.status(400).json({
@@ -335,7 +294,6 @@ router.get("/improvement/:restaurantId", async (req, res) => {
 			parseInt(limit),
 		);
 
-		console.log(`✅ [CLIENT-FEEDBACK] ${feedbacks.length} feedbacks récupérés`);
 
 		res.json({
 			success: true,

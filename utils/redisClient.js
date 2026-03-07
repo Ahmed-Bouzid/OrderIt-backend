@@ -11,10 +11,8 @@ if (process.env.REDIS_URL) {
 
 	(async () => {
 		await redisClient.connect();
-		console.log("✅ Redis connecté");
 	})();
 } else {
-	console.log("⚠️  Redis désactivé - utilisation mémoire locale");
 	// Mock pour éviter les erreurs
 	redisClient = {
 		connect: () => Promise.resolve(),

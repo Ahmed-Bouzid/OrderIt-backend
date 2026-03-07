@@ -124,9 +124,6 @@ async function getAvailableSlotsForDay({
 		.select("reservationTime reservationDate tableId")
 		.lean();
 
-	console.log(
-		`📊 [SLOTS] ${activeReservations.length} résas actives, ${totalEligible}/${allTables.length} tables éligibles (guests=${guests}), durée ${duration}min`,
-	);
 
 	// Pré-calculer les plages + tableId de chaque réservation (une seule fois)
 	const reservationRanges = activeReservations.map((r) => {
@@ -170,9 +167,6 @@ async function getAvailableSlotsForDay({
 		? result
 		: result.filter((s) => s.availableTables > 0);
 
-	console.log(
-		`✅ [SLOTS] ${filtered.length}/${rawSlots.length} créneaux disponibles`,
-	);
 
 	return filtered;
 }

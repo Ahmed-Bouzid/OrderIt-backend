@@ -14,12 +14,10 @@ const Table = require("./models/Table");
 const RESTAURANT_ID = "686af511bb4cba684ff3b72e";
 
 async function seed() {
-	console.log("🔌 Connexion MongoDB...");
 	await mongoose.connect(process.env.MONGO_URI, {
 		useNewUrlParser: true,
 		useUnifiedTopology: true,
 	});
-	console.log("✅ Connecté");
 
 	// Récupérer les tables du resto
 	const tables = await Table.find({ restaurantId: RESTAURANT_ID }).lean();
@@ -29,9 +27,6 @@ async function seed() {
 		);
 		process.exit(1);
 	}
-	console.log(
-		`📋 ${tables.length} table(s) trouvée(s) : ${tables.map((t) => `T${t.number}`).join(", ")}`,
-	);
 
 	// Helpers
 	const today = new Date();
@@ -154,9 +149,6 @@ async function seed() {
 		clientName: { $in: resas.map((r) => r.clientName) },
 	});
 	if (deleted.deletedCount) {
-		console.log(
-			`🗑  ${deleted.deletedCount} ancienne(s) resa(s) de test supprimée(s)`,
-		);
 	}
 
 	// Insertion
@@ -167,19 +159,14 @@ async function seed() {
 	}));
 
 	const created = await Reservation.insertMany(docs);
-	console.log(`\n✅ ${created.length} réservations créées :\n`);
 
 	created.forEach((r) => {
 		const tableLabel = r.tableId
 			? `Table ${tables.find((t) => t._id.equals(r.tableId))?.number ?? r.tableId}`
 			: "Sans table";
-		console.log(
-			`  [${r.status.padEnd(10)}] ${r.reservationTime.padEnd(6)}  ${r.clientName.padEnd(20)}  ${r.nbPersonnes}p  ${tableLabel}`,
-		);
 	});
 
 	await mongoose.disconnect();
-	console.log("\n🔌 Déconnecté. Bonne démo !");
 }
 
 seed().catch((err) => {

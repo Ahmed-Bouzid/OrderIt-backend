@@ -18,10 +18,6 @@ const Restaurant = require("../models/Restaurant");
  */
 async function checkTableAvailability({ restaurantId, date, time, people }) {
 	try {
-		console.log("🔍 [TABLE SERVICE] Analyse disponibilité table par table");
-		console.log(
-			`📅 Date: ${date} | ⏰ Heure: ${time} | 👥 Personnes: ${people}`
-		);
 
 		// 1. Récupérer le turnover du restaurant
 		const restaurant = await Restaurant.findById(restaurantId);
@@ -29,16 +25,10 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 			throw new Error("Restaurant non trouvé");
 		}
 		const turnover = restaurant.turnoverTime || 120;
-		console.log(`⏱️  Turnover configuré: ${turnover} min`);
 
 		// 2. Calculer la fenêtre temporelle demandée
 		const requestedStart = parseTime(time);
 		const requestedEnd = requestedStart + turnover;
-		console.log(
-			`🕐 Créneau demandé: ${time} → ${formatMinutesToTime(
-				requestedEnd
-			)} (${turnover} min)`
-		);
 
 		// 3. Récupérer toutes les tables actives du restaurant
 		const tables = await Table.find({
@@ -47,7 +37,6 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 		}).lean();
 
 		if (!tables || tables.length === 0) {
-			console.log("❌ Aucune table disponible dans ce restaurant");
 			return {
 				status: "error",
 				reason: "Aucune table disponible dans ce restaurant",
@@ -55,7 +44,6 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 				alternatives: [],
 			};
 		}
-		console.log(`📊 ${tables.length} table(s) active(s) trouvée(s)`);
 
 		// 4. Récupérer les réservations actives du jour
 		const startOfDay = new Date(date);
@@ -70,7 +58,6 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 			tableId: { $ne: null },
 		}).lean();
 
-		console.log(`📋 ${reservations.length} réservation(s) active(s) ce jour`);
 
 		// 5. Analyser chaque table individuellement
 		const availableTables = [];
@@ -111,9 +98,6 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 						overlapEnd: formatMinutesToTime(overlapEnd),
 					};
 
-					console.log(
-						`❌ Table ${table._id} occupée: ${res.clientName} (${res.reservationTime}) - overlap ${overlapPercent}%`
-					);
 					break;
 				}
 			}
@@ -130,9 +114,6 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 					score,
 					waste: table.capacity - people,
 				});
-				console.log(
-					`✅ Table ${table._id} disponible: ${table.capacity} places (score: ${score})`
-				);
 			} else if (hasConflict) {
 				occupiedTables.push({
 					tableId: table._id,
@@ -140,15 +121,9 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 					conflict: conflictDetails,
 				});
 			} else if (table.capacity < people) {
-				console.log(
-					`⚠️  Table ${table._id} trop petite: ${table.capacity} < ${people}`
-				);
 			}
 		}
 
-		console.log(
-			`📊 Résultat: ${availableTables.length} table(s) disponible(s), ${occupiedTables.length} occupée(s)`
-		);
 
 		// 6. DÉCISION : Table individuelle disponible
 		if (availableTables.length > 0) {
@@ -156,9 +131,6 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 			availableTables.sort((a, b) => b.score - a.score);
 			const bestTable = availableTables[0];
 
-			console.log(
-				`🎯 Meilleure table: ${bestTable.tableId} (${bestTable.capacity} places, score ${bestTable.score})`
-			);
 
 			return {
 				status: "ok",
@@ -179,7 +151,6 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 		}
 
 		// 7. DÉCISION : Tenter combinaison de tables
-		console.log("🔗 Tentative de combinaison de tables...");
 		const combination = findCombinedTables(
 			tables,
 			reservations,
@@ -190,9 +161,6 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 		);
 
 		if (combination) {
-			console.log(
-				`✅ Combinaison trouvée: ${combination.tables.length} tables (${combination.totalCapacity} places)`
-			);
 
 			return {
 				status: "ok",
@@ -209,7 +177,6 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 		}
 
 		// 8. DÉCISION : Aucune solution → chercher alternatives
-		console.log("🔍 Recherche d'alternatives dans la journée...");
 		const alternatives = await scanDayForAlternatives({
 			tables,
 			reservations,
@@ -219,7 +186,6 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 			turnover,
 		});
 
-		console.log(`📋 ${alternatives.length} alternative(s) trouvée(s)`);
 
 		return {
 			status: "refused",
@@ -289,11 +255,9 @@ function findCombinedTables(
 	});
 
 	if (freeTables.length === 0) {
-		console.log("❌ Aucune table libre pour combinaison");
 		return null;
 	}
 
-	console.log(`🔗 ${freeTables.length} table(s) libre(s) pour combinaison`);
 
 	// 2. Trier par capacité croissante (prendre les plus petites d'abord)
 	freeTables.sort((a, b) => a.capacity - b.capacity);
@@ -306,12 +270,8 @@ function findCombinedTables(
 		combination.push(table);
 		totalCapacity += table.capacity;
 
-		console.log(
-			`🔗 Ajout table ${table._id} (${table.capacity} places) → Total: ${totalCapacity}`
-		);
 
 		if (totalCapacity >= people) {
-			console.log(`✅ Combinaison suffisante: ${totalCapacity} >= ${people}`);
 			return {
 				tables: combination,
 				totalCapacity,
@@ -319,9 +279,6 @@ function findCombinedTables(
 		}
 	}
 
-	console.log(
-		`❌ Combinaison insuffisante: ${totalCapacity} < ${people} (même en utilisant toutes les tables)`
-	);
 	return null; // Pas assez même en combinant tout
 }
 

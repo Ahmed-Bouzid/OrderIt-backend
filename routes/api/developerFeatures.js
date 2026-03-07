@@ -19,7 +19,6 @@ const logger = require("../../utils/secureLogger"); // ✅ Logger sécurisé
  */
 router.get("/features", auth, checkDeveloper, async (req, res) => {
 	try {
-		console.log("🔍 [DEVELOPER-FEATURES] Récupération liste restaurants");
 
 		// Récupérer tous les restaurants avec leurs fonctionnalités
 		const restaurants = await Restaurant.find(
@@ -42,9 +41,6 @@ router.get("/features", auth, checkDeveloper, async (req, res) => {
 			}),
 		);
 
-		console.log(
-			`✅ [DEVELOPER-FEATURES] ${restaurantsWithFeatures.length} restaurants récupérés`,
-		);
 
 		res.json({
 			success: true,
@@ -73,9 +69,6 @@ router.get(
 	async (req, res) => {
 		try {
 			const { restaurantId } = req.params;
-			console.log(
-				`🔍 [DEVELOPER-FEATURES] Récupération restaurant ${restaurantId}`,
-			);
 
 			// Vérifier que le restaurant existe
 			const restaurant = await Restaurant.findById(restaurantId, "name email");
@@ -151,9 +144,6 @@ router.post(
 				developerName = "Web Interface",
 			} = req.body;
 
-			console.log(
-				`🔧 [DEVELOPER-FEATURES] ${enabled ? "Activation" : "Désactivation"} ${featureName} pour restaurant ${restaurantId}`,
-			);
 
 			// Vérifier que le restaurant existe
 			const restaurant = await Restaurant.findById(restaurantId);
@@ -172,9 +162,6 @@ router.post(
 				developerName,
 			);
 
-			console.log(
-				`✅ [DEVELOPER-FEATURES] ${featureName} ${enabled ? "activée" : "désactivée"} pour ${restaurant.name}`,
-			);
 
 			res.json({
 				success: true,
@@ -207,7 +194,6 @@ router.post(
  */
 router.get("/features/stats", auth, checkDeveloper, async (req, res) => {
 	try {
-		console.log("📈 [DEVELOPER-FEATURES] Génération statistiques");
 
 		const totalRestaurants = await Restaurant.countDocuments();
 		const restaurantsWithFeatures = await RestaurantFeatures.countDocuments();

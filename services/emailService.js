@@ -25,7 +25,6 @@ const initEmailService = async () => {
 	}
 
 	resend = new Resend(apiKey);
-	console.log("✅ [EMAIL] Service Resend initialisé");
 	return true;
 };
 

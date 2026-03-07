@@ -20,11 +20,8 @@ const GOOGLE_REVIEW_URL =
 
 async function updateGoogleInfo() {
 	try {
-		console.log("🔌 Connexion à MongoDB...");
 		await mongoose.connect(process.env.MONGO_URI);
-		console.log("✅ Connecté à MongoDB");
 
-		console.log(`\n🔍 Recherche du restaurant "${RESTAURANT_NAME}"...`);
 		const restaurant = await Restaurant.findOne({
 			name: { $regex: new RegExp(RESTAURANT_NAME, "i") },
 		});
@@ -34,28 +31,19 @@ async function updateGoogleInfo() {
 			process.exit(1);
 		}
 
-		console.log(`✅ Restaurant trouvé: ${restaurant.name} (${restaurant._id})`);
 
 		// Mise à jour
-		console.log("\n📝 Mise à jour des infos Google...");
 		restaurant.googlePlaceId = GOOGLE_PLACE_ID;
 		restaurant.googleReviewUrl = GOOGLE_REVIEW_URL;
 
 		await restaurant.save();
 
-		console.log("✅ Informations Google Avis mises à jour:");
-		console.log(`   - Place ID: ${restaurant.googlePlaceId}`);
-		console.log(`   - Review URL: ${restaurant.googleReviewUrl}`);
 
-		console.log(
-			"\n🎉 Terminé! Les clients seront maintenant redirigés vers Google Avis.",
-		);
 	} catch (error) {
 		console.error("❌ Erreur:", error);
 		process.exit(1);
 	} finally {
 		await mongoose.disconnect();
-		console.log("🔌 Déconnecté de MongoDB");
 	}
 }
 

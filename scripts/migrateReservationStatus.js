@@ -16,11 +16,9 @@ const MONGODB_URI =
 	process.env.MONGODB_URI || "mongodb://localhost:27017/sunnygo";
 
 async function migrateReservationStatus() {
-	console.log("🔄 Connexion à MongoDB...");
 
 	try {
 		await mongoose.connect(MONGODB_URI);
-		console.log("✅ Connecté à MongoDB");
 
 		const db = mongoose.connection.db;
 		const reservationsCollection = db.collection("reservations");
@@ -33,12 +31,8 @@ async function migrateReservationStatus() {
 			status: "annulee",
 		});
 
-		console.log(`📊 Réservations à migrer:`);
-		console.log(`   - "fermee" → "terminée": ${fermeeCount}`);
-		console.log(`   - "annulee" → "annulée": ${annuleeCount}`);
 
 		if (fermeeCount === 0 && annuleeCount === 0) {
-			console.log("✅ Aucune migration nécessaire!");
 			await mongoose.disconnect();
 			return;
 		}
@@ -54,9 +48,6 @@ async function migrateReservationStatus() {
 					},
 				}
 			);
-			console.log(
-				`✅ Migré ${resultFermee.modifiedCount} réservations "fermee" → "terminée"`
-			);
 		}
 
 		// 3. Migrer "annulee" → "annulée"
@@ -70,9 +61,6 @@ async function migrateReservationStatus() {
 					},
 				}
 			);
-			console.log(
-				`✅ Migré ${resultAnnulee.modifiedCount} réservations "annulee" → "annulée"`
-			);
 		}
 
 		// 4. Vérification finale
@@ -84,7 +72,6 @@ async function migrateReservationStatus() {
 		});
 
 		if (remainingFermee === 0 && remainingAnnulee === 0) {
-			console.log("🎉 Migration terminée avec succès!");
 		} else {
 			console.warn(`⚠️ Il reste des réservations non migrées:`);
 			console.warn(`   - "fermee": ${remainingFermee}`);
@@ -96,15 +83,12 @@ async function migrateReservationStatus() {
 			.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }])
 			.toArray();
 
-		console.log("\n📊 Répartition des statuts après migration:");
 		stats.forEach((s) => {
-			console.log(`   - "${s._id}": ${s.count}`);
 		});
 	} catch (error) {
 		console.error("❌ Erreur lors de la migration:", error);
 	} finally {
 		await mongoose.disconnect();
-		console.log("🔌 Déconnecté de MongoDB");
 	}
 }
 

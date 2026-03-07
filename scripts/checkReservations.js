@@ -16,8 +16,6 @@ function askQuestion(question) {
 
 async function checkReservations() {
 	try {
-		console.log("🔍 SCRIPT DE VÉRIFICATION DES RÉSERVATIONS");
-		console.log("⚠️  DÉVELOPPEMENT UNIQUEMENT\n");
 
 		// Récupérer les données de manière interactive
 		const restaurantId = await askQuestion("🏪 ID du restaurant: ");
@@ -27,7 +25,6 @@ async function checkReservations() {
 
 		// Validation basique
 		if (!restaurantId) {
-			console.log("❌ ID du restaurant requis");
 			rl.close();
 			process.exit(1);
 		}
@@ -39,7 +36,6 @@ async function checkReservations() {
 		} else if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
 			targetDate = new Date(dateStr);
 		} else {
-			console.log("❌ Format de date invalide. Utilisez YYYY-MM-DD ou 'today'");
 			rl.close();
 			process.exit(1);
 		}
@@ -60,7 +56,6 @@ async function checkReservations() {
 		);
 
 		await mongoose.connect(process.env.MONGO_URI);
-		console.log("✅ Connecté à MongoDB\n");
 
 		const Reservation = require("../models/Reservation");
 
@@ -72,14 +67,8 @@ async function checkReservations() {
 			},
 		}).sort({ reservationTime: 1, clientName: 1 });
 
-		console.log(
-			`📅 Total réservations ${targetDate.toLocaleDateString("fr-FR")}: ${reservations.length}\n`,
-		);
 
 		reservations.forEach((r) => {
-			console.log(
-				`   ${r.reservationTime} - ${r.clientName} (${r.nbPersonnes} pers.) - ID: ${r._id}`,
-			);
 		});
 
 		// Grouper par temps + nom
@@ -90,29 +79,22 @@ async function checkReservations() {
 			groups[key].push(r._id.toString());
 		});
 
-		console.log(`\n🔍 Analyse doublons:`);
 		let hasDuplicates = false;
 		Object.keys(groups).forEach((key) => {
 			if (groups[key].length > 1) {
 				const [time, ...nameParts] = key.split("_");
 				const name = nameParts.join("_");
-				console.log(
-					`   ⚠️  ${time} - ${name}: ${groups[key].length} réservations`,
-				);
 				groups[key].forEach((id) => {
-					console.log(`      ID: ${id}`);
 				});
 				hasDuplicates = true;
 			}
 		});
 
 		if (!hasDuplicates) {
-			console.log("   ✅ Aucun doublon détecté");
 		}
 
 		await mongoose.connection.close();
 		rl.close();
-		console.log("\n✅ Vérification terminée");
 	} catch (error) {
 		console.error("❌ Erreur:", error.message);
 		rl.close();

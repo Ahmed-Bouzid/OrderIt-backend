@@ -101,9 +101,6 @@ async function addAudit(reservation, action, user, data = {}) {
 		metadata: data,
 	});
 
-	console.log(
-		`📝 Audit [${reservation._id}]: ${message} par ${user?.name || "Système"}`
-	);
 }
 
 module.exports = {

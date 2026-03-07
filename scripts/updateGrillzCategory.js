@@ -12,7 +12,6 @@ async function updateGrillz() {
 		const mongoUri =
 			process.env.MONGODB_URI || "mongodb://localhost:27017/sunnygo";
 		await mongoose.connect(mongoUri);
-		console.log("✅ Connecté à MongoDB");
 
 		// Mise à jour Le Grillz
 		const result = await Restaurant.findByIdAndUpdate(
@@ -22,17 +21,11 @@ async function updateGrillz() {
 		);
 
 		if (result) {
-			console.log("✅ Restaurant mis à jour:");
-			console.log("   Nom:", result.name);
-			console.log("   Email:", result.email);
-			console.log("   Catégorie:", result.category);
-			console.log("   Adresse:", result.address);
 		} else {
 			console.error("❌ Restaurant non trouvé");
 		}
 
 		await mongoose.connection.close();
-		console.log("✅ Connexion fermée");
 		process.exit(0);
 	} catch (error) {
 		console.error("❌ Erreur:", error.message);

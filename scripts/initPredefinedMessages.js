@@ -126,23 +126,17 @@ async function initMessages(restaurantId) {
 	try {
 		// Connexion MongoDB
 		await mongoose.connect(process.env.MONGO_URI);
-		console.log("✅ Connecté à MongoDB");
 
 		// Vérifier si des messages existent déjà
 		const existingCount = await PredefinedMessage.countDocuments({
 			restaurantId,
 		});
 		if (existingCount > 0) {
-			console.log(
-				`⚠️ ${existingCount} messages existent déjà pour ce restaurant`
-			);
 			const answer = await askQuestion("Voulez-vous les remplacer ? (y/n): ");
 			if (answer.toLowerCase() !== "y") {
-				console.log("❌ Annulé");
 				process.exit(0);
 			}
 			await PredefinedMessage.deleteMany({ restaurantId });
-			console.log("🗑️ Messages existants supprimés");
 		}
 
 		// Créer les messages avec le restaurantId
@@ -152,18 +146,13 @@ async function initMessages(restaurantId) {
 		}));
 
 		await PredefinedMessage.insertMany(messages);
-		console.log(
-			`✅ ${messages.length} messages prédéfinis créés pour le restaurant ${restaurantId}`
-		);
 
 		// Afficher un résumé par catégorie
 		const byCategory = messages.reduce((acc, msg) => {
 			acc[msg.category] = (acc[msg.category] || 0) + 1;
 			return acc;
 		}, {});
-		console.log("\n📊 Résumé par catégorie:");
 		Object.entries(byCategory).forEach(([cat, count]) => {
-			console.log(`   ${cat}: ${count} messages`);
 		});
 	} catch (error) {
 		console.error("❌ Erreur:", error.message);

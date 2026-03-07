@@ -17,23 +17,19 @@ const MENU_FILE = path.join(__dirname, "menuBoucle.json");
 async function reimportMenu() {
 	try {
 		// Connexion MongoDB
-		console.log("🔌 Connexion MongoDB...");
 		await mongoose.connect(process.env.MONGO_URI, {
 			useNewUrlParser: true,
 			useUnifiedTopology: true,
 		});
-		console.log("✅ Connecté à MongoDB");
 
 		// Charger le menu
 		const menu = JSON.parse(fs.readFileSync(MENU_FILE, "utf8"));
-		console.log(`📂 Menu chargé: ${menu.length} catégories`);
 
 		// Archiver l'ancien menu
 		const archivedResult = await Product.updateMany(
 			{ restaurantId: RESTAURANT_ID },
 			{ $set: { archived: true, available: false } },
 		);
-		console.log(`🗄️ ${archivedResult.modifiedCount} produits archivés`);
 
 		let totalImported = 0;
 		const errors = [];
@@ -99,9 +95,6 @@ async function reimportMenu() {
 
 					// Log si le produit a des options
 					if (processedOptions.length > 0) {
-						console.log(
-							`  ✅ ${name} [${processedOptions.map((o) => o.name).join(", ")}]`,
-						);
 					}
 				} catch (error) {
 					console.error(`❌ Erreur import item ${item.name}:`, error.message);
@@ -113,12 +106,9 @@ async function reimportMenu() {
 			}
 		}
 
-		console.log(`\n✅ ${totalImported} produits importés avec succès`);
 
 		if (errors.length > 0) {
-			console.log(`⚠️ ${errors.length} erreurs détectées:`);
 			errors.slice(0, 5).forEach((err) => {
-				console.log(`  - ${err.item || err.category}: ${err.error}`);
 			});
 		}
 
@@ -127,9 +117,6 @@ async function reimportMenu() {
 			restaurantId: RESTAURANT_ID,
 			"options.0": { $exists: true },
 		});
-		console.log(
-			`\n🛎️ ${productsWithOptions} produits ont des options/personnalisations`,
-		);
 
 		// Afficher quelques exemples
 		const examples = await Product.find(
@@ -141,11 +128,8 @@ async function reimportMenu() {
 		).limit(3);
 
 		if (examples.length > 0) {
-			console.log("\n📋 Exemples de produits avec options:");
 			examples.forEach((prod) => {
-				console.log(`  - ${prod.name}: ${prod.options.length} options`);
 				prod.options.forEach((opt) => {
-					console.log(`    • ${opt.name} (${opt.choices.length} choix)`);
 				});
 			});
 		}

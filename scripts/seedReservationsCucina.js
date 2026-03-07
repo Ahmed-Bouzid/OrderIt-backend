@@ -322,15 +322,10 @@ const reservations = [
 
 async function seedReservationsCucina() {
 	try {
-		console.log("🔗 Connexion à MongoDB...");
 		await mongoose.connect(process.env.MONGO_URI);
-		console.log("✅ Connecté à MongoDB");
 
-		console.log(`\n🍝 Restaurant : Lacucinadinini (${RESTAURANT_ID})`);
-		console.log(`📝 Insertion de ${reservations.length} réservations...\n`);
 
 		const result = await Reservation.insertMany(reservations);
-		console.log(`✅ ${result.length} réservations créées avec succès !`);
 
 		// Récapitulatif par jour
 		const byDay = {};
@@ -340,7 +335,6 @@ async function seedReservationsCucina() {
 			byDay[day].push(r);
 		});
 
-		console.log("\n📊 Résumé par jour :");
 		Object.entries(byDay)
 			.sort(([a], [b]) => a.localeCompare(b))
 			.forEach(([day, list]) => {
@@ -349,24 +343,16 @@ async function seedReservationsCucina() {
 					day: "numeric",
 					month: "long",
 				});
-				console.log(`\n  📅 ${label} (${list.length} résa) :`);
 				list
 					.sort((a, b) => a.reservationTime.localeCompare(b.reservationTime))
 					.forEach((r) => {
 						const icon = r.status === "ouverte" ? "🟢" : "🔵";
-						console.log(
-							`     ${icon} ${r.reservationTime}  ${r.clientName.padEnd(22)} ${r.nbPersonnes} pers.  [${r.status}]`,
-						);
 					});
 			});
 
 		const totalPeople = result.reduce((s, r) => s + r.nbPersonnes, 0);
-		console.log(
-			`\n👥 Total : ${result.length} réservations / ${totalPeople} personnes`,
-		);
 
 		await mongoose.connection.close();
-		console.log("\n✅ Script terminé !");
 	} catch (error) {
 		console.error("❌ Erreur :", error);
 		process.exit(1);

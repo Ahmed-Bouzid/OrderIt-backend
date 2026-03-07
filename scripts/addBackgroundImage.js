@@ -32,20 +32,15 @@ const BACKGROUND_IMAGES = {
 
 async function addBackgroundImages() {
 	try {
-		console.log("🔌 Connexion à MongoDB...");
 		await mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI);
-		console.log("✅ Connecté à MongoDB");
 
 		// Récupérer tous les styles
 		const styles = await Style.find({});
-		console.log(`\n📋 ${styles.length} styles trouvés`);
 
 		// Mettre à jour chaque style
 		for (const style of styles) {
 			const bgImage = BACKGROUND_IMAGES[style.key];
 			if (bgImage) {
-				console.log(`\n🎨 Mise à jour du style: ${style.name} (${style.key})`);
-
 				// Ajouter le champ backgroundImageUrl dans config
 				const updatedConfig = {
 					...style.config,
@@ -58,23 +53,13 @@ async function addBackgroundImages() {
 					{ _id: style._id },
 					{ $set: { config: updatedConfig } },
 				);
-
-				console.log(`   ✅ Image ajoutée: ${bgImage.url || "Aucune"}`);
 			} else {
-				console.log(`   ⏭️  Aucune image configurée pour ${style.key}`);
 			}
 		}
-
-		console.log("\n✅ Toutes les images ont été ajoutées !");
-		console.log(
-			"\n💡 Pour utiliser tes propres images, upload-les sur Cloudinary/S3",
-		);
-		console.log("   et modifie les URLs dans ce script.");
 	} catch (error) {
 		console.error("❌ Erreur:", error);
 	} finally {
 		await mongoose.disconnect();
-		console.log("🔌 Déconnecté de MongoDB");
 	}
 }
 

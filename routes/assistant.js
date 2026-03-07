@@ -66,7 +66,6 @@ router.post(
 				people: parseInt(people),
 			});
 
-			console.log("✅ [ASSISTANT] Résultat:", result.status, result.reason);
 
 			res.json(result);
 		} catch (error) {
@@ -149,9 +148,6 @@ router.put(
 				return res.status(404).json({ message: "Restaurant non trouvé" });
 			}
 
-			console.log(
-				`✅ Assistant - Turnover mis à jour: ${turnoverTime} min pour restaurant ${restaurantId}`,
-			);
 
 			res.json({
 				message: "Paramètres mis à jour",
@@ -179,7 +175,6 @@ router.post(
 		try {
 			const { date, restaurantId } = req.body;
 
-			console.log("🔍 [ROUTE] Validation params:", { date, restaurantId });
 
 			if (!date) {
 				console.error("❌ [ROUTE] Date manquante");
@@ -250,10 +245,6 @@ router.post(
 		try {
 			const { restaurantId, date } = req.body;
 
-			console.log("🗑️ [ROUTE] Suppression attributions:", {
-				restaurantId,
-				date,
-			});
 
 			const Reservation = require("../models/Reservation");
 
@@ -270,7 +261,6 @@ router.post(
 				status: { $in: ["en attente", "ouverte"] },
 			});
 
-			console.log(`📊 [CLEAR] ${reservations.length} réservations trouvées`);
 
 			// Supprimer les tableId
 			let clearedCount = 0;
@@ -282,9 +272,6 @@ router.post(
 				}
 			}
 
-			console.log(
-				`✅ [CLEAR] ${clearedCount} attributions supprimées sur ${reservations.length} réservations`,
-			);
 
 			res.json({
 				status: "success",
@@ -430,9 +417,6 @@ router.post(
 
 			const result = reasonAboutSlots(slots);
 
-			console.log(
-				`✨ [SUGGEST] ${result.suggestions.length} suggestions — ${date}, ${people || "?"} pers.`,
-			);
 
 			res.json(result);
 		} catch (err) {

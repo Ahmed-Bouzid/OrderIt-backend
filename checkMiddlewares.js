@@ -18,7 +18,6 @@ fs.readdir(routesDir, (err, files) => {
 			// Regex pour trouver toutes les définitions de routes GET (ou POST etc.)
 			const routeRegex = /router\.(get|post|put|delete)\(([^)]*)\)/g;
 			let match;
-			console.log(`\nFichier: ${file}`);
 
 			while ((match = routeRegex.exec(content)) !== null) {
 				const fullParams = match[2]; // ce qui est entre les parenthèses
@@ -29,16 +28,6 @@ fs.readdir(routesDir, (err, files) => {
 					fullParams.includes(mw)
 				);
 
-				console.log(
-					`  Route ${routeType.toUpperCase()}: ${fullParams
-						.split(",")[0]
-						.trim()}`
-				);
-				console.log(
-					`    - Middlewares présents ? ${
-						hasAllMiddlewares ? "✅ Oui" : "❌ Non"
-					}`
-				);
 			}
 		}
 	});

@@ -30,11 +30,6 @@ class StripeService {
 
 			// Détecter si mode test
 			this.isTestMode = stripeSecretKey.startsWith("sk_test_");
-			console.log(
-				`✅ Stripe initialisé en mode ${
-					this.isTestMode ? "TEST" : "PRODUCTION"
-				}`,
-			);
 		}
 
 		this.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -230,7 +225,6 @@ class StripeService {
 		// Plus sécurisé que d'envoyer les détails bruts de la carte
 		const testPaymentMethodId = "pm_card_visa";
 
-		console.log(`✅ Utilisation PaymentMethod test: ${testPaymentMethodId}`);
 
 		// Confirmer le PaymentIntent avec le token de test Stripe
 		const confirmedPaymentIntent = await this.stripe.paymentIntents.confirm(
@@ -267,9 +261,6 @@ class StripeService {
 							reservation.paidAmount =
 								(reservation.paidAmount || 0) + payment.amount / 100;
 							await reservation.save();
-							console.log(
-								`✅ Réservation ${reservation._id} mise à jour - paidAmount: ${reservation.paidAmount}€`,
-							);
 						}
 					}
 				}
@@ -286,7 +277,6 @@ class StripeService {
 	 * @returns {Promise<Object>} Résultat du traitement
 	 */
 	async handleWebhookEvent(event) {
-		console.log(`📡 Webhook Stripe reçu: ${event.type} - ${event.id}`);
 
 		switch (event.type) {
 			case "payment_intent.succeeded":
@@ -302,7 +292,6 @@ class StripeService {
 				return await this.handlePaymentRequiresAction(event.data.object);
 
 			default:
-				console.log(`ℹ️ Événement non géré: ${event.type}`);
 				return { received: true, handled: false };
 		}
 	}
@@ -314,7 +303,6 @@ class StripeService {
 	 * @returns {Promise<Object>} Résultat
 	 */
 	async handlePaymentSucceeded(paymentIntent) {
-		console.log(`✅ Paiement réussi: ${paymentIntent.id}`);
 
 		// 1. Récupérer le paiement dans la DB
 		const payment = await Payment.findByPaymentIntentId(paymentIntent.id);
@@ -360,7 +348,6 @@ class StripeService {
 
 			await order.save();
 
-			console.log(`✅ Commande ${order._id} marquée comme payée`);
 
 			// 5. Émettre un événement WebSocket (si disponible)
 			// Note: req.app.locals.io n'est pas disponible ici, gérer dans le contrôleur
@@ -382,7 +369,6 @@ class StripeService {
 	 * @returns {Promise<Object>} Résultat
 	 */
 	async handlePaymentFailed(paymentIntent) {
-		console.log(`❌ Paiement échoué: ${paymentIntent.id}`);
 
 		const payment = await Payment.findByPaymentIntentId(paymentIntent.id);
 
@@ -415,7 +401,6 @@ class StripeService {
 	 * @returns {Promise<Object>} Résultat
 	 */
 	async handlePaymentCanceled(paymentIntent) {
-		console.log(`🚫 Paiement annulé: ${paymentIntent.id}`);
 
 		const payment = await Payment.findByPaymentIntentId(paymentIntent.id);
 
@@ -441,7 +426,6 @@ class StripeService {
 	 * @returns {Promise<Object>} Résultat
 	 */
 	async handlePaymentRequiresAction(paymentIntent) {
-		console.log(`⚠️ Paiement nécessite action (3DS): ${paymentIntent.id}`);
 
 		const payment = await Payment.findByPaymentIntentId(paymentIntent.id);
 
@@ -493,7 +477,6 @@ class StripeService {
 				this.webhookSecret,
 			);
 
-			console.log(`✅ Webhook vérifié: ${event.type} - ${event.id}`);
 			return event;
 		} catch (err) {
 			logger.error("Erreur vérification webhook", { error: err.message });
@@ -511,7 +494,6 @@ class StripeService {
 	 * @returns {Promise<Object>} Paiement fake créé
 	 */
 	async createFakePayment(orderId, amount, tipAmount = 0) {
-		console.log(`🎭 Création paiement FAKE pour commande ${orderId}`);
 
 		// 1. Récupérer la commande
 		const order = await Order.findById(orderId)
