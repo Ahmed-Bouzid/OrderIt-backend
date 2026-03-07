@@ -331,7 +331,9 @@ orderSchema.post("save", async function (doc) {
 
 						if (doc.serverId) {
 							const Server = mongoose.model("Server");
-							const server = await Server.findById(doc.serverId).select("name").lean();
+							const server = await Server.findById(doc.serverId)
+								.select("name")
+								.lean();
 							if (server) {
 								userName = server.name || "Staff";
 								userType = "server";
@@ -339,7 +341,9 @@ orderSchema.post("save", async function (doc) {
 							} else {
 								// Peut être un admin (serverId = adminId)
 								const Admin = mongoose.model("Admin");
-								const admin = await Admin.findById(doc.serverId).select("name").lean();
+								const admin = await Admin.findById(doc.serverId)
+									.select("name")
+									.lean();
 								userName = admin?.name || "Staff";
 								userType = admin ? "admin" : "server";
 								userId = doc.serverId;
@@ -349,11 +353,16 @@ orderSchema.post("save", async function (doc) {
 							userType = "system";
 						}
 
-						await addAudit(reservation, "order_sent", { id: userId, type: userType, name: userName }, {
-							orderItems: doc.items,
-							total: doc.totalAmount,
-							orderId: doc._id,
-						});
+						await addAudit(
+							reservation,
+							"order_sent",
+							{ id: userId, type: userType, name: userName },
+							{
+								orderItems: doc.items,
+								total: doc.totalAmount,
+								orderId: doc._id,
+							},
+						);
 					} catch (auditErr) {
 						console.error("⚠️ Erreur audit order_sent:", auditErr.message);
 					}

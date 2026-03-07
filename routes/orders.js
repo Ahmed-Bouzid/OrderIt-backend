@@ -11,6 +11,7 @@ const Product = require("../models/Product");
 const Order = require("../models/Order");
 const Reservation = require("../models/Reservation");
 const { validationResult } = require("express-validator");
+const { getAuditUser, addAudit } = require("../utils/auditHelper");
 
 router.post(
 	"/",
@@ -672,6 +673,25 @@ router.put(
 
 			// Sauvegarder la commande
 			await order.save();
+
+			// 📝 Audit : enregistrer le changement de statut dans la réservation
+			if (order.reservationId && (status === "served" || status === "cancelled")) {
+				try {
+					const reservation = await Reservation.findById(order.reservationId);
+					if (reservation) {
+						const auditUser = await getAuditUser(req);
+						const statusLabel = status === "served" ? "Servi" : "Annulé";
+						await addAudit(reservation, "dish_status_changed", auditUser, {
+							oldValue: oldStatus,
+							dishStatus: statusLabel,
+							newValue: `${item.name} → ${statusLabel}`,
+						});
+						await reservation.save();
+					}
+				} catch (auditErr) {
+					console.error("⚠️ Erreur audit dish_status_changed:", auditErr.message);
+				}
+			}
 
 			res.json({
 				success: true,

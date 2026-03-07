@@ -124,7 +124,7 @@ function createAuditMessage(action, data = {}) {
 			return "Réservation supprimée";
 
 		case "dish_status_changed":
-			return `Statut préparation : ${oldValue || "?"} → ${dishStatus || newValue || "?"}`;
+			return `Plat ${newValue || `${oldValue || "?"} → ${dishStatus || "?"}`}`;
 
 		case "field_updated": {
 			const fieldLabels = {
