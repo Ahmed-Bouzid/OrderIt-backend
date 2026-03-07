@@ -17,11 +17,20 @@ function createAuditMessage(action, data = {}) {
 		amount,
 		orderItems,
 		fieldName,
+		clientName,
+		paymentMethod,
+		dishStatus,
 	} = data;
 
 	switch (action) {
 		case "created":
-			return "Réservation créée";
+			return `Réservation créée${clientName ? ` pour ${clientName}` : ""}`;
+
+		case "created_client":
+			return `Réservation créée par le client${clientName ? ` (${clientName})` : ""}`;
+
+		case "joined":
+			return `${clientName || "Un client"} a rejoint la table`;
 
 		case "table_assigned":
 			return `Table ${tableNumber || tableName || newValue} assignée`;
@@ -29,7 +38,10 @@ function createAuditMessage(action, data = {}) {
 		case "table_changed":
 			return `Table modifiée : ${oldValue} → ${tableNumber || newValue}`;
 
-		case "status_changed":
+		case "table_released":
+			return `Table ${tableNumber || ""} libérée`;
+
+		case "status_changed": {
 			const statusLabels = {
 				"en attente": "En attente",
 				ouverte: "Ouverte",
@@ -39,15 +51,17 @@ function createAuditMessage(action, data = {}) {
 			return `Statut modifié : ${statusLabels[oldValue] || oldValue} → ${
 				statusLabels[newValue] || newValue
 			}`;
+		}
 
 		case "payment":
-			return `Paiement effectué : ${amount}€`;
+			return `Paiement effectué${amount ? ` : ${amount}€` : ""}${paymentMethod ? ` (${paymentMethod})` : ""}`;
 
-		case "order_sent":
+		case "order_sent": {
 			const itemCount = orderItems?.length || 0;
 			return `Commande envoyée (${itemCount} article${
 				itemCount > 1 ? "s" : ""
 			})`;
+		}
 
 		case "present_changed":
 			return newValue === true || newValue === "true"
@@ -57,20 +71,39 @@ function createAuditMessage(action, data = {}) {
 		case "cancelled":
 			return "Réservation annulée";
 
-		case "field_updated":
+		case "closed_client":
+			return "Réservation fermée par le client";
+
+		case "deleted":
+			return "Réservation supprimée";
+
+		case "dish_status_changed":
+			return `Statut préparation : ${oldValue || "?"} → ${dishStatus || newValue || "?"}`;
+
+		case "field_updated": {
 			const fieldLabels = {
 				nbPersonnes: "Nombre de personnes",
 				clientName: "Nom du client",
 				phone: "Téléphone",
 				reservationTime: "Heure de réservation",
+				reservationDate: "Date de réservation",
 				allergies: "Allergies",
-				restrictions: "Restrictions",
+				restrictions: "Régime alimentaire",
 				notes: "Notes",
+				staffNotes: "Notes staff",
+				reservationSource: "Source de réservation",
+				openedBy: "Ouvert par",
+				serverId: "Serveur assigné",
 			};
 			const label = fieldLabels[fieldName] || fieldName;
-			return `${label} modifié${
-				oldValue ? ` : ${oldValue} → ${newValue}` : ""
-			}`;
+			if (oldValue && newValue) {
+				return `${label} modifié : ${oldValue} → ${newValue}`;
+			}
+			if (newValue) {
+				return `${label} défini : ${newValue}`;
+			}
+			return `${label} modifié`;
+		}
 
 		default:
 			return `Action : ${action}`;
