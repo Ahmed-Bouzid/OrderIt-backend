@@ -21,7 +21,7 @@ const {
 
 // ⭐ Import socket emitter
 const { emitReservationEvent } = require("../utils/socketEmitter");
-const { addAudit } = require("../utils/auditHelper");
+const { addAudit, getAuditUser } = require("../utils/auditHelper");
 const { checkOverbooking } = require("../utils/tableAvailabilityChecker");
 const { getAvailableSlotsForDay } = require("../utils/slotGenerator");
 
@@ -65,7 +65,7 @@ router.post(
 			const reservation = new Reservation(req.body);
 
 			// ⭐ Audit : création
-			const user = { id: req.user?.id, type: req.user?.userType || "system", name: req.user?.name || "Staff" };
+			const user = await getAuditUser(req);
 			await addAudit(reservation, "created", user, { clientName: req.body.clientName });
 			await reservation.save();
 
@@ -420,14 +420,7 @@ router.put(
 			).populate("serverId", "name serverId");
 
 			// ⭐ Audit des modifications importantes
-			const user = {
-				id: req.user?.id,
-				type: req.user?.userType || "server",
-				name:
-					req.user?.firstName && req.user?.lastName
-						? `${req.user.firstName} ${req.user.lastName}`
-						: req.user?.email || "Utilisateur",
-			};
+			const user = await getAuditUser(req);
 
 			// Table assignée ou modifiée
 			if (
@@ -553,14 +546,7 @@ router.put(
 			}
 
 			// ⭐ Audit
-			const user = {
-				id: req.user?.id,
-				type: req.user?.userType || "server",
-				name:
-					req.user?.firstName && req.user?.lastName
-						? `${req.user.firstName} ${req.user.lastName}`
-						: req.user?.email || "Utilisateur",
-			};
+			const user = await getAuditUser(req);
 			await addAudit(reservation, "present_changed", user, {
 				newValue: reservation.isPresent,
 			});
@@ -669,7 +655,7 @@ router.put(
 			reservation.status = status;
 
 			// ⭐ Audit : changement de statut
-			const user = { id: req.user?.id, type: req.user?.userType || "system", name: req.user?.name || "Staff" };
+			const user = await getAuditUser(req);
 			await addAudit(reservation, "status_changed", user, { oldValue: oldStatus, newValue: status });
 			await reservation.save();
 
@@ -727,7 +713,7 @@ router.put(
 			reservation.updatedAt = new Date();
 
 			// ⭐ Audit : paiement
-			const user = { id: req.user?.id, type: req.user?.userType || "system", name: req.user?.name || "Staff" };
+			const user = await getAuditUser(req);
 			await addAudit(reservation, "payment", user, { amount: reservation.totalAmount, paymentMethod: paymentMethod || reservation.paymentMethod });
 			if (oldPayStatus !== "terminée") {
 				await addAudit(reservation, "status_changed", user, { oldValue: oldPayStatus, newValue: "terminée" });
@@ -821,7 +807,7 @@ router.patch(
 			reservation.updatedAt = new Date();
 
 			// ⭐ Audit : changement statut cuisine
-			const user = { id: req.user?.id, type: req.user?.userType || "system", name: req.user?.name || "Staff" };
+			const user = await getAuditUser(req);
 			await addAudit(reservation, "dish_status_changed", user, { oldValue: oldDish, newValue: dishStatus, dishStatus });
 			await reservation.save();
 
@@ -877,7 +863,7 @@ router.patch("/assignTable/:id", auth, async (req, res) => {
 		).populate("tableId");
 
 		// ⭐ Audit : table assignée
-		const user = { id: req.user?.id, type: req.user?.userType || "system", name: req.user?.name || "Staff" };
+		const user = await getAuditUser(req);
 		const action = oldReservation?.tableId ? "table_changed" : "table_assigned";
 		await addAudit(updatedReservation, action, user, {
 			oldValue: oldReservation?.tableId?.toString() || "",
@@ -937,7 +923,7 @@ router.delete(
 				return res.status(404).json({ message: "Réservation non trouvée" });
 
 			// ⭐ Audit : suppression (sauvegardé avant delete)
-			const user = { id: req.user?.id, type: req.user?.userType || "system", name: req.user?.name || "Staff" };
+			const user = await getAuditUser(req);
 			await addAudit(toDelete, "deleted", user, { clientName: toDelete.clientName });
 			await toDelete.save();
 			await Reservation.findByIdAndDelete(req.params.id);

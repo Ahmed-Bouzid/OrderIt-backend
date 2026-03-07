@@ -2,6 +2,52 @@
  * auditHelper.js - Helper pour enregistrer les actions d'audit
  */
 
+const Admin = require("../models/Admin");
+const Server = require("../models/Server");
+
+// Cache en mémoire pour éviter les requêtes répétées (TTL ~5min)
+const nameCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000;
+
+/**
+ * Récupère le nom de l'utilisateur depuis la BDD (avec cache)
+ * @param {Object} req - Express request (req.user doit être défini)
+ * @returns {Object} { id, type, name }
+ */
+async function getAuditUser(req) {
+	const userId = req.user?.id;
+	const userType = req.user?.userType || req.user?.role || "system";
+
+	if (!userId) return { id: null, type: "system", name: "Système" };
+
+	// Vérifier le cache
+	const cached = nameCache.get(userId);
+	if (cached && Date.now() - cached.ts < CACHE_TTL) {
+		return { id: userId, type: userType, name: cached.name };
+	}
+
+	// Chercher en BDD
+	let name = null;
+	try {
+		if (userType === "admin") {
+			const admin = await Admin.findById(userId).select("name").lean();
+			name = admin?.name;
+		} else if (userType === "server") {
+			const server = await Server.findById(userId).select("name").lean();
+			name = server?.name;
+		}
+	} catch {
+		// Silently fallback
+	}
+
+	if (!name) name = "Staff";
+
+	// Mettre en cache
+	nameCache.set(userId, { name, ts: Date.now() });
+
+	return { id: userId, type: userType, name };
+}
+
 /**
  * Crée un message d'audit formaté selon l'action
  * @param {String} action - Type d'action (table_assigned, status_changed, etc.)
@@ -139,4 +185,5 @@ async function addAudit(reservation, action, user, data = {}) {
 module.exports = {
 	createAuditMessage,
 	addAudit,
+	getAuditUser,
 };
