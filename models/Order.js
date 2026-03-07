@@ -324,7 +324,7 @@ orderSchema.post("save", async function (doc) {
 				if (isNewOrder) {
 					try {
 						const { addAudit } = require("../utils/auditHelper");
-						// Récupérer le nom du serveur depuis la BDD
+						// Récupérer le nom de l'utilisateur depuis la BDD
 						let userName = "Système";
 						let userType = "system";
 						let userId = null;
@@ -332,9 +332,18 @@ orderSchema.post("save", async function (doc) {
 						if (doc.serverId) {
 							const Server = mongoose.model("Server");
 							const server = await Server.findById(doc.serverId).select("name").lean();
-							userName = server?.name || "Staff";
-							userType = "server";
-							userId = doc.serverId;
+							if (server) {
+								userName = server.name || "Staff";
+								userType = "server";
+								userId = doc.serverId;
+							} else {
+								// Peut être un admin (serverId = adminId)
+								const Admin = mongoose.model("Admin");
+								const admin = await Admin.findById(doc.serverId).select("name").lean();
+								userName = admin?.name || "Staff";
+								userType = admin ? "admin" : "server";
+								userId = doc.serverId;
+							}
 						} else if (doc.origin === "client") {
 							userName = doc.clientName || "Client";
 							userType = "system";
