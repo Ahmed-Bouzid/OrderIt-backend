@@ -10,7 +10,6 @@ const Table = require("../models/Table");
 const Product = require("../models/Product");
 const Order = require("../models/Order");
 const Reservation = require("../models/Reservation");
-const { addAudit, getAuditUser } = require("../utils/auditHelper");
 const { validationResult } = require("express-validator");
 
 router.post(
@@ -128,24 +127,6 @@ router.post(
 			});
 
 			await order.save();
-
-			// ⭐ Audit : commande envoyée (si liée à une réservation)
-			if (reservationId) {
-				try {
-					const reservation = await Reservation.findById(reservationId);
-					if (reservation) {
-						const user = await getAuditUser(req);
-						await addAudit(reservation, "order_sent", user, {
-							orderItems: enrichedItems,
-							total,
-							orderId: order._id,
-						});
-						await reservation.save();
-					}
-				} catch (auditErr) {
-					console.error("⚠️ Erreur audit order_sent:", auditErr.message);
-				}
-			}
 
 			// ⭐ Émettre événement WebSocket pour notifier le frontend
 			const io = req.app.locals.io;
