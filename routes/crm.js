@@ -44,7 +44,6 @@ router.get(
 			// Calculer les dates selon la période
 			const { start, end } = getPeriodDates(period, startDate, endDate);
 
-
 			// Récupérer toutes les données en parallèle
 			const [
 				ordersData,
@@ -1037,7 +1036,6 @@ router.get(
 						(1000 * 60)
 					: 0;
 
-
 			res.json({
 				success: true,
 				data: {
@@ -1083,12 +1081,10 @@ router.get(
 			});
 		} catch (error) {
 			console.error("❌ [CRM] Erreur détail serveur:", error);
-			res
-				.status(500)
-				.json({
-					success: false,
-					message: "Erreur lors du chargement du profil",
-				});
+			res.status(500).json({
+				success: false,
+				message: "Erreur lors du chargement du profil",
+			});
 		}
 	},
 );

@@ -141,7 +141,7 @@ const SYSTEM_STYLES = [
 
 			// 📝 Textes - Blanc crème chaud du feu
 			text: "#FFFAF0", // Blanc crème chaud (floral white)
-			textSecondary: "#FFE4B5", // Moccasin (beige chaud)
+			textSecondary: "#D4A574", // Doré grillé — luminance 0.67, lisible sur fond sombre
 			textMuted: "#D2B48C", // Tan (brun clair)
 			textAccent: "#FF6B35", // Orange flamme signature
 
@@ -258,7 +258,6 @@ async function initStyles() {
 				created++;
 			}
 		}
-
 
 		await mongoose.connection.close();
 		process.exit(0);
