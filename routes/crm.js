@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const router = express.Router();
 const auth = require("../middlewares/auth");
 const checkRoles = require("../middlewares/checkRoles");
@@ -165,13 +166,10 @@ router.get(
 			const restaurantId = req.user.restaurantId;
 			const { start, end } = getPeriodDates(period);
 
-			console.log(`\n🔍 [CRM/servers] restaurantId=${restaurantId} period=${period} start=${start?.toISOString()} end=${end?.toISOString()}`);
-
 			// Récupérer tous les serveurs du restaurant
 			const servers = await Server.find({ restaurantId }).select(
 				"name email role",
 			);
-			console.log(`🔍 [CRM/servers] ${servers.length} serveur(s) trouvé(s) : ${servers.map(s => s.name).join(", ")}`);
 
 			// Analyser chaque serveur
 			const serversAnalysis = await Promise.all(
@@ -183,7 +181,6 @@ router.get(
 						end,
 						detailed,
 					);
-					console.log(`🔍 [CRM/servers] ${server.name} → orders:${analysis.totalOrders} CA:${analysis.totalSales}€`);
 					return {
 						...server.toObject(),
 						performance: analysis,
@@ -383,10 +380,16 @@ function getPeriodDates(period, customStart, customEnd) {
  * Analyse des commandes
  */
 async function getOrdersAnalytics(restaurantId, start, end) {
+	// Forcer la conversion en ObjectId pour que $match dans aggregate fonctionne
+	const rid =
+		restaurantId instanceof mongoose.Types.ObjectId
+			? restaurantId
+			: new mongoose.Types.ObjectId(String(restaurantId));
+
 	const pipeline = [
 		{
 			$match: {
-				restaurantId: restaurantId,
+				restaurantId: rid,
 				createdAt: { $gte: start, $lte: end },
 			},
 		},
@@ -584,8 +587,6 @@ async function getServerPerformance(
 		createdAt: { $gte: start, $lte: end },
 	});
 
-	console.log(`  ↳ getServerPerformance serverId=${serverId} restaurantId=${restaurantId} → ${orders.length} commande(s)`);
-
 	const messages = await ClientMessage.find({
 		serverId,
 		restaurantId,
@@ -751,6 +752,14 @@ async function generateLeaderboard(restaurantId, start, end, metric) {
 
 	return leaderboard.map((item, index) => ({
 		...item,
+		// Aplatir performance à la racine pour que LeaderboardSection puisse lire
+		// server[selectedMetric] (totalRevenue, totalOrders, averageServiceTime...)
+		totalOrders: item.performance?.totalOrders || 0,
+		totalRevenue: item.performance?.totalSales || 0,
+		averageServiceTime: item.performance?.averageServiceTime || 0,
+		performanceScore: item.performance?.efficiency || 0,
+		customerRating: item.performance?.customerRating || 0,
+		upsellRate: item.performance?.upsellRate || 0,
 		rank: index + 1,
 	}));
 }
