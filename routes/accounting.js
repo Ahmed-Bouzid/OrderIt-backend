@@ -115,13 +115,13 @@ router.get(
 			const orders = await Order.find({
 				restaurantId: restaurantId,
 				createdAt: { $gte: startDate, $lt: endDate },
-				status: { $ne: "cancelled" },
+				orderStatus: { $ne: "cancelled" },
 			});
 
 
 			// ═══ CALCULS DE BASE ═══
 			const totalRevenue = orders.reduce(
-				(sum, order) => sum + (order.total || 0),
+				(sum, order) => sum + (order.totalAmount || 0),
 				0,
 			);
 			const totalOrders = orders.length;
@@ -208,11 +208,11 @@ router.get(
 			const previousOrders = await Order.find({
 				restaurantId: restaurantId,
 				createdAt: { $gte: previousPeriodStart, $lt: previousPeriodEnd },
-				status: { $ne: "cancelled" },
+				orderStatus: { $ne: "cancelled" },
 			});
 
 			const previousRevenue = previousOrders.reduce(
-				(sum, order) => sum + (order.total || 0),
+				(sum, order) => sum + (order.totalAmount || 0),
 				0,
 			);
 			const growthRate =
@@ -291,11 +291,11 @@ async function getDailyRevenues(restaurantId, startDate, endDate) {
 		const dayOrders = await Order.find({
 			restaurantId: restaurantId,
 			createdAt: { $gte: dayStart, $lt: dayEnd },
-			status: { $ne: "cancelled" },
+			orderStatus: { $ne: "cancelled" },
 		});
 
 		const dayRevenue = dayOrders.reduce(
-			(sum, order) => sum + (order.total || 0),
+			(sum, order) => sum + (order.totalAmount || 0),
 			0,
 		);
 
@@ -450,13 +450,13 @@ router.get(
 			const orders = await Order.find({
 				restaurantId: restaurantId,
 				createdAt: { $gte: startDate, $lt: endDate },
-				status: { $ne: "cancelled" },
+				orderStatus: { $ne: "cancelled" },
 			}).sort({ createdAt: -1 });
 
 			const details = orders.map((order) => ({
 				orderId: order._id,
 				date: order.createdAt,
-				total: order.total,
+				total: order.totalAmount,
 				items: order.items,
 				status: order.status,
 				tableId: order.tableId,
@@ -467,7 +467,7 @@ router.get(
 				success: true,
 				data: {
 					orders: details,
-					total: details.reduce((sum, order) => sum + order.total, 0),
+					total: details.reduce((sum, order) => sum + (order.total || 0), 0),
 					count: details.length,
 				},
 			});
@@ -509,12 +509,12 @@ router.get(
 			const orders = await Order.find({
 				restaurantId: restaurantId,
 				createdAt: { $gte: startDate, $lt: endDate },
-				status: { $ne: "cancelled" },
+				orderStatus: { $ne: "cancelled" },
 			}).sort({ createdAt: -1 });
 
 			// ═══ CALCULS GLOBAUX ═══
 			const totalRevenue = orders.reduce(
-				(sum, order) => sum + (order.total || 0),
+				(sum, order) => sum + (order.totalAmount || 0),
 				0,
 			);
 			const revenueHT = totalRevenue / 1.2;
@@ -569,17 +569,17 @@ router.get(
 
 			orders.forEach((order) => {
 				const orderDate = new Date(order.createdAt);
-				const orderHT = (order.total || 0) / 1.2;
-				const orderTVA = (order.total || 0) - orderHT;
+				const orderHT = (order.totalAmount || 0) / 1.2;
+				const orderTVA = (order.totalAmount || 0) - orderHT;
 
 				csvContent += `${orderDate.toLocaleDateString("fr-FR")};`;
 				csvContent += `${orderDate.toLocaleTimeString("fr-FR")};`;
 				csvContent += `${order._id};`;
 				csvContent += `${order.tableId || "N/A"};`;
-				csvContent += `€${(order.total || 0).toFixed(2)};`;
+				csvContent += `€${(order.totalAmount || 0).toFixed(2)};`;
 				csvContent += `€${orderHT.toFixed(2)};`;
 				csvContent += `€${orderTVA.toFixed(2)};`;
-				csvContent += `${order.status}\n`;
+				csvContent += `${order.orderStatus}\n`;
 			});
 
 			csvContent += `\n`;
@@ -609,7 +609,7 @@ router.get(
 				if (!dailyStats[dateKey]) {
 					dailyStats[dateKey] = { revenue: 0, orders: 0 };
 				}
-				dailyStats[dateKey].revenue += order.total || 0;
+				dailyStats[dateKey].revenue += order.totalAmount || 0;
 				dailyStats[dateKey].orders += 1;
 			});
 
