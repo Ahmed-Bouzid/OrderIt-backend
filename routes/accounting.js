@@ -37,6 +37,14 @@ function getPeriodDates(period, customStart = null, customEnd = null) {
 			endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 			break;
 
+		case "quarter": {
+			// Premier mois du trimestre courant (0, 3, 6, ou 9)
+			const quarterStart = Math.floor(now.getMonth() / 3) * 3;
+			startDate = new Date(now.getFullYear(), quarterStart, 1);
+			endDate = new Date(now.getFullYear(), quarterStart + 3, 1);
+			break;
+		}
+
 		case "year":
 			startDate = new Date(now.getFullYear(), 0, 1);
 			endDate = new Date(now.getFullYear() + 1, 0, 1);
@@ -195,6 +203,14 @@ router.get(
 						startDate.getMonth(),
 						1,
 					);
+					break;
+				case "quarter":
+					previousPeriodStart = new Date(
+						startDate.getFullYear(),
+						startDate.getMonth() - 3,
+						1,
+					);
+					previousPeriodEnd = new Date(startDate);
 					break;
 				case "year":
 					previousPeriodStart = new Date(startDate.getFullYear() - 1, 0, 1);
