@@ -117,6 +117,7 @@ router.post("/login", loginLimiter, async (req, res) => {
 			accessToken,
 			refreshToken, // ⭐ IMPORTANT: Envoyer le refreshToken aussi au frontend (AsyncStorage)
 			userId: user._id,
+			name: user.name || null,
 			email: user.email,
 			role: user.role,
 			userType,
