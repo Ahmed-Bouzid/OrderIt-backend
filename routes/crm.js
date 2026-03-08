@@ -463,14 +463,46 @@ async function getOrdersAnalytics(restaurantId, start, end) {
 	});
 
 	const topPerformers = Object.entries(serverPerformance)
-		.map(([id, data]) => ({
-			serverId: id,
-			name: data.name,
-			totalSales: data.totalSales,
-			totalOrders: data.totalOrders,
-			averageServiceTime: data.totalServiceTime / data.totalOrders,
-		}))
+		.map(([id, data]) => {
+			const avgSvcTime =
+				data.totalOrders > 0
+					? data.totalServiceTime / data.totalOrders / (1000 * 60)
+					: 0;
+			const score = calculateServerEfficiency(data.totalOrders, avgSvcTime, 0);
+			return {
+				serverId: id,
+				name: data.name,
+				totalSales: data.totalSales,
+				totalOrders: data.totalOrders,
+				averageServiceTime: avgSvcTime,
+				performanceScore: score,
+				efficiency: score, // alias for ServerCard compatibility
+			};
+		})
 		.sort((a, b) => b.totalSales - a.totalSales);
+
+	// Timeline quotidienne (groupBy jour)
+	const timelinePipeline = [
+		{ $match: { restaurantId: rid, createdAt: { $gte: start, $lte: end } } },
+		{
+			$group: {
+				_id: {
+					year: { $year: "$createdAt" },
+					month: { $month: "$createdAt" },
+					day: { $dayOfMonth: "$createdAt" },
+				},
+				orders: { $sum: 1 },
+				revenue: { $sum: "$totalAmount" },
+			},
+		},
+		{ $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
+	];
+	const timelineRaw = await Order.aggregate(timelinePipeline);
+	const timeline = timelineRaw.map((item) => ({
+		label: `${String(item._id.day).padStart(2, "0")}/${String(item._id.month).padStart(2, "0")}`,
+		value: Math.round(item.revenue),
+		orders: item.orders,
+	}));
 
 	return {
 		totalOrders: analytics.totalOrders,
@@ -478,9 +510,9 @@ async function getOrdersAnalytics(restaurantId, start, end) {
 		averageOrderValue: analytics.totalRevenue / analytics.totalOrders,
 		averageServiceTime: analytics.averageServiceTime / (1000 * 60), // en minutes
 		topPerformers,
-		timeline: [], // TODO: implémenter timeline détaillée
+		timeline,
 		revenueByServer: serverPerformance,
-		fastestServer: topPerformers.sort(
+		fastestServer: [...topPerformers].sort(
 			(a, b) => a.averageServiceTime - b.averageServiceTime,
 		)[0],
 		upsellRate: 15, // TODO: calculer via les add-ons
@@ -778,15 +810,95 @@ function getMetricField(metric) {
 }
 
 /**
- * Calcule les tendances sur 3 mois
+ * Calcule les tendances sur 12 semaines
  */
 async function calculateTrends(restaurantId) {
-	// TODO: Implémenter calcul détaillé des tendances
-	return {
-		weekly: [],
-		monthly: [],
-		seasonality: {},
-	};
+	try {
+		const rid =
+			restaurantId instanceof mongoose.Types.ObjectId
+				? restaurantId
+				: new mongoose.Types.ObjectId(String(restaurantId));
+
+		const end = new Date();
+		const start = new Date();
+		start.setDate(start.getDate() - 84); // 12 semaines
+
+		const pipeline = [
+			{
+				$match: {
+					restaurantId: rid,
+					createdAt: { $gte: start, $lte: end },
+				},
+			},
+			{
+				$group: {
+					_id: {
+						year: { $year: "$createdAt" },
+						week: { $week: "$createdAt" },
+					},
+					orders: { $sum: 1 },
+					revenue: { $sum: "$totalAmount" },
+				},
+			},
+			{ $sort: { "_id.year": 1, "_id.week": 1 } },
+		];
+
+		const data = await Order.aggregate(pipeline);
+
+		const weekly = data.map((item) => ({
+			label: `S${item._id.week}`,
+			orders: item.orders,
+			revenue: Math.round(item.revenue),
+		}));
+
+		// Tendance mensuelle (4 derniers mois)
+		const monthStart = new Date();
+		monthStart.setMonth(monthStart.getMonth() - 4);
+		const monthPipeline = [
+			{
+				$match: {
+					restaurantId: rid,
+					createdAt: { $gte: monthStart, $lte: end },
+				},
+			},
+			{
+				$group: {
+					_id: {
+						year: { $year: "$createdAt" },
+						month: { $month: "$createdAt" },
+					},
+					orders: { $sum: 1 },
+					revenue: { $sum: "$totalAmount" },
+				},
+			},
+			{ $sort: { "_id.year": 1, "_id.month": 1 } },
+		];
+		const monthData = await Order.aggregate(monthPipeline);
+		const monthNames = [
+			"Jan",
+			"Fév",
+			"Mar",
+			"Avr",
+			"Mai",
+			"Jun",
+			"Jul",
+			"Aoû",
+			"Sep",
+			"Oct",
+			"Nov",
+			"Déc",
+		];
+		const monthly = monthData.map((item) => ({
+			label: monthNames[item._id.month - 1],
+			orders: item.orders,
+			revenue: Math.round(item.revenue),
+		}));
+
+		return { weekly, monthly, seasonality: {} };
+	} catch (err) {
+		console.error("❌ [CRM] calculateTrends error:", err);
+		return { weekly: [], monthly: [], seasonality: {} };
+	}
 }
 
 /**
