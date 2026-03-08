@@ -118,14 +118,12 @@ router.get(
 				customEnd,
 			);
 
-
 			// Récupération des commandes de la période
 			const orders = await Order.find({
 				restaurantId: restaurantId,
 				createdAt: { $gte: startDate, $lt: endDate },
 				orderStatus: { $ne: "cancelled" },
 			});
-
 
 			// ═══ CALCULS DE BASE ═══
 			const totalRevenue = orders.reduce(
@@ -656,7 +654,6 @@ router.get(
 			res.write("\ufeff");
 			res.write(csvContent);
 			res.end();
-
 		} catch (error) {
 			console.error("❌ [ACCOUNTING] Erreur génération export:", error);
 			res.status(500).json({
