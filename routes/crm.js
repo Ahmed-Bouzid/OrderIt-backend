@@ -165,11 +165,13 @@ router.get(
 			const restaurantId = req.user.restaurantId;
 			const { start, end } = getPeriodDates(period);
 
+			console.log(`\n🔍 [CRM/servers] restaurantId=${restaurantId} period=${period} start=${start?.toISOString()} end=${end?.toISOString()}`);
 
 			// Récupérer tous les serveurs du restaurant
 			const servers = await Server.find({ restaurantId }).select(
 				"name email role",
 			);
+			console.log(`🔍 [CRM/servers] ${servers.length} serveur(s) trouvé(s) : ${servers.map(s => s.name).join(", ")}`);
 
 			// Analyser chaque serveur
 			const serversAnalysis = await Promise.all(
@@ -181,6 +183,7 @@ router.get(
 						end,
 						detailed,
 					);
+					console.log(`🔍 [CRM/servers] ${server.name} → orders:${analysis.totalOrders} CA:${analysis.totalSales}€`);
 					return {
 						...server.toObject(),
 						performance: analysis,
@@ -580,6 +583,8 @@ async function getServerPerformance(
 		restaurantId,
 		createdAt: { $gte: start, $lte: end },
 	});
+
+	console.log(`  ↳ getServerPerformance serverId=${serverId} restaurantId=${restaurantId} → ${orders.length} commande(s)`);
 
 	const messages = await ClientMessage.find({
 		serverId,
