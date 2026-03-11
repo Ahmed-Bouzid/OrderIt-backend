@@ -123,6 +123,7 @@ app.use("/mfa", require("./routes/mfa")); // 🔐 Routes MFA (Multi-Factor Authe
 app.use("/api/feature-levels", auth, require("./routes/featureLevels")); // 🎚️ Routes niveaux fonctionnels
 app.use("/client/token", clientTokenRoutes);
 app.use("/client/products", clientProductsRoutes);
+app.use("/print", auth, require("./routes/print")); // 🖨️ Impression thermique ESC/POS (Chez Ahmed)
 
 // ✅ SÉCURITÉ: Middlewares de gestion d'erreurs (TOUJOURS EN DERNIER)
 app.use(notFoundHandler); // 404 pour routes non trouvées
