@@ -57,8 +57,23 @@ const productSchema = new mongoose.Schema(
 					},
 				],
 			},
-		],
-		// �📦 Gestion des stocks
+		],		// 🔧 système Add-ons
+		addOns: {
+			type: Boolean,
+			default: false,
+			index: true,
+		},
+		hasAddOns: {
+			type: Boolean,
+			default: false,
+			index: true,
+		},
+		allowedAddOns: [
+			{
+				type: mongoose.Schema.Types.ObjectId,
+				ref: "Product",
+			},
+		],		// �📦 Gestion des stocks
 		quantifiable: {
 			type: Boolean,
 			default: false,
@@ -112,6 +127,15 @@ productSchema.statics.findLowStock = function (restaurantId) {
 		restaurantId,
 		quantifiable: true,
 		$expr: { $lte: ["$quantity", "$lowStockThreshold"] },
+	}).maxTimeMS(10000);
+};
+
+// Méthode statique pour trouver les add-ons disponibles
+productSchema.statics.findAddOns = function (restaurantId) {
+	return this.find({
+		restaurantId,
+		addOns: true,
+		available: true,
 	}).maxTimeMS(10000);
 };
 

@@ -32,6 +32,20 @@ const productUpdateValidationRules = [
 		.isBoolean()
 		.withMessage("available doit être un booléen"),
 	body("image").optional().isString(),
+	body("addOns").optional().isBoolean().withMessage("addOns doit être un booléen"),
+	body("hasAddOns").optional().isBoolean().withMessage("hasAddOns doit être un booléen"),
+	body("allowedAddOns")
+		.optional()
+		.isArray()
+		.withMessage("allowedAddOns doit être un tableau"),
+	body("allowedAddOns.*")
+		.if(() => body("allowedAddOns").exists())
+		.custom((value) => {
+			if (!value || typeof value !== "string" || value.length !== 24) {
+				throw new Error("allowedAddOns doit contenir des ObjectIds valides");
+			}
+			return true;
+		}),
 ];
 
 // POST / - création produit (admin)
@@ -333,6 +347,26 @@ router.put(
 			res.json(product);
 		} catch (err) {
 			console.error("❌ Erreur décrémentation stock:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	}
+);
+
+// GET /addons/:restaurantId - récupérer les add-ons disponibles
+router.get(
+	"/addons/:restaurantId",
+	auth,
+	validateObjectIds(["restaurantId"]),
+	checkUserRestaurant,
+	async (req, res) => {
+		try {
+			const { restaurantId } = req.params;
+
+			const addOns = await Product.findAddOns(restaurantId);
+
+			res.json(addOns);
+		} catch (err) {
+			console.error("❌ Erreur récupération add-ons:", err);
 			res.status(500).json({ message: "Erreur serveur" });
 		}
 	}
