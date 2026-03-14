@@ -1,5 +1,6 @@
 // ✅ Démarrage sécurisé du serveur
 const express = require("express");
+const path = require("path");
 const cors = require("cors");
 const rateLimiter = require("./middlewares/rateLimiter");
 const helmet = require("helmet");
@@ -80,6 +81,7 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 // Pour les formulaires (si jamais utilisé)
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
+app.use(express.static(path.join(__dirname, "public"))); // 📦 Sert les fichiers statiques (APK, etc.)
 app.use(rateLimiter);
 app.use(helmet());
 app.use(mongoSanitize());
@@ -124,6 +126,7 @@ app.use("/api/feature-levels", auth, require("./routes/featureLevels")); // 🎚
 app.use("/client/token", clientTokenRoutes);
 app.use("/client/products", clientProductsRoutes);
 app.use("/print", auth, require("./routes/print")); // 🖨️ Impression thermique ESC/POS (Chez Ahmed)
+app.use("/api/app", require("./routes/appVersion")); // 📱 Version APK + téléchargement
 
 // ✅ SÉCURITÉ: Middlewares de gestion d'erreurs (TOUJOURS EN DERNIER)
 app.use(notFoundHandler); // 404 pour routes non trouvées
