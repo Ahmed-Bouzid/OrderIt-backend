@@ -205,6 +205,7 @@ router.put(
 			"size",
 			"sizeW",
 			"sizeH",
+			"shape",
 		];
 		const updates = Object.fromEntries(
 			Object.entries(req.body).filter(([key]) => allowedFields.includes(key)),

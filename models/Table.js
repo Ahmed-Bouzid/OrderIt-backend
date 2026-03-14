@@ -84,6 +84,13 @@ const tableSchema = new mongoose.Schema(
 		// Liste des invités (ordre d'arrivée)
 		guests: [{ type: String }],
 
+		// Forme de la table : rect (par défaut) ou round
+		shape: {
+			type: String,
+			enum: ["rect", "round"],
+			default: "rect",
+		},
+
 		// Réservation assignée à la table (si besoin)
 		tableReservationId: {
 			type: mongoose.Schema.Types.ObjectId,
