@@ -1,8 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 const generateClientToken = require("../utils/generateClientToken");
 const { clientTokenLimiter } = require("../middlewares/rateLimiter");
+const Table = require("../models/Table");
+const Restaurant = require("../models/Restaurant");
 
 // Cette route permet à un client de générer un token limité
 router.post("/", clientTokenLimiter, async (req, res) => {
@@ -15,9 +18,30 @@ router.post("/", clientTokenLimiter, async (req, res) => {
 				.json({ message: "Pseudo et restaurantId sont requis." });
 		}
 
-		// 🍔 Foodtruck : tableId optionnel
+		// Valider que restaurantId est un ObjectId MongoDB valide
+		if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+			return res.status(400).json({ message: "restaurantId invalide." });
+		}
+
+		// Vérifier que le restaurant existe
+		const restaurant = await Restaurant.findById(restaurantId).select("_id").lean();
+		if (!restaurant) {
+			return res.status(404).json({ message: "Restaurant introuvable." });
+		}
+
+		// 🍔 Foodtruck : tableId optionnel — mais si fourni, valider qu'il appartient au restaurant
+		if (tableId) {
+			if (!mongoose.Types.ObjectId.isValid(tableId)) {
+				return res.status(400).json({ message: "tableId invalide." });
+			}
+			const table = await Table.findOne({ _id: tableId, restaurantId }).select("_id").lean();
+			if (!table) {
+				return res.status(400).json({ message: "Table invalide pour ce restaurant." });
+			}
+		}
+
 		const tokenData = {
-			clientId: pseudo, // on peut l'utiliser comme identifiant temporaire
+			clientId: pseudo,
 			restaurantId,
 			expiresIn: 2 * 3600, // expire dans 2 heures
 		};

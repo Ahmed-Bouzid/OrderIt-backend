@@ -50,6 +50,28 @@ router.post(
 				metadata = {},
 			} = req.body;
 
+			// ── Sécurité : vérifier que la commande existe et appartient au restaurant du JWT ──
+			const order = await Order.findById(orderId).lean();
+			if (!order) {
+				return res.status(404).json({ error: "Commande introuvable." });
+			}
+
+			// Pour un client JWT, vérifier que la commande est dans le bon restaurant
+			if (req.user.role === "client") {
+				if (order.restaurantId.toString() !== req.user.restaurantId) {
+					return res.status(403).json({ error: "Accès refusé à cette commande." });
+				}
+			}
+
+			// ── Sécurité : valider que le montant déclaré ≥ total réel de la commande ──
+			// Empêche un client de sous-déclarer le montant pour payer moins
+			const orderTotalCents = Math.round((order.totalAmount || 0) * 100);
+			if (amount < orderTotalCents) {
+				return res.status(400).json({
+					error: "Montant insuffisant.",
+					message: `Le montant déclaré (${amount} cts) est inférieur au total de la commande (${orderTotalCents} cts).`,
+				});
+			}
 
 			// Vérifier que Stripe est configuré
 			if (!stripeService.isConfigured()) {
