@@ -570,3 +570,61 @@ router.post(
 );
 
 module.exports = router;
+
+// ════════════════════════════════════════════════════════════════════════════
+// ROUTE: POST /payments/refund
+// Rembourse un paiement (partiel ou total)
+// Accessible par: restaurant (admin/server) uniquement
+// ════════════════════════════════════════════════════════════════════════════
+
+router.post(
+	"/refund",
+	auth,
+	checkRoles(["admin", "server"]),
+	[
+		body("paymentIntentId").notEmpty().withMessage("paymentIntentId requis"),
+		body("amountCents")
+			.optional()
+			.isInt({ min: 1 })
+			.withMessage("amountCents doit être un entier positif en centimes"),
+		body("reason")
+			.optional()
+			.isIn(["duplicate", "fraudulent", "requested_by_customer"])
+			.withMessage("reason invalide"),
+	],
+	async (req, res) => {
+		const errors = validationResult(req);
+		if (!errors.isEmpty()) {
+			return res.status(400).json({ errors: errors.array() });
+		}
+
+		const { paymentIntentId, amountCents = null, reason = "requested_by_customer" } = req.body;
+
+		try {
+			// Vérifier que le paiement appartient bien à ce restaurant
+			const payment = await Payment.findOne({ stripePaymentIntentId: paymentIntentId });
+			if (!payment) {
+				return res.status(404).json({ error: "Paiement introuvable" });
+			}
+
+			if (
+				req.user.role !== "admin" &&
+				payment.restaurantId.toString() !== req.user.restaurantId?.toString()
+			) {
+				return res.status(403).json({ error: "Accès refusé — restaurant non correspondant" });
+			}
+
+			const result = await stripeService.createRefund({ paymentIntentId, amountCents, reason });
+
+			res.json({
+				success: true,
+				refundId: result.refund.id,
+				amountRefunded: result.refund.amount,
+				status: result.payment.status,
+			});
+		} catch (err) {
+			console.error("❌ Erreur remboursement:", err.message);
+			res.status(400).json({ error: err.message });
+		}
+	},
+);

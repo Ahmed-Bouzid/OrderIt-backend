@@ -91,36 +91,61 @@ class StripeService {
 			throw new Error("Le montant minimum est de 0.50€");
 		}
 
+		// ─── Stripe Connect : commission SunnyGo ───────────────────────────
+		// Si le restaurant a un compte Connect onboardé, l'argent va directement
+		// sur son compte. SunnyGo prélève une commission via application_fee_amount.
+		//   - "pay_per_use"  → 100 centimes (1€) par paiement
+		//   - "annual"       → 0 centimes (engagement annuel déjà facturé)
+		const restaurant = order.restaurantId;
+		const hasConnect = !!(restaurant?.stripeOnboarded && restaurant?.stripeAccountId);
+		const commissionPlan = restaurant?.stripeCommissionPlan || "pay_per_use";
+		const platformFee = hasConnect
+			? commissionPlan === "annual" ? 0 : 100 // 1€ en centimes
+			: 0;
+
 		// 3. Créer le PaymentIntent sur Stripe
-		const paymentIntent = await this.stripe.paymentIntents.create({
+		const paymentIntentParams = {
 			amount: totalAmount,
 			currency: currency.toLowerCase(),
 			payment_method_types: paymentMethodTypes,
 			metadata: {
 				orderId: orderId.toString(),
-				restaurantId: order.restaurantId._id.toString(),
+				restaurantId: restaurant._id.toString(),
 				reservationId: order.reservationId?._id.toString() || "",
 				paymentMode,
 				tipAmount: tipAmount.toString(),
+				commissionPlan,
 				...metadata,
 			},
 			description: `Order #${orderId.toString().substring(0, 8)} - ${
-				order.restaurantId.name || "Restaurant"
+				restaurant.name || "Restaurant"
 			}`,
 			// Capture automatique (pas de pre-auth)
 			capture_method: "automatic",
-		});
+		};
+
+		// Ajouter les params Connect seulement si le restaurant est onboardé
+		if (hasConnect) {
+			paymentIntentParams.application_fee_amount = platformFee;
+			paymentIntentParams.transfer_data = {
+				destination: restaurant.stripeAccountId,
+			};
+		}
+
+		const paymentIntent = await this.stripe.paymentIntents.create(paymentIntentParams);
 
 		logger.info("PaymentIntent créé avec succès", {
 			paymentIntentId: paymentIntent.id.substring(0, 12) + "...",
 			amount: totalAmount / 100 + "€",
 			currency: currency,
+			connectAccount: hasConnect ? restaurant.stripeAccountId?.substring(0, 12) + "..." : "direct",
+			platformFee: platformFee / 100 + "€",
 		});
 
 		// 4. Sauvegarder dans la DB
 		const payment = new Payment({
 			orderId: order._id,
-			restaurantId: order.restaurantId._id,
+			restaurantId: restaurant._id,
 			reservationId: order.reservationId?._id,
 			stripePaymentIntentId: paymentIntent.id,
 			clientSecret: paymentIntent.client_secret,
@@ -134,6 +159,9 @@ class StripeService {
 			tipAmount,
 			isTest: this.isTestMode,
 			isFake: false,
+			platformFee,
+			stripeConnectAccountId: hasConnect ? restaurant.stripeAccountId : null,
+			commissionPlan: hasConnect ? commissionPlan : "none",
 		});
 
 		await payment.save();
@@ -558,6 +586,76 @@ class StripeService {
 			order,
 			fake: true,
 		};
+	}
+
+	/**
+	 * Rembourse un paiement (partiel ou total) via Stripe.
+	 * Met à jour le document Payment + Order en DB de façon atomique.
+	 *
+	 * @param {string} paymentIntentId - ID du PaymentIntent à rembourser
+	 * @param {number|null} amountCents - Montant en centimes. null = remboursement total
+	 * @param {string} reason - "duplicate" | "fraudulent" | "requested_by_customer"
+	 * @returns {Promise<Object>} { refund, payment, order }
+	 */
+	async createRefund({ paymentIntentId, amountCents = null, reason = "requested_by_customer" }) {
+		if (!this.isConfigured()) {
+			throw new Error("Stripe n'est pas configuré - vérifiez STRIPE_SECRET_KEY");
+		}
+
+		// 1. Vérifier le paiement en DB
+		const payment = await Payment.findOne({ stripePaymentIntentId: paymentIntentId });
+		if (!payment) {
+			throw new Error(`Paiement ${paymentIntentId} introuvable en DB`);
+		}
+		if (payment.status === "refunded") {
+			throw new Error("Ce paiement a déjà été remboursé en totalité");
+		}
+		if (payment.status !== "succeeded") {
+			throw new Error(`Impossible de rembourser un paiement en statut "${payment.status}"`);
+		}
+
+		const maxRefundable = payment.amount - (payment.refundAmount || 0);
+		if (amountCents && amountCents > maxRefundable) {
+			throw new Error(
+				`Montant demandé ${amountCents}¢ dépasse le remboursable ${maxRefundable}¢`
+			);
+		}
+
+		// 2. Créer le remboursement sur Stripe
+		const refundParams = {
+			payment_intent: paymentIntentId,
+			reason,
+		};
+		if (amountCents) {
+			refundParams.amount = amountCents;
+		}
+
+		const refund = await this.stripe.refunds.create(refundParams);
+
+		logger.info("Remboursement Stripe créé", {
+			refundId: refund.id,
+			amount: (amountCents || payment.amount) / 100 + "€",
+			reason,
+		});
+
+		// 3. Mettre à jour le document Payment en DB
+		const refundedTotal = (payment.refundAmount || 0) + refund.amount;
+		const isFullRefund = refundedTotal >= payment.amount;
+
+		payment.refundAmount = refundedTotal;
+		payment.status = isFullRefund ? "refunded" : "partially_refunded";
+		payment.refundedAt = new Date();
+		await payment.save();
+
+		// 4. Mettre à jour la commande si remboursement total
+		const order = await Order.findById(payment.orderId);
+		if (order && isFullRefund) {
+			order.paymentStatus = "refunded";
+			order.paid = false;
+			await order.save();
+		}
+
+		return { refund, payment, order };
 	}
 }
 

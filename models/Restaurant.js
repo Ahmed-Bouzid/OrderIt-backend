@@ -73,6 +73,29 @@ const restaurantSchema = new mongoose.Schema({
 		default: null,
 		trim: true,
 	},
+
+	// ════════════════════════════════════════════════════════════
+	// 💳 STRIPE CONNECT — Paiement direct vers le compte restaurant
+	// ════════════════════════════════════════════════════════════
+
+	// ID du compte Stripe Connect du restaurant (acct_xxx)
+	stripeAccountId: {
+		type: String,
+		default: null,
+		trim: true,
+	},
+	// true = le restaurant a complété l'onboarding Stripe Connect
+	stripeOnboarded: {
+		type: Boolean,
+		default: false,
+	},
+	// "pay_per_use" = 1€ de commission par paiement
+	// "annual"      = 0€ de commission (engagement annuel prépayé)
+	stripeCommissionPlan: {
+		type: String,
+		enum: ["pay_per_use", "annual"],
+		default: "pay_per_use",
+	},
 });
 
 // Middleware to handle category changes

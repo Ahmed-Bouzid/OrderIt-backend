@@ -73,6 +73,8 @@ const paymentSchema = new mongoose.Schema(
 				"failed", // Échec
 				"canceled", // Annulé
 				"requires_action", // Nécessite authentification 3DS
+				"refunded", // Remboursé en totalité
+				"partially_refunded", // Remboursé partiellement
 			],
 			default: "pending",
 			index: true,
@@ -161,6 +163,28 @@ const paymentSchema = new mongoose.Schema(
 		isFake: {
 			type: Boolean,
 			default: false,
+		},
+
+		// ════════════════════════════════════════════════════════════
+		// STRIPE CONNECT — Commission & destination
+		// ════════════════════════════════════════════════════════════
+
+		// Commission prélevée par SunnyGo en centimes (ex: 100 = 1€)
+		platformFee: {
+			type: Number,
+			default: 0,
+			min: 0,
+		},
+		// ID du compte Connect destinataire (acct_xxx) — null si sans Connect
+		stripeConnectAccountId: {
+			type: String,
+			default: null,
+		},
+		// Plan de commission appliqué ("pay_per_use" | "annual")
+		commissionPlan: {
+			type: String,
+			enum: ["pay_per_use", "annual", "none"],
+			default: "none",
 		},
 
 		// ════════════════════════════════════════════════════════════
