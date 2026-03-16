@@ -37,10 +37,13 @@ const corsOrigins =
 		: [
 				"https://sunnygo-frontend.vercel.app",
 				"https://orderit-backend-6y1m.onrender.com",
+				// ✅ Client public Vercel (toutes les preview URLs + production)
+				"https://client-rho-two-46.vercel.app",
+				/^https:\/\/client-[a-z0-9-]+-warais-projects\.vercel\.app$/, // Preview deployments
+				/^https:\/\/client-[a-z0-9]+\.vercel\.app$/, // Autres previews
 				// ✅ AUTORISER EXPO MÊME EN PRODUCTION pour les apps mobiles
 				/^exp:\/\/192\.168\.\d+\.\d+:\d+$/, // Expo mobile dev
 				/^http:\/\/localhost:\d+$/, // Localhost mobile
-				// ✅ Ajouter vos vraies URLs Vercel ici
 			];
 
 app.use(
