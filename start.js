@@ -21,11 +21,30 @@ const io = new Server(server, {
 				}
 			: {
 					// Production : CORS STRICT (liste blanche)
-					origin: [
-						"https://sunnygo-frontend.vercel.app", // Frontend production
-						"https://orderit-backend-6y1m.onrender.com", // Backend production
-						process.env.FRONTEND_URL, // Variable d'environnement
-					].filter(Boolean), // Enlever les undefined
+					origin: function (origin, callback) {
+						const allowedOrigins = [
+							"https://sunnygo-frontend.vercel.app",
+							"https://orderit-backend-6y1m.onrender.com",
+							"https://client-rho-two-46.vercel.app",
+							process.env.FRONTEND_URL,
+							process.env.CLIENT_URL,
+						].filter(Boolean);
+
+						const allowedPatterns = [
+							/^https:\/\/client-[a-z0-9-]+-warais-projects\.vercel\.app$/,
+							/^https:\/\/client-[a-z0-9]+\.vercel\.app$/,
+						];
+
+						if (
+							!origin ||
+							allowedOrigins.includes(origin) ||
+							allowedPatterns.some((p) => p.test(origin))
+						) {
+							callback(null, true);
+						} else {
+							callback(new Error("Accès refusé par CORS Socket.io"));
+						}
+					},
 					credentials: true,
 					methods: ["GET", "POST"],
 					allowedHeaders: ["Content-Type", "Authorization"],
