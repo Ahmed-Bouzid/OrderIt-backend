@@ -97,7 +97,17 @@ app.get("/", (req, res) => {
 
 // Route GET /tables/:tableId publique (avant le bloc auth)
 const tablesRouter = require("./routes/tables");
-app.get("/tables/:tableId", tablesRouter);
+const validateObjectIds = require("./middlewares/validateObjectId");
+const Table = require("./models/Table");
+app.get("/tables/:tableId", validateObjectIds(["tableId"]), async (req, res) => {
+	try {
+		const table = await Table.findById(req.params.tableId);
+		if (!table) return res.status(404).json({ message: "Table non trouvée" });
+		res.json(table);
+	} catch (err) {
+		res.status(500).json({ message: "Erreur serveur" });
+	}
+});
 
 // Routes protégées
 app.use("/auth", require("./routes/auth"));
