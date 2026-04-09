@@ -402,6 +402,15 @@ mongoose
 		// 📧 Initialiser le service email (optionnel, ne bloque pas le démarrage)
 		await initEmailService();
 
+		// 🎨 Seed themes initiaux (une seule fois au démarrage)
+		try {
+			const themeService = require("./services/themeService");
+			await themeService.seedInitialThemes();
+		} catch (error) {
+			console.warn("⚠️ Theme seeding error:", error.message);
+			// Don't block server startup if seeding fails
+		}
+
 		server.listen(port, "0.0.0.0", () => {
 			const localIp = getLocalIp();
 			console.log(`🚀 Server EasyQR démarré sur http://0.0.0.0:${port}`);

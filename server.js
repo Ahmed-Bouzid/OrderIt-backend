@@ -141,6 +141,7 @@ app.use("/client/token", clientTokenRoutes);
 app.use("/client/products", clientProductsRoutes);
 app.use("/print", auth, require("./routes/print")); // 🖨️ Impression thermique ESC/POS (Chez Ahmed)
 app.use("/api/app", require("./routes/appVersion")); // 📱 Version APK + téléchargement
+app.use("/api/themes", require("./routes/themes")); // 🎨 Routes thèmes & personnalisation
 
 // ✅ SÉCURITÉ: Middlewares de gestion d'erreurs (TOUJOURS EN DERNIER)
 app.use(notFoundHandler); // 404 pour routes non trouvées
