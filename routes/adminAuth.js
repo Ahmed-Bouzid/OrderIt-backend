@@ -4,6 +4,7 @@ const Restaurant = require("../models/Restaurant");
 const Table = require("../models/Table");
 
 // Admin password (à récupérer depuis une variable d'env en prod)
+// Par défaut: "tournesol"
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "tournesol";
 
 /**
