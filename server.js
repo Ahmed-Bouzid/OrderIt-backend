@@ -112,6 +112,7 @@ app.get("/tables/:tableId", validateObjectIds(["tableId"]), async (req, res) => 
 // Routes protégées
 app.use("/auth", require("./routes/auth"));
 // app.use("/auth-secure", require("./routes/authSecure")); // 🔐 TODO: Réactiver après test
+app.use("/admin-auth", require("./routes/adminAuth")); // 🔐 Admin unlock (password + restaurants + tables cascade)
 app.use("/restaurants", require("./routes/restaurants"));
 app.use("/orders", auth, require("./routes/orders"));
 app.use("/tables", auth, tablesRouter);
