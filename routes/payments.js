@@ -11,6 +11,86 @@ const {
 	emitPaymentCompleted,
 } = require("../utils/socketEmitter");
 
+function isAdmin(req) {
+	return req.user?.role === "admin";
+}
+
+function isRestaurantStaff(req) {
+	return ["admin", "server"].includes(req.user?.role);
+}
+
+function hasSameRestaurantAccess(req, restaurantId) {
+	if (isAdmin(req)) {
+		return true;
+	}
+
+	return Boolean(
+		req.user?.restaurantId &&
+		restaurantId &&
+		restaurantId.toString() === req.user.restaurantId.toString(),
+	);
+}
+
+function canAccessOrder(req, order) {
+	if (!order) {
+		return false;
+	}
+
+	if (isAdmin(req)) {
+		return true;
+	}
+
+	if (req.user?.role === "server") {
+		return hasSameRestaurantAccess(req, order.restaurantId);
+	}
+
+	if (req.user?.role !== "client") {
+		return false;
+	}
+
+	if (!hasSameRestaurantAccess(req, order.restaurantId)) {
+		return false;
+	}
+
+	if (req.user.clientId && order.clientId) {
+		return order.clientId.toString() === req.user.clientId.toString();
+	}
+
+	if (req.user.tableId && order.tableId) {
+		return order.tableId.toString() === req.user.tableId.toString();
+	}
+
+	return false;
+}
+
+async function getPaymentAndOrderByIntentId(paymentIntentId) {
+	const payment = await Payment.findOne({ stripePaymentIntentId: paymentIntentId }).maxTimeMS(10000);
+	if (!payment) {
+		return { payment: null, order: null };
+	}
+
+	if (!payment.orderId) {
+		return { payment, order: null };
+	}
+
+	const order = await Order.findById(payment.orderId).maxTimeMS(10000);
+	return { payment, order };
+}
+
+async function getPaymentAndOrderByPaymentId(paymentId) {
+	const payment = await Payment.findById(paymentId).maxTimeMS(10000);
+	if (!payment) {
+		return { payment: null, order: null };
+	}
+
+	if (!payment.orderId) {
+		return { payment, order: null };
+	}
+
+	const order = await Order.findById(payment.orderId).maxTimeMS(10000);
+	return { payment, order };
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // ROUTE: POST /payments/create-intent
 // Crée un PaymentIntent Stripe
@@ -56,11 +136,8 @@ router.post(
 				return res.status(404).json({ error: "Commande introuvable." });
 			}
 
-			// Pour un client JWT, vérifier que la commande est dans le bon restaurant
-			if (req.user.role === "client") {
-				if (order.restaurantId.toString() !== req.user.restaurantId) {
-					return res.status(403).json({ error: "Accès refusé à cette commande." });
-				}
+			if (!canAccessOrder(req, order)) {
+				return res.status(403).json({ error: "Accès refusé à cette commande." });
 			}
 
 			// ── Sécurité : valider que le montant déclaré ≥ total réel de la commande ──
@@ -92,7 +169,7 @@ router.post(
 				tipAmount,
 				metadata: {
 					...metadata,
-					userId: req.user.userId,
+					userId: req.user.id || req.user.clientId,
 					userRole: req.user.role,
 				},
 			});
@@ -145,6 +222,15 @@ router.post(
 
 		try {
 			const { paymentIntentId, paymentMethodId } = req.body;
+			const { payment, order } = await getPaymentAndOrderByIntentId(paymentIntentId);
+
+			if (!payment || !order) {
+				return res.status(404).json({ error: "Paiement introuvable" });
+			}
+
+			if (!canAccessOrder(req, order)) {
+				return res.status(403).json({ error: "Accès non autorisé" });
+			}
 
 
 			const paymentIntent = await stripeService.confirmPaymentIntent(
@@ -176,6 +262,7 @@ router.post(
 router.post(
 	"/confirm-test",
 	auth,
+	checkRoles(["admin", "server"]),
 	[body("paymentIntentId").notEmpty().withMessage("paymentIntentId requis")],
 	async (req, res) => {
 		const errors = validationResult(req);
@@ -185,6 +272,20 @@ router.post(
 
 		try {
 			const { paymentIntentId } = req.body;
+
+			if (process.env.NODE_ENV === "production") {
+				return res.status(403).json({ error: "Route de test désactivée en production" });
+			}
+
+			const { payment, order } = await getPaymentAndOrderByIntentId(paymentIntentId);
+
+			if (!payment || !order) {
+				return res.status(404).json({ error: "Paiement introuvable" });
+			}
+
+			if (!hasSameRestaurantAccess(req, payment.restaurantId)) {
+				return res.status(403).json({ error: "Accès non autorisé" });
+			}
 
 
 			const paymentIntent =
@@ -224,6 +325,15 @@ router.post(
 
 		try {
 			const { paymentIntentId } = req.body;
+			const { payment } = await getPaymentAndOrderByIntentId(paymentIntentId);
+
+			if (!payment) {
+				return res.status(404).json({ error: "Paiement introuvable" });
+			}
+
+			if (!hasSameRestaurantAccess(req, payment.restaurantId)) {
+				return res.status(403).json({ error: "Accès non autorisé" });
+			}
 
 
 			const paymentIntent =
@@ -251,11 +361,23 @@ router.post(
 router.get("/:paymentId/status", auth, async (req, res) => {
 	try {
 		const payment = await Payment.findById(req.params.paymentId).select(
-			"status stripePaymentIntentId amount currency createdAt updatedAt",
+			"status stripePaymentIntentId amount currency createdAt updatedAt orderId paymentMethod restaurantId",
 		);
 
 		if (!payment) {
 			return res.status(404).json({ error: "Paiement introuvable" });
+		}
+
+		const order = await Order.findById(payment.orderId).select(
+			"restaurantId clientId tableId paid paidAt paymentMethod",
+		);
+
+		if (!order) {
+			return res.status(404).json({ error: "Commande associée introuvable" });
+		}
+
+		if (!canAccessOrder(req, order)) {
+			return res.status(403).json({ error: "Accès non autorisé" });
 		}
 
 		// Si le paiement est en pending, vérifier le statut sur Stripe
@@ -321,11 +443,7 @@ router.get("/payments/:paymentId", auth, async (req, res) => {
 
 		// Vérifier les permissions (admin, serveur du restaurant, ou client de la commande)
 		const order = await Order.findById(payment.orderId);
-		if (
-			req.user.role !== "admin" &&
-			order.restaurantId.toString() !== req.user.restaurantId?.toString() &&
-			order.clientId !== req.user.userId
-		) {
+		if (!canAccessOrder(req, order)) {
 			return res.status(403).json({ error: "Accès non autorisé" });
 		}
 
@@ -343,6 +461,18 @@ router.get("/payments/:paymentId", auth, async (req, res) => {
 
 router.get("/order/:orderId", auth, async (req, res) => {
 	try {
+		const order = await Order.findById(req.params.orderId).select(
+			"restaurantId clientId tableId",
+		);
+
+		if (!order) {
+			return res.status(404).json({ error: "Commande introuvable" });
+		}
+
+		if (!canAccessOrder(req, order)) {
+			return res.status(403).json({ error: "Accès non autorisé" });
+		}
+
 		const payments = await Payment.find({ orderId: req.params.orderId })
 			.sort({ createdAt: -1 })
 			.maxTimeMS(10000);
@@ -366,6 +496,10 @@ router.get(
 	async (req, res) => {
 		try {
 			const { startDate, endDate, status } = req.query;
+
+			if (!hasSameRestaurantAccess(req, req.params.restaurantId)) {
+				return res.status(403).json({ error: "Accès refusé — restaurant non correspondant" });
+			}
 
 			const query = { restaurantId: req.params.restaurantId };
 
@@ -421,6 +555,7 @@ router.get(
 router.post(
 	"/fake",
 	auth,
+	checkRoles(["admin", "server"]),
 	[
 		body("orderId").notEmpty().withMessage("orderId requis"),
 		body("amount")
@@ -446,6 +581,15 @@ router.post(
 
 		try {
 			const { orderId, amount, tipAmount = 0 } = req.body;
+			const order = await Order.findById(orderId).select("restaurantId");
+
+			if (!order) {
+				return res.status(404).json({ error: "Commande introuvable" });
+			}
+
+			if (!hasSameRestaurantAccess(req, order.restaurantId)) {
+				return res.status(403).json({ error: "Accès non autorisé" });
+			}
 
 
 			const result = await stripeService.createFakePayment(

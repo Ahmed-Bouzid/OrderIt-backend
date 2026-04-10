@@ -6,10 +6,27 @@
 
 const express = require("express");
 const router = express.Router();
+const mongoose = require("mongoose");
 const { body, validationResult } = require("express-validator");
 const auth = require("../middlewares/auth");
 const checkRoles = require("../middlewares/checkRoles");
 const themeService = require("../services/themeService");
+
+function isValidObjectId(value) {
+  return mongoose.Types.ObjectId.isValid(value);
+}
+
+function canAccessRestaurantAnalytics(req, restaurantId) {
+  if (req.user?.role === "admin") {
+    return true;
+  }
+
+  return Boolean(
+    req.user?.role === "server" &&
+    req.user?.restaurantId &&
+    req.user.restaurantId.toString() === restaurantId.toString()
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC ENDPOINTS
@@ -46,6 +63,14 @@ router.get("/", async (req, res) => {
 router.get("/:themeId", async (req, res) => {
   try {
     const { themeId } = req.params;
+
+    if (!isValidObjectId(themeId)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid theme id",
+      });
+    }
+
     const theme = await themeService.getTheme(themeId);
     
     if (!theme) {
@@ -81,6 +106,13 @@ router.get("/restaurants/:restaurantId/theme", async (req, res) => {
   try {
     const { restaurantId } = req.params;
     const { forceRefresh } = req.query;
+
+    if (!isValidObjectId(restaurantId)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid restaurant id",
+      });
+    }
     
     console.log(`📋 [API] GET theme for restaurant ${restaurantId}`);
     
@@ -110,6 +142,7 @@ router.put(
   auth,
   checkRoles(["admin"]),
   [
+    body("themeId").custom(isValidObjectId).withMessage("themeId must be a valid ObjectId"),
     body("themeId").notEmpty().withMessage("themeId is required"),
     body("reason").optional().isString(),
   ],
@@ -123,6 +156,10 @@ router.put(
       const { restaurantId } = req.params;
       const { themeId, reason } = req.body;
       const userId = req.user.id;
+
+      if (!isValidObjectId(restaurantId)) {
+        return res.status(400).json({ error: "Invalid restaurant id" });
+      }
       
       console.log(`🎨 [API] Assigning theme ${themeId} to ${restaurantId}`);
       
@@ -168,6 +205,10 @@ router.post(
       
       const { restaurantId } = req.params;
       const { customizations } = req.body;
+
+      if (!isValidObjectId(restaurantId)) {
+        return res.status(400).json({ error: "Invalid restaurant id" });
+      }
       
       console.log(`🎨 [API] Customizing theme for ${restaurantId}`);
       
@@ -195,6 +236,13 @@ router.post(
 router.get("/restaurants/:restaurantId/theme/preview", async (req, res) => {
   try {
     const { restaurantId } = req.params;
+
+    if (!isValidObjectId(restaurantId)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid restaurant id",
+      });
+    }
     
     const themeData = await themeService.getThemeForRestaurant(restaurantId);
     
@@ -226,10 +274,28 @@ router.get("/restaurants/:restaurantId/theme/preview", async (req, res) => {
  * GET /api/restaurants/:restaurantId/theme/analytics
  * Récupère analytics du thème
  */
-router.get("/restaurants/:restaurantId/theme/analytics", auth, async (req, res) => {
+router.get(
+  "/restaurants/:restaurantId/theme/analytics",
+  auth,
+  checkRoles(["admin", "server"]),
+  async (req, res) => {
   try {
     const { restaurantId } = req.params;
     const { daysBack = 30 } = req.query;
+
+    if (!isValidObjectId(restaurantId)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid restaurant id",
+      });
+    }
+
+    if (!canAccessRestaurantAnalytics(req, restaurantId)) {
+      return res.status(403).json({
+        success: false,
+        error: "Access denied",
+      });
+    }
     
     const analytics = await themeService.getAnalytics(restaurantId, parseInt(daysBack));
     
@@ -254,7 +320,9 @@ router.post(
   "/analytics",
   [
     body("restaurantId").notEmpty(),
+    body("restaurantId").custom(isValidObjectId).withMessage("restaurantId must be a valid ObjectId"),
     body("themeId").notEmpty(),
+    body("themeId").custom(isValidObjectId).withMessage("themeId must be a valid ObjectId"),
     body("metrics").isObject(),
   ],
   async (req, res) => {

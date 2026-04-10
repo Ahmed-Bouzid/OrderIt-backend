@@ -15,6 +15,37 @@ const ThemeCustomization = require("../models/ThemeCustomization");
 const ThemeAnalytics = require("../models/ThemeAnalytics");
 const ABTest = require("../models/ABTest");
 
+const ALLOWED_ANALYTICS_COUNTERS = new Set([
+  "impressions",
+  "clicks",
+  "conversions",
+  "uniqueUsers",
+  "sessionsCount",
+  "totalRevenue",
+]);
+
+function sanitizeAnalyticsMetrics(metrics = {}) {
+  const sanitizedMetrics = {};
+
+  for (const [key, value] of Object.entries(metrics)) {
+    if (!ALLOWED_ANALYTICS_COUNTERS.has(key)) {
+      continue;
+    }
+
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      continue;
+    }
+
+    if (value < 0 || value > 100000) {
+      continue;
+    }
+
+    sanitizedMetrics[key] = Math.trunc(value);
+  }
+
+  return sanitizedMetrics;
+}
+
 class ThemeService {
   
   // ═══════════════════════════════════════════════════════════════════════════
@@ -69,15 +100,27 @@ class ThemeService {
   /**
    * Get thème par ID
    */
-  async getTheme(themeId) {
-    return await Theme.findById(themeId);
+  async getTheme(themeId, options = {}) {
+    const { includePrivate = false } = options;
+
+    const query = {
+      _id: themeId,
+      isActive: true,
+      deprecated: false,
+    };
+
+    if (!includePrivate) {
+      query.isPublic = true;
+    }
+
+    return await Theme.findOne(query);
   }
   
   /**
    * Get tous les thèmes disponibles
    */
   async getAvailableThemes(type = null) {
-    const query = { isActive: true, deprecated: false };
+    const query = { isActive: true, deprecated: false, isPublic: true };
     
     if (type) {
       query.type = type;
@@ -120,7 +163,7 @@ class ThemeService {
     
     try {
       // 1. Validation
-      const theme = await this.getTheme(themeId);
+      const theme = await this.getTheme(themeId, { includePrivate: true });
       if (!theme) {
         throw new Error("Theme not found");
       }
@@ -211,13 +254,29 @@ class ThemeService {
    */
   async recordAnalytics(restaurantId, themeId, metrics) {
     try {
+      const sanitizedMetrics = sanitizeAnalyticsMetrics(metrics);
+
+      if (Object.keys(sanitizedMetrics).length === 0) {
+        return null;
+      }
+
+      const activeAssignment = await RestaurantThemeAssignment.findOne({
+        restaurantId,
+        themeId,
+        isActive: true,
+      }).select("_id");
+
+      if (!activeAssignment) {
+        return null;
+      }
+
       const eventDate = new Date();
       eventDate.setHours(0, 0, 0, 0); // Group by day
       
       const result = await ThemeAnalytics.findOneAndUpdate(
         { restaurantId, themeId, eventDate },
         {
-          $inc: metrics, // Increment counters
+          $inc: sanitizedMetrics,
           recordedAt: new Date(),
         },
         { upsert: true, new: true }

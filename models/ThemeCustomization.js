@@ -124,7 +124,6 @@ const themeCustomizationSchema = new mongoose.Schema(
 
 // Indexes
 themeCustomizationSchema.index({ restaurantId: 1, isPublished: 1 });
-themeCustomizationSchema.index({ baseThemeId: 1 });
 themeCustomizationSchema.index({ createdAt: -1 });
 
 // Static method: obtenir toutes les customizations d'un restaurant

@@ -226,7 +226,6 @@ const paymentSchema = new mongoose.Schema(
 
 paymentSchema.index({ orderId: 1, status: 1 });
 paymentSchema.index({ restaurantId: 1, createdAt: -1 });
-paymentSchema.index({ stripePaymentIntentId: 1 });
 paymentSchema.index({ status: 1, isTest: 1 });
 
 // ════════════════════════════════════════════════════════════
