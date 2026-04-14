@@ -528,6 +528,17 @@ router.put(
 				return res.status(404).json({ message: "Commande non trouvée." });
 			}
 
+			const io = req.app.locals.io;
+			if (io && updatedOrder.restaurantId) {
+				const { emitOrderEvent } = require("../utils/socketEmitter");
+				emitOrderEvent(
+					io,
+					updatedOrder.restaurantId.toString(),
+					"updated",
+					updatedOrder.toObject(),
+				);
+			}
+
 			res.json({ message: "Commande mise à jour.", order: updatedOrder });
 		} catch (err) {
 			console.error(err);
@@ -673,6 +684,18 @@ router.put(
 
 			// Sauvegarder la commande
 			await order.save();
+
+			const io = req.app.locals.io;
+			if (io && order.restaurantId) {
+				const { emitOrderEvent } = require("../utils/socketEmitter");
+				emitOrderEvent(io, order.restaurantId.toString(), "updated", {
+					...order.toObject(),
+					updatedItem: {
+						_id: item._id,
+						itemStatus: item.itemStatus,
+					},
+				});
+			}
 
 			// 📝 Audit : enregistrer le changement de statut dans la réservation
 			if (order.reservationId && (status === "served" || status === "cancelled")) {
