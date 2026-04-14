@@ -10,7 +10,7 @@ const Restaurant = require("../models/Restaurant");
 // Cette route permet à un client de générer un token limité
 router.post("/", clientTokenLimiter, async (req, res) => {
 	try {
-		const { pseudo, tableId, restaurantId } = req.body;
+		const { pseudo, tableId, restaurantId, clientId } = req.body;
 
 		if (!pseudo || !restaurantId) {
 			return res
@@ -41,7 +41,7 @@ router.post("/", clientTokenLimiter, async (req, res) => {
 		}
 
 		const tokenData = {
-			clientId: pseudo,
+			clientId: clientId || pseudo,
 			restaurantId,
 			expiresIn: 2 * 3600, // expire dans 2 heures
 		};

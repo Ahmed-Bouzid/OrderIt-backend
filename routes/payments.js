@@ -52,15 +52,19 @@ function canAccessOrder(req, order) {
 		return false;
 	}
 
-	if (req.user.clientId && order.clientId) {
-		return order.clientId.toString() === req.user.clientId.toString();
-	}
+	const hasClientMatch = Boolean(
+		req.user.clientId &&
+		order.clientId &&
+		order.clientId.toString() === req.user.clientId.toString(),
+	);
 
-	if (req.user.tableId && order.tableId) {
-		return order.tableId.toString() === req.user.tableId.toString();
-	}
+	const hasTableMatch = Boolean(
+		req.user.tableId &&
+		order.tableId &&
+		order.tableId.toString() === req.user.tableId.toString(),
+	);
 
-	return false;
+	return hasClientMatch || hasTableMatch;
 }
 
 async function getPaymentAndOrderByIntentId(paymentIntentId) {
