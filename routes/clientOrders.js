@@ -58,6 +58,50 @@ router.get("/order/:orderId", validateObjectIds(["orderId"]), async (req, res) =
 	}
 });
 
+// PUT /client-orders/:orderId/cancel - Annuler une commande (client)
+router.put(
+	"/:orderId/cancel",
+	validateObjectIds(["orderId"]),
+	async (req, res) => {
+		try {
+			const order = await Order.findById(req.params.orderId);
+
+			if (!order) {
+				return res.status(404).json({ message: "Commande introuvable" });
+			}
+
+			// Empêcher d'annuler une commande déjà payée ou déjà annulée
+			if (order.paid) {
+				return res.status(400).json({ message: "Commande déjà payée, annulation impossible" });
+			}
+			if (order.orderStatus === "cancelled") {
+				return res.status(400).json({ message: "Commande déjà annulée" });
+			}
+
+			order.orderStatus = "cancelled";
+			order.cancelledAt = new Date();
+			await order.save();
+
+			// Émettre l'événement WebSocket si disponible
+			const io = req.app.locals.io;
+			if (io && order.restaurantId) {
+				const { emitOrderEvent } = require("../utils/socketEmitter");
+				emitOrderEvent(
+					io,
+					order.restaurantId.toString(),
+					"cancelled",
+					order.toObject(),
+				);
+			}
+
+			res.json({ message: "Commande annulée", order });
+		} catch (err) {
+			console.error("❌ Erreur annulation commande:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
+
 // GET /client-orders/:reservationId - Toutes les commandes d'une réservation (public)
 router.get(
 	"/:reservationId",
@@ -75,9 +119,11 @@ router.get(
 			}
 
 			// ⭐ FILTRAGE PAR CLIENTID si fourni (foodtruck multi-user)
+			// ⭐ EXCLURE les commandes annulées
 			const query = {
 				reservationId: req.params.reservationId,
 				paid: { $ne: true },
+				orderStatus: { $ne: "cancelled" },
 			};
 			if (clientId) {
 				query.clientId = clientId;

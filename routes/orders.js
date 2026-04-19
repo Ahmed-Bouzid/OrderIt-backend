@@ -452,6 +452,7 @@ router.get(
 			const query = {
 				reservationId: req.params.reservationId,
 				paid: { $ne: true },
+				orderStatus: { $ne: "cancelled" },
 			};
 			const orders = await Order.find(query)
 				.populate("tableId", "number")
