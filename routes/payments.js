@@ -4,11 +4,14 @@ const stripeService = require("../services/stripeService");
 const Payment = require("../models/Payment");
 const Order = require("../models/Order");
 const auth = require("../middlewares/auth");
+const { requireClientDeviceBinding } = require("../middlewares/auth");
 const checkRoles = require("../middlewares/checkRoles");
+const { paymentIntentLimiter } = require("../middlewares/rateLimiter");
 const { body, validationResult } = require("express-validator");
 const {
 	emitOrderEvent,
 	emitPaymentCompleted,
+	emitPaymentMonitorUpdate,
 } = require("../utils/socketEmitter");
 
 function isAdmin(req) {
@@ -104,6 +107,8 @@ async function getPaymentAndOrderByPaymentId(paymentId) {
 router.post(
 	"/create-intent",
 	auth,
+	paymentIntentLimiter,
+	requireClientDeviceBinding,
 	[
 		body("orderId").notEmpty().withMessage("orderId requis"),
 		body("amount")
@@ -705,7 +710,48 @@ router.post(
 							tableId: order.tableId,
 						});
 
+						// 📊 Émettre pour le PaymentsCommandCenter
+						const payment = await Payment.findOne({ orderId: order._id }).sort({ createdAt: -1 });
+						emitPaymentMonitorUpdate(io, order.restaurantId._id.toString(), {
+							paymentId: payment?._id?.toString(),
+							orderId: `#${order._id.toString().slice(-4).toUpperCase()}`,
+							amount: order.total / 100,
+							status: "success",
+							paymentMethod: payment?.paymentMethod || "card",
+							client: reservation?.guestName || (table ? `Table ${table.number}` : "Client"),
+							tableNumber: table?.number,
+							cardBrand: payment?.cardDetails?.brand,
+							cardLast4: payment?.cardDetails?.last4,
+						});
 					}
+				}
+			}
+
+			// 📊 Si paiement échoué, émettre aussi pour le monitor
+			if (event.type === "payment_intent.payment_failed" && result.paymentId) {
+				try {
+					const payment = await Payment.findById(result.paymentId).populate("restaurantId");
+					if (payment && payment.restaurantId) {
+						const io = req.app.locals.io;
+						if (io) {
+							const Table = require("../models/Table");
+							const order = await Order.findById(payment.orderId);
+							const table = order?.tableId ? await Table.findById(order.tableId).select("number") : null;
+
+							emitPaymentMonitorUpdate(io, payment.restaurantId._id.toString(), {
+								paymentId: payment._id.toString(),
+								orderId: order ? `#${order._id.toString().slice(-4).toUpperCase()}` : null,
+								amount: payment.amount / 100,
+								status: "failed",
+								paymentMethod: payment.paymentMethod || "card",
+								client: table ? `Table ${table.number}` : "Client",
+								tableNumber: table?.number,
+								errorMessage: result.error,
+							});
+						}
+					}
+				} catch (monitorErr) {
+					console.warn("⚠️ Erreur émission payment-monitor (failed):", monitorErr.message);
 				}
 			}
 
@@ -717,7 +763,89 @@ router.post(
 	},
 );
 
-module.exports = router;
+// ════════════════════════════════════════════════════════════════════════════
+// ROUTE: GET /payments/today
+// Récupère les paiements du jour pour le PaymentsCommandCenter
+// Accessible par: admin/server uniquement
+// ════════════════════════════════════════════════════════════════════════════
+
+router.get(
+	"/today",
+	auth,
+	checkRoles(["admin", "server"]),
+	async (req, res) => {
+		try {
+			const restaurantId = req.user.restaurantId;
+			if (!restaurantId) {
+				return res.status(400).json({ error: "restaurantId manquant" });
+			}
+
+			// Début de journée (minuit locale → UTC approximatif)
+			const startOfDay = new Date();
+			startOfDay.setHours(0, 0, 0, 0);
+
+			// Récupérer les paiements du jour
+			const payments = await Payment.find({
+				restaurantId,
+				createdAt: { $gte: startOfDay },
+				isTest: { $ne: true },
+				isFake: { $ne: true },
+			})
+				.sort({ createdAt: -1 })
+				.limit(50)
+				.populate({
+					path: "orderId",
+					select: "tableId reservationId total",
+					populate: [
+						{ path: "tableId", select: "number" },
+						{ path: "reservationId", select: "guestName" },
+					],
+				})
+				.lean();
+
+			// Formater pour le frontend
+			const formatted = payments.map((p) => {
+				const order = p.orderId;
+				const table = order?.tableId;
+				const reservation = order?.reservationId;
+				const statusMap = {
+					succeeded: "success",
+					pending: "pending",
+					processing: "pending",
+					failed: "failed",
+					canceled: "failed",
+					requires_action: "pending",
+				};
+
+				return {
+					id: p._id.toString(),
+					orderId: order ? `#${order._id.toString().slice(-4).toUpperCase()}` : null,
+					amount: p.amount / 100,
+					status: statusMap[p.status] || "pending",
+					mode: p.paymentMethod || "card",
+					client: reservation?.guestName || (table ? `Table ${table.number}` : "Client"),
+					cardBrand: p.cardDetails?.brand || null,
+					cardLast4: p.cardDetails?.last4 || null,
+					errorMessage: p.errorMessage || null,
+					timestamp: p.createdAt,
+					timeLabel: new Date(p.createdAt).toLocaleTimeString("fr-FR", {
+						hour: "2-digit",
+						minute: "2-digit",
+					}),
+				};
+			});
+
+			res.json({
+				success: true,
+				payments: formatted,
+				count: formatted.length,
+			});
+		} catch (err) {
+			console.error("❌ Erreur GET /payments/today:", err);
+			res.status(500).json({ error: "Erreur serveur", message: err.message });
+		}
+	},
+);
 
 // ════════════════════════════════════════════════════════════════════════════
 // ROUTE: POST /payments/refund
@@ -776,3 +904,5 @@ router.post(
 		}
 	},
 );
+
+module.exports = router;

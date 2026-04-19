@@ -12,10 +12,12 @@ function generateClientToken({
 	clientId,
 	restaurantId,
 	tableId,
+	deviceId,
 	expiresIn = 3600,
 }) {
 	// ✅ Validation assouplie : tableId optionnel pour foodtrucks
 	if (!restaurantId) throw new Error("restaurantId obligatoire");
+	if (!deviceId) throw new Error("deviceId obligatoire");
 
 	const JWT_SECRET = process.env.JWT_SECRET;
 	if (!JWT_SECRET)
@@ -28,6 +30,7 @@ function generateClientToken({
 		userType: "client",
 		restaurantId,
 		tableId: tableId || null, // ✅ Accepter null pour foodtrucks
+		deviceId,
 	};
 
 	// Génération du token JWT

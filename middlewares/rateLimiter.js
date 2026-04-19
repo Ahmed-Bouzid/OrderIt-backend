@@ -59,9 +59,19 @@ const clientTokenLimiter = rateLimit({
 	legacyHeaders: false,
 });
 
+// 💳 Limiter strictement la creation d'intents de paiement
+const paymentIntentLimiter = rateLimit({
+	windowMs: 60 * 1000, // 1 minute
+	max: process.env.NODE_ENV === "production" ? 12 : 30,
+	message: "Trop de tentatives de paiement, réessayez dans quelques secondes.",
+	standardHeaders: true,
+	legacyHeaders: false,
+});
+
 // Export par défaut = general (pour compatibilité)
 module.exports = generalLimiter;
 module.exports.generalLimiter = generalLimiter;
 module.exports.strictLimiter = strictLimiter;
 module.exports.loginLimiter = loginLimiter;
 module.exports.clientTokenLimiter = clientTokenLimiter;
+module.exports.paymentIntentLimiter = paymentIntentLimiter;

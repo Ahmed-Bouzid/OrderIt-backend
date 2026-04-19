@@ -1,6 +1,7 @@
 const validateObjectIds = require("../middlewares/validateObjectId");
 const mongoose = require("mongoose");
 const auth = require("../middlewares/auth");
+const { requireClientDeviceBinding } = require("../middlewares/auth");
 const express = require("express");
 const router = express.Router();
 const checkRoles = require("../middlewares/checkRoles");
@@ -16,6 +17,7 @@ const { getAuditUser, addAudit } = require("../utils/auditHelper");
 router.post(
 	"/",
 	auth, // middleware qui décode le JWT et met req.user
+	requireClientDeviceBinding,
 	async (req, res) => {
 		const { role, tableId: clientTableId } = req.user; // token limité pour client ou token serveur/admin
 		const errors = validationResult(req);

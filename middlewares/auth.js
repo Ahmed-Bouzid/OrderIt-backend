@@ -21,6 +21,7 @@ module.exports = function auth(req, res, next) {
 			restaurantId: decoded.restaurantId,
 			tableId: decoded.tableId || null,
 			clientId: decoded.clientId || null,
+			deviceId: decoded.deviceId || null,
 		};
 
 		next();
@@ -28,4 +29,43 @@ module.exports = function auth(req, res, next) {
 		console.error("JWT invalide :", err);
 		return res.status(403).json({ message: "Token invalide ou expiré." });
 	}
+};
+
+module.exports.requireClientDeviceBinding = function requireClientDeviceBinding(
+	req,
+	res,
+	next,
+) {
+	if (req.user?.role !== "client") {
+		return next();
+	}
+
+	const requestDeviceIdRaw = req.headers["x-device-id"];
+	const requestDeviceId =
+		typeof requestDeviceIdRaw === "string" ? requestDeviceIdRaw.trim() : "";
+	const tokenDeviceId =
+		typeof req.user?.deviceId === "string" ? req.user.deviceId.trim() : "";
+
+	if (!requestDeviceId) {
+		return res.status(401).json({
+			error: "Device header missing",
+			message: "En-tête x-device-id requis.",
+		});
+	}
+
+	if (!tokenDeviceId) {
+		return res.status(403).json({
+			error: "Device binding missing",
+			message: "Token client non lie a un appareil. Reconnectez-vous.",
+		});
+	}
+
+	if (requestDeviceId !== tokenDeviceId) {
+		return res.status(403).json({
+			error: "Device mismatch",
+			message: "Appareil non autorise pour ce token.",
+		});
+	}
+
+	return next();
 };

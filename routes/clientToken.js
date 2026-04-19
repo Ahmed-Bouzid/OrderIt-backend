@@ -10,12 +10,21 @@ const Restaurant = require("../models/Restaurant");
 // Cette route permet à un client de générer un token limité
 router.post("/", clientTokenLimiter, async (req, res) => {
 	try {
-		const { pseudo, tableId, restaurantId, clientId } = req.body;
+		const { pseudo, tableId, restaurantId, clientId, deviceId } = req.body;
 
 		if (!pseudo || !restaurantId) {
 			return res
 				.status(400)
 				.json({ message: "Pseudo et restaurantId sont requis." });
+		}
+
+		if (!deviceId || typeof deviceId !== "string") {
+			return res.status(400).json({ message: "deviceId est requis." });
+		}
+
+		const normalizedDeviceId = deviceId.trim();
+		if (normalizedDeviceId.length < 16 || normalizedDeviceId.length > 128) {
+			return res.status(400).json({ message: "deviceId invalide." });
 		}
 
 		// Valider que restaurantId est un ObjectId MongoDB valide
@@ -43,6 +52,7 @@ router.post("/", clientTokenLimiter, async (req, res) => {
 		const tokenData = {
 			clientId: clientId || pseudo,
 			restaurantId,
+			deviceId: normalizedDeviceId,
 			expiresIn: 2 * 3600, // expire dans 2 heures
 		};
 
