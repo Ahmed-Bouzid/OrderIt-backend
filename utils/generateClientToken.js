@@ -1,4 +1,5 @@
 // utils/generateClientToken.js
+const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 
 /**
@@ -26,6 +27,7 @@ function generateClientToken({
 	const payload = {
 		id: clientId || null,
 		clientId: clientId || null, // ✅ Ajouter clientId explicitement
+		jti: crypto.randomUUID(),
 		role: "client",
 		userType: "client",
 		restaurantId,

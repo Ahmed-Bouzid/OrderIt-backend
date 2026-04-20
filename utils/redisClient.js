@@ -19,6 +19,9 @@ if (process.env.REDIS_URL) {
 		on: () => {},
 		get: () => Promise.resolve(null),
 		set: () => Promise.resolve("OK"),
+		setEx: () => Promise.resolve("OK"),
+		exists: () => Promise.resolve(0),
+		del: () => Promise.resolve(0),
 		quit: () => Promise.resolve(),
 	};
 }

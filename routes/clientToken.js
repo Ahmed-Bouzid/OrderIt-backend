@@ -1,8 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
+const auth = require("../middlewares/auth");
+const jwtBlacklist = require("../utils/jwtBlacklist");
 const generateClientToken = require("../utils/generateClientToken");
+const { requireClientDeviceBinding } = require("../middlewares/auth");
 const { clientTokenLimiter } = require("../middlewares/rateLimiter");
 const Table = require("../models/Table");
 const Restaurant = require("../models/Restaurant");
@@ -75,5 +77,37 @@ router.post("/", clientTokenLimiter, async (req, res) => {
 		res.status(500).json({ message: "Erreur serveur" });
 	}
 });
+
+router.post(
+	"/revoke",
+	auth,
+	requireClientDeviceBinding,
+	async (req, res) => {
+		try {
+			if (req.user?.role !== "client") {
+				return res.status(403).json({ message: "Réservé aux tokens client." });
+			}
+
+			const nowInSeconds = Math.floor(Date.now() / 1000);
+			const tokenExp = Number(req.user?.tokenExp || 0);
+			const ttlSeconds = tokenExp > nowInSeconds ? tokenExp - nowInSeconds : 60;
+
+			if (req.user?.jti) {
+				await jwtBlacklist.addJti(req.user.jti, ttlSeconds);
+			}
+
+			if (req.authToken) {
+				await jwtBlacklist.add(req.authToken, ttlSeconds);
+			}
+
+			return res.status(200).json({
+				message: "Token client révoqué.",
+			});
+		} catch (err) {
+			console.error("Erreur révocation token client :", err);
+			return res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
 
 module.exports = router;
