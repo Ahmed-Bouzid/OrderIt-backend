@@ -102,6 +102,50 @@ router.put(
 	},
 );
 
+// PUT /client-orders/:orderId/counter-payment - Déclarer paiement au comptoir (fast-food)
+router.put(
+	"/:orderId/counter-payment",
+	validateObjectIds(["orderId"]),
+	async (req, res) => {
+		try {
+			const order = await Order.findById(req.params.orderId);
+
+			if (!order) {
+				return res.status(404).json({ message: "Commande introuvable" });
+			}
+
+			if (order.paid) {
+				return res.status(400).json({ message: "Commande déjà payée" });
+			}
+
+			if (order.orderStatus === "cancelled") {
+				return res.status(400).json({ message: "Commande annulée" });
+			}
+
+			// Marquer comme paiement au comptoir (paymentMethod = "cash", paymentStatus reste "unpaid")
+			order.paymentMethod = "cash";
+			await order.save();
+
+			// Émettre l'événement WebSocket
+			const io = req.app.locals.io;
+			if (io && order.restaurantId) {
+				const { emitOrderEvent } = require("../utils/socketEmitter");
+				emitOrderEvent(
+					io,
+					order.restaurantId.toString(),
+					"counter_payment_declared",
+					order.toObject(),
+				);
+			}
+
+			res.json({ message: "Paiement au comptoir déclaré", order });
+		} catch (err) {
+			console.error("❌ Erreur déclaration paiement comptoir:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
+
 // GET /client-orders/:reservationId - Toutes les commandes d'une réservation (public)
 router.get(
 	"/:reservationId",

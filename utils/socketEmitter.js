@@ -289,6 +289,46 @@ const emitPaymentCompleted = (
 	return true;
 };
 
+/**
+ * 📊 Événement pour le PaymentsCommandCenter (monitoring temps réel)
+ * Émet un événement riche avec toutes les infos nécessaires au dashboard
+ */
+const emitPaymentMonitorUpdate = (
+	io,
+	restaurantId,
+	{ paymentId, orderId, amount, status, paymentMethod, client, tableNumber, cardBrand, cardLast4, errorMessage },
+) => {
+	if (!io) {
+		console.warn("⚠️ Socket.io non disponible pour payment-monitor");
+		return false;
+	}
+
+	const roomName = `restaurant-${restaurantId}`;
+	const now = new Date();
+	const payload = {
+		type: "payment_monitor_update",
+		data: {
+			id: paymentId || `pay_${Date.now()}`,
+			orderId: orderId || null,
+			amount: typeof amount === "number" ? amount : 0,
+			status, // "success", "pending", "failed"
+			mode: paymentMethod || "card",
+			client: client || tableNumber ? `Table ${tableNumber}` : "Client",
+			cardBrand: cardBrand || null,
+			cardLast4: cardLast4 || null,
+			errorMessage: errorMessage || null,
+			timestamp: now.toISOString(),
+			timeLabel: now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+		},
+		timestamp: now.toISOString(),
+		restaurant_id: restaurantId,
+	};
+
+	io.to(roomName).emit("payment-monitor", payload);
+
+	return true;
+};
+
 module.exports = {
 	emitReservationEvent,
 	emitTableEvent,
@@ -300,5 +340,6 @@ module.exports = {
 	emitStyleAppliedEvent,
 	emitStockUpdatedEvent,
 	emitNotification,
-	emitPaymentCompleted, // 🔔 NOUVEAU: Notification paiement
+	emitPaymentCompleted, // 🔔 Notification paiement
+	emitPaymentMonitorUpdate, // 📊 PaymentsCommandCenter temps réel
 };
