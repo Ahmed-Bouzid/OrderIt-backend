@@ -2,6 +2,11 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../middlewares/auth");
 const checkRoles = require("../middlewares/checkRoles");
+const {
+	clientMessageLimiter,
+	clientMessageActionLimiter,
+	clientReactionLimiter,
+} = require("../middlewares/rateLimiter");
 const PredefinedMessage = require("../models/PredefinedMessage");
 const ClientMessage = require("../models/ClientMessage");
 const ServerResponse = require("../models/ServerResponse");
@@ -49,7 +54,7 @@ router.get("/predefined/:restaurantId", async (req, res) => {
  * Envoie un message prédéfini au serveur
  * Route publique pour les clients
  */
-router.post("/send", async (req, res) => {
+router.post("/send", clientMessageLimiter, async (req, res) => {
 	try {
 		const { predefinedMessageId, reservationId, clientId, clientName } =
 			req.body;

@@ -3,6 +3,7 @@ const router = express.Router();
 const ClientFeedback = require("../../models/ClientFeedback");
 const { body, validationResult } = require("express-validator");
 const logger = require("../../utils/secureLogger"); // ✅ Logger sécurisé
+const { clientFeedbackLimiter } = require("../../middlewares/rateLimiter");
 
 /**
  * 🌟 Routes pour la collecte d'avis clients
@@ -47,7 +48,7 @@ const validateClientFeedback = [
  * 📝 POST /client-feedback/submit
  * Enregistre un feedback client (uniquement pour clients non 100% satisfaits)
  */
-router.post("/submit", validateClientFeedback, async (req, res) => {
+router.post("/submit", clientFeedbackLimiter, validateClientFeedback, async (req, res) => {
 	logger.debug("Réception feedback client");
 
 	try {

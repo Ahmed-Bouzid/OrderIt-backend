@@ -68,6 +68,51 @@ const paymentIntentLimiter = rateLimit({
 	legacyHeaders: false,
 });
 
+// 💬 Limiter pour envoi de messages clients (modéré, peut être spammé)
+const clientMessageLimiter = rateLimit({
+	windowMs: 60 * 1000, // 1 minute
+	max: process.env.NODE_ENV === "production" ? 5 : 15, // 5 msg/min prod, 15 dev
+	message: "Trop de messages, réessayez dans une minute.",
+	standardHeaders: true,
+	legacyHeaders: false,
+});
+
+// 🔧 Limiter pour actions sur messages (modifications, suppressions)
+const clientMessageActionLimiter = rateLimit({
+	windowMs: 60 * 1000, // 1 minute
+	max: process.env.NODE_ENV === "production" ? 10 : 30, // 10 actions/min prod, 30 dev
+	message: "Trop d'actions sur les messages, réessayez dans une minute.",
+	standardHeaders: true,
+	legacyHeaders: false,
+});
+
+// ⭐ Limiter pour réactions de messages (très modéré, risque spam)
+const clientReactionLimiter = rateLimit({
+	windowMs: 60 * 1000, // 1 minute
+	max: process.env.NODE_ENV === "production" ? 10 : 30, // 10 réactions/min prod, 30 dev
+	message: "Trop de réactions, réessayez dans une minute.",
+	standardHeaders: true,
+	legacyHeaders: false,
+});
+
+// 📝 Limiter pour feedback clients (très important à limiter)
+const clientFeedbackLimiter = rateLimit({
+	windowMs: 10 * 60 * 1000, // 10 minutes
+	max: process.env.NODE_ENV === "production" ? 3 : 20, // 3 feedback/10min prod, 20 dev
+	message: "Trop de feedbacks, réessayez dans 10 minutes.",
+	standardHeaders: true,
+	legacyHeaders: false,
+});
+
+// 📦 Limiter pour modifications de commandes clients
+const clientOrderModifyLimiter = rateLimit({
+	windowMs: 60 * 1000, // 1 minute
+	max: process.env.NODE_ENV === "production" ? 10 : 30, // 10 modifs/min prod, 30 dev
+	message: "Trop de modifications de commandes, réessayez dans une minute.",
+	standardHeaders: true,
+	legacyHeaders: false,
+});
+
 // Export par défaut = general (pour compatibilité)
 module.exports = generalLimiter;
 module.exports.generalLimiter = generalLimiter;
@@ -75,3 +120,8 @@ module.exports.strictLimiter = strictLimiter;
 module.exports.loginLimiter = loginLimiter;
 module.exports.clientTokenLimiter = clientTokenLimiter;
 module.exports.paymentIntentLimiter = paymentIntentLimiter;
+module.exports.clientMessageLimiter = clientMessageLimiter;
+module.exports.clientMessageActionLimiter = clientMessageActionLimiter;
+module.exports.clientReactionLimiter = clientReactionLimiter;
+module.exports.clientFeedbackLimiter = clientFeedbackLimiter;
+module.exports.clientOrderModifyLimiter = clientOrderModifyLimiter;

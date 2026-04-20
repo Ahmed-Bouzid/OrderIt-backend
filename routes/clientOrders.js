@@ -3,6 +3,7 @@ const router = express.Router();
 const Order = require("../models/Order");
 const Reservation = require("../models/Reservation");
 const validateObjectIds = require("../middlewares/validateObjectId");
+const { clientOrderModifyLimiter } = require("../middlewares/rateLimiter");
 
 const normalizeTrackingStatus = (order) => {
 	if (!order) return "pending";
@@ -61,6 +62,7 @@ router.get("/order/:orderId", validateObjectIds(["orderId"]), async (req, res) =
 // PUT /client-orders/:orderId/cancel - Annuler une commande (client)
 router.put(
 	"/:orderId/cancel",
+	clientOrderModifyLimiter,
 	validateObjectIds(["orderId"]),
 	async (req, res) => {
 		try {
@@ -105,6 +107,7 @@ router.put(
 // PUT /client-orders/:orderId/counter-payment - Déclarer paiement au comptoir (fast-food)
 router.put(
 	"/:orderId/counter-payment",
+	clientOrderModifyLimiter,
 	validateObjectIds(["orderId"]),
 	async (req, res) => {
 		try {
