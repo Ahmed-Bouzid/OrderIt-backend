@@ -4,6 +4,31 @@ const Order = require("../models/Order");
 const Reservation = require("../models/Reservation");
 const validateObjectIds = require("../middlewares/validateObjectId");
 const { clientOrderModifyLimiter } = require("../middlewares/rateLimiter");
+const auth = require("../middlewares/auth");
+const { requireClientDeviceBinding } = require("../middlewares/auth");
+
+// Helper : vérifier que l'order appartient au client authentifié
+const checkOrderOwnership = (order, user) => {
+	// Restaurant doit correspondre
+	if (order.restaurantId && user.restaurantId) {
+		if (order.restaurantId.toString() !== user.restaurantId.toString()) {
+			return { allowed: false, reason: "ownership_restaurant_mismatch" };
+		}
+	}
+	// Table doit correspondre si le token en contient une
+	if (user.tableId && order.tableId) {
+		if (order.tableId.toString() !== user.tableId.toString()) {
+			return { allowed: false, reason: "ownership_table_mismatch" };
+		}
+	}
+	// Client doit correspondre si l'order a un clientId
+	if (order.clientId && user.clientId) {
+		if (order.clientId.toString() !== user.clientId.toString()) {
+			return { allowed: false, reason: "ownership_client_mismatch" };
+		}
+	}
+	return { allowed: true };
+};
 
 const normalizeTrackingStatus = (order) => {
 	if (!order) return "pending";
@@ -63,6 +88,8 @@ router.get("/order/:orderId", validateObjectIds(["orderId"]), async (req, res) =
 router.put(
 	"/:orderId/cancel",
 	clientOrderModifyLimiter,
+	auth,
+	requireClientDeviceBinding,
 	validateObjectIds(["orderId"]),
 	async (req, res) => {
 		try {
@@ -70,6 +97,13 @@ router.put(
 
 			if (!order) {
 				return res.status(404).json({ message: "Commande introuvable" });
+			}
+
+			// Vérifier que la commande appartient au client authentifié
+			const ownership = checkOrderOwnership(order, req.user);
+			if (!ownership.allowed) {
+				console.warn(`[SECURITY] cancel refusé: ${ownership.reason} (user=${req.user.clientId}, order=${order._id})`);
+				return res.status(403).json({ message: "Accès non autorisé à cette commande" });
 			}
 
 			// Empêcher d'annuler une commande déjà payée ou déjà annulée
@@ -108,6 +142,8 @@ router.put(
 router.put(
 	"/:orderId/counter-payment",
 	clientOrderModifyLimiter,
+	auth,
+	requireClientDeviceBinding,
 	validateObjectIds(["orderId"]),
 	async (req, res) => {
 		try {
@@ -115,6 +151,13 @@ router.put(
 
 			if (!order) {
 				return res.status(404).json({ message: "Commande introuvable" });
+			}
+
+			// Vérifier que la commande appartient au client authentifié
+			const ownership = checkOrderOwnership(order, req.user);
+			if (!ownership.allowed) {
+				console.warn(`[SECURITY] counter-payment refusé: ${ownership.reason} (user=${req.user.clientId}, order=${order._id})`);
+				return res.status(403).json({ message: "Accès non autorisé à cette commande" });
 			}
 
 			if (order.paid) {

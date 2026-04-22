@@ -138,7 +138,7 @@ reservationSchema.virtual("paidOrders", {
 	localField: "orderIds",
 	foreignField: "_id",
 	justOne: false,
-	match: { status: "paid" },
+	match: { paymentStatus: "paid" },
 });
 
 // ⭐⭐ VIRTUEL : Récupérer les commandes impayées
@@ -147,7 +147,7 @@ reservationSchema.virtual("unpaidOrders", {
 	localField: "orderIds",
 	foreignField: "_id",
 	justOne: false,
-	match: { status: { $in: ["pending", "unpaid"] } },
+	match: { paymentStatus: { $in: ["unpaid", "partially_paid"] } },
 });
 
 // ⭐⭐ MIDDLEWARE : Mettre à jour les montants avant sauvegarde

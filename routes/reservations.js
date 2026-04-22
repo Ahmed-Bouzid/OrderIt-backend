@@ -28,6 +28,8 @@ const { getAvailableSlotsForDay } = require("../utils/slotGenerator");
 // ⭐ Helper pour accéder à io via req.app
 const getIO = (req) => req.app.locals.io;
 
+const { requireClientDeviceBinding } = require("../middlewares/auth");
+
 // POST / - création réservation (admin / server)
 router.post(
 	"/",
@@ -95,6 +97,8 @@ router.post(
 // POST /client/reservations - Création ou rejoindre une réservation (client public)
 router.post(
 	"/client/reservations",
+	auth,
+	requireClientDeviceBinding,
 	reservationValidationRules,
 	async (req, res) => {
 		const errors = validationResult(req);
@@ -107,14 +111,19 @@ router.post(
 		}
 
 		try {
+			// ⭐ Forcer restaurant/table depuis le token (source de vérité — pas le body)
+			const tokenRestaurantId = req.user.restaurantId;
+			const tokenTableId = req.user.tableId || null;
+
 			const {
-				tableId,
 				clientName,
 				allergies,
 				restrictions,
-				restaurantId: bodyRestaurantId,
 			} = req.body;
-			const tableIdFinal = tableId || "1";
+
+			// Utiliser les valeurs du token; ignorer le body pour ces champs critiques
+			const tableIdFinal = tokenTableId || req.body.tableId || "1";
+			const bodyRestaurantId = tokenRestaurantId;
 
 			// Génère la note à partir des allergies/restrictions
 			let notes = "";
@@ -713,7 +722,7 @@ router.put(
 				const Order = require("../models/Order");
 				await Order.updateMany(
 					{ _id: { $in: reservation.orderIds } },
-					{ $set: { paymentStatus: "paid" } },
+					{ $set: { paymentStatus: "paid", paid: true, paidAt: new Date() } },
 				);
 			}
 

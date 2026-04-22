@@ -39,11 +39,29 @@ router.post(
 				clientPhone, // 📱 AJOUTER
 			} = req.body;
 
-			// 🌟 Si c'est un client, on lui impose la table du token
+			// 🌟 Si c'est un client, on lui impose les champs du token (source de vérité)
 			if (role === "client") {
 				tableId = clientTableId;
-				serverId = null; // pas de serveur pour les commandes clients
-				status = "in_progress"; // statut initial pour les clients
+				restaurantId = req.user.restaurantId; // ⭐ override body — un client ne peut pas forger son restaurant
+				clientId = req.user.clientId;          // ⭐ override body — un client ne peut pas forger son identité
+				serverId = null;
+				status = "in_progress";
+
+				// ⭐ Valider que reservationId appartient bien au restaurant/table du token
+				if (reservationId) {
+					const reservationCheck = await Reservation.findById(reservationId).select("restaurantId tableId");
+					if (!reservationCheck) {
+						return res.status(404).json({ message: "Réservation introuvable" });
+					}
+					if (reservationCheck.restaurantId && reservationCheck.restaurantId.toString() !== req.user.restaurantId.toString()) {
+						console.warn(`[SECURITY] orders POST: reservationId hors restaurant (user=${req.user.clientId})`);
+						return res.status(403).json({ message: "Réservation non autorisée" });
+					}
+					if (req.user.tableId && reservationCheck.tableId && reservationCheck.tableId.toString() !== req.user.tableId.toString()) {
+						console.warn(`[SECURITY] orders POST: reservationId hors table (user=${req.user.clientId})`);
+						return res.status(403).json({ message: "Réservation non autorisée pour cette table" });
+					}
+				}
 			} else if (!["server", "admin"].includes(role)) {
 				return res.status(403).json({ message: "Rôle non autorisé" });
 			}
@@ -597,7 +615,8 @@ router.post(
 
 			// Mettre à jour simplement
 			order.paid = true;
-			order.status = "completed";
+			order.orderStatus = "completed";
+			order.paymentStatus = "paid";
 			order.paidAt = new Date();
 
 			await order.save();

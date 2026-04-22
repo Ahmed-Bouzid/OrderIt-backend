@@ -197,8 +197,15 @@ io.on("connection", (socket) => {
 			return;
 		}
 
+		// ⭐ Si le socket a un token avec restaurantId, il ne peut rejoindre que son restaurant
+		if (!socket.isPublicClient && socket.restaurantId && socket.restaurantId !== restaurantId) {
+			console.warn(`[SECURITY] join-restaurant refusé: token restaurant=${socket.restaurantId}, demandé=${restaurantId} (socket=${socket.id})`);
+			if (callback) callback({ success: false, error: "Restaurant non autorisé" });
+			return;
+		}
+
 		socket.join(`restaurant-${restaurantId}`);
-		socket.restaurantId = restaurantId; // Mise à jour
+		socket.restaurantId = restaurantId;
 		console.log(
 			`🏠 Socket ${socket.id} rejoint room restaurant-${restaurantId}`,
 		);
@@ -244,9 +251,21 @@ io.on("connection", (socket) => {
 			return;
 		}
 
+		// ⭐ Si le socket a un token, vérifier le scope restaurant + table
+		if (!socket.isPublicClient && socket.restaurantId && socket.restaurantId !== restaurantId) {
+			console.warn(`[SECURITY] join-table refusé: token restaurant=${socket.restaurantId}, demandé=${restaurantId} (socket=${socket.id})`);
+			if (callback) callback({ success: false, error: "Restaurant non autorisé" });
+			return;
+		}
+		if (!socket.isPublicClient && socket.tableId && socket.tableId !== tableId) {
+			console.warn(`[SECURITY] join-table refusé: token table=${socket.tableId}, demandée=${tableId} (socket=${socket.id})`);
+			if (callback) callback({ success: false, error: "Table non autorisée" });
+			return;
+		}
+
 		const roomName = `table-${restaurantId}-${tableId}`;
 		socket.join(roomName);
-		socket.tableId = tableId; // Mise à jour
+		socket.tableId = tableId;
 		console.log(`🪑 Socket ${socket.id} rejoint room ${roomName}`);
 
 		const key = `${restaurantId}-${tableId}`;
@@ -290,6 +309,33 @@ io.on("connection", (socket) => {
 			return;
 		}
 
+		// ⭐ Si token présent avec restaurantId, vérifier que la réservation appartient au bon restaurant
+		if (!socket.isPublicClient && socket.restaurantId) {
+			const Reservation = require("./models/Reservation");
+			Reservation.findById(reservationId).select("restaurantId").lean().then((resa) => {
+				if (!resa) {
+					console.warn(`[SECURITY] join-reservation: réservation introuvable (socket=${socket.id})`);
+					if (callback) callback({ success: false, error: "Réservation introuvable" });
+					return;
+				}
+				if (resa.restaurantId && resa.restaurantId.toString() !== socket.restaurantId.toString()) {
+					console.warn(`[SECURITY] join-reservation refusé: restaurant mismatch (socket=${socket.id})`);
+					if (callback) callback({ success: false, error: "Réservation non autorisée" });
+					return;
+				}
+				// Scope ok — joindre la room
+				const roomName = `reservation-${reservationId}`;
+				socket.join(roomName);
+				socket.reservationId = reservationId;
+				console.log(`📝 Socket ${socket.id} rejoint room ${roomName}`);
+				if (callback) callback({ success: true, reservationId });
+			}).catch(() => {
+				if (callback) callback({ success: false, error: "Erreur serveur" });
+			});
+			return;
+		}
+
+		// Client public — pas de token, accès direct à la room
 		const roomName = `reservation-${reservationId}`;
 		socket.join(roomName);
 		socket.reservationId = reservationId;
