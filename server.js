@@ -14,6 +14,8 @@ const {
 const clientTokenRoutes = require("./routes/clientToken");
 const clientProductsRoutes = require("./routes/clientProducts");
 const enforceHttps = require("./middlewares/enforceHttps");
+// ⭐ BLOC4 — Structured logging sur routes critiques
+const structuredLogger = require("./middlewares/structuredLogger");
 
 // Création de l'app
 const app = express();
@@ -94,6 +96,8 @@ app.use(rateLimiter);
 app.use(helmet());
 app.use(mongoSanitize());
 app.use(xss());
+// ⭐ BLOC4 — Logger structuré (après parsing, avant routes)
+app.use(structuredLogger);
 
 // Route test
 app.get("/", (req, res) => {

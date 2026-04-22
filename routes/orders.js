@@ -828,6 +828,58 @@ router.put(
 	},
 );
 
+// BLOC3/C2 — PATCH /orders/:id/cancel - Annuler une commande (serveur/admin)
+router.patch(
+	"/:id/cancel",
+	auth,
+	validateObjectIds(["id"]),
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const order = await Order.findById(req.params.id);
+			if (!order) {
+				return res.status(404).json({ message: "Commande introuvable" });
+			}
+
+			// Vérifier scope restaurant
+			if (
+				req.user.restaurantId &&
+				order.restaurantId &&
+				order.restaurantId.toString() !== req.user.restaurantId.toString()
+			) {
+				return res.status(403).json({ message: "Commande hors de votre restaurant" });
+			}
+
+			if (order.orderStatus === "cancelled") {
+				return res.status(400).json({ message: "Commande déjà annulée" });
+			}
+			if (order.paid || order.paymentStatus === "paid") {
+				return res.status(400).json({ message: "Commande déjà payée, annulation impossible" });
+			}
+
+			order.orderStatus = "cancelled";
+			order.cancelledAt = new Date();
+			await order.save();
+
+			// Émettre WebSocket
+			const io = req.app.locals.io;
+			if (io && order.restaurantId) {
+				const { emitOrderEvent } = require("../utils/socketEmitter");
+				emitOrderEvent(io, order.restaurantId.toString(), "cancelled", order.toObject());
+			}
+
+			console.log(
+				`[ORDER CANCEL] Commande ${order._id} annulée par ${req.user.role} ${req.user.userId || req.user.serverId}`,
+			);
+
+			res.json({ success: true, message: "Commande annulée", order });
+		} catch (err) {
+			console.error("❌ [ORDER CANCEL] Erreur:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
+
 // DELETE /orders/:orderId - Supprimer une commande (optionnel)
 router.delete(
 	"/:orderId",

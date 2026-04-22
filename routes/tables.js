@@ -465,4 +465,89 @@ router.patch(
 	},
 );
 
+// ⭐ Phase B/BLOC3 — POST /:tableId/reset - Fermer manuellement la session d'une table
+// Reset : table → available, guests → [], réservation ouverte → terminée, TableSession → closed
+router.post(
+	"/:tableId/reset",
+	auth,
+	validateObjectIds(["tableId"]),
+	checkRoles(["admin", "server"]),
+	async (req, res) => {
+		try {
+			const table = await Table.findById(req.params.tableId);
+			if (!table) {
+				return res.status(404).json({ message: "Table introuvable" });
+			}
+
+			// Vérifier que la table appartient au restaurant de l'utilisateur
+			if (
+				req.user.restaurantId &&
+				table.restaurantId.toString() !== req.user.restaurantId.toString()
+			) {
+				return res.status(403).json({ message: "Table hors de votre restaurant" });
+			}
+
+			const Reservation = require("../models/Reservation");
+			const TableSession = require("../models/TableSession");
+
+			// Fermer les réservations actives de cette table (status !== terminée / annulée)
+			const closedAt = new Date();
+			const closedReservations = await Reservation.updateMany(
+				{
+					tableId: table._id,
+					status: { $nin: ["terminée", "annulée"] },
+				},
+				{
+					$set: {
+						status: "terminée",
+						isPresent: false,
+						updatedAt: closedAt,
+					},
+				},
+			);
+
+			// Fermer les TableSessions actives de cette table (Phase B)
+			await TableSession.updateMany(
+				{ tableId: table._id, status: "active" },
+				{ $set: { status: "closed", closedAt } },
+			);
+
+			// Reset de la table
+			table.status = "available";
+			table.guests = [];
+			table.markModified("guests");
+			await table.save();
+
+			// Émettre WebSocket
+			const io = getIO(req);
+			if (io && table.restaurantId) {
+				emitTableEvent(io, table.restaurantId.toString(), "reset", {
+					_id: table._id,
+					status: "available",
+					guests: [],
+				});
+			}
+
+			console.log(
+				`[TABLE RESET] Table ${table.number} (${table._id}) réinitialisée par ${req.user.role} ${req.user.userId || req.user.serverId} | ${closedReservations.modifiedCount} résa(s) fermée(s)`,
+			);
+
+			res.json({
+				success: true,
+				message: `Table ${table.number} réinitialisée`,
+				closedReservations: closedReservations.modifiedCount,
+				table: {
+					_id: table._id,
+					number: table.number,
+					status: table.status,
+					guests: table.guests,
+				},
+			});
+		} catch (err) {
+			console.error("❌ [TABLE RESET] Erreur:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
+
 module.exports = router;
