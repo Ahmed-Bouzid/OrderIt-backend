@@ -221,6 +221,21 @@ const orderSchema = new mongoose.Schema(
 		confirmedAt: { type: Date },
 		completedAt: { type: Date },
 		cancelledAt: { type: Date },
+
+		// ⭐ Phase B — TableSession + Participant (optionnels, additifs)
+		tableSessionId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "TableSession",
+			required: false,
+			default: null,
+			index: true,
+		},
+		participantId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "Participant",
+			required: false,
+			default: null,
+		},
 	},
 	{
 		timestamps: true,

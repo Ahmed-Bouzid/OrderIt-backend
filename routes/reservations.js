@@ -30,6 +30,54 @@ const getIO = (req) => req.app.locals.io;
 
 const { requireClientDeviceBinding } = require("../middlewares/auth");
 
+// ⭐ Phase B — TableSession + Participant (dual-write)
+const TableSession = require("../models/TableSession");
+const Participant = require("../models/Participant");
+
+/**
+ * Dual-write : crée ou récupère la TableSession pour cette réservation,
+ * puis crée/met à jour le Participant correspondant.
+ * Fire-and-forget : les erreurs sont loguées mais n'interrompent pas la réponse.
+ */
+async function dualWriteSession({ reservation, clientName, clientId, deviceId, isCreator = false }) {
+	try {
+		// Trouver ou créer la TableSession liée à cette réservation
+		let session = await TableSession.findOne({ reservationId: reservation._id, status: "active" });
+		if (!session) {
+			session = await TableSession.create({
+				restaurantId: reservation.restaurantId,
+				tableId: reservation.tableId || null,
+				reservationId: reservation._id,
+				status: "active",
+				openedAt: new Date(),
+			});
+		}
+
+		// Créer le Participant si pas encore enregistré pour ce device
+		const filter = deviceId
+			? { tableSessionId: session._id, deviceId }
+			: { tableSessionId: session._id, clientId };
+
+		const exists = await Participant.findOne(filter);
+		if (!exists) {
+			await Participant.create({
+				tableSessionId: session._id,
+				reservationId: reservation._id,
+				clientId: clientId || null,
+				deviceId: deviceId || null,
+				clientName,
+				isCreator,
+				joinedAt: new Date(),
+			});
+		}
+
+		return session;
+	} catch (err) {
+		console.error("[DUAL-WRITE] Erreur TableSession/Participant:", err.message);
+		return null;
+	}
+}
+
 // POST / - création réservation (admin / server)
 router.post(
 	"/",
@@ -212,6 +260,16 @@ router.post(
 				const guests = resaTable?.guests || [];
 				const isCreator = lastReservation.clientName === clientName.trim();
 
+				// ⭐ Phase B — Dual-write : enregistrer ce participant sur la session existante
+				const joinDeviceId = req.headers["x-device-id"] || null;
+				dualWriteSession({
+					reservation: lastReservation,
+					clientName,
+					clientId: req.user?.clientId || null,
+					deviceId: joinDeviceId,
+					isCreator,
+				});
+
 				return res.status(200).json({
 					reservation: lastReservation,
 					creatorName: lastReservation.clientName,
@@ -249,6 +307,17 @@ router.post(
 				{ clientName },
 			);
 			await reservation.save();
+
+			// ⭐ Phase B — Dual-write TableSession + Participant
+			const deviceId = req.headers["x-device-id"] || null;
+			dualWriteSession({
+				reservation,
+				clientName,
+				clientId: req.user?.clientId || null,
+				deviceId,
+				isCreator: true,
+			});
+
 			await reservation.populate("tableId");
 
 			// Mettre à jour la table
@@ -280,6 +349,57 @@ router.post(
 				message: "Erreur serveur",
 				error: error.message,
 			});
+		}
+	},
+);
+
+// ⭐ Phase B — POST /client/reservations/resume
+// Valide côté serveur qu'une session peut être reprise (réservation encore active + scope token OK)
+router.post(
+	"/client/reservations/resume",
+	auth,
+	requireClientDeviceBinding,
+	async (req, res) => {
+		try {
+			const { reservationId } = req.body;
+			if (!reservationId) {
+				return res.status(400).json({ valid: false, reason: "reservationId manquant" });
+			}
+
+			const reservation = await Reservation.findById(reservationId)
+				.select("status tableId restaurantId clientName")
+				.lean();
+
+			if (!reservation) {
+				return res.status(200).json({ valid: false, reason: "not_found" });
+			}
+
+			if (reservation.status === "terminée" || reservation.status === "annulée") {
+				return res.status(200).json({ valid: false, reason: "session_closed" });
+			}
+
+			// Vérifier scope restaurant
+			if (
+				req.user.restaurantId &&
+				reservation.restaurantId &&
+				reservation.restaurantId.toString() !== req.user.restaurantId.toString()
+			) {
+				return res.status(200).json({ valid: false, reason: "restaurant_mismatch" });
+			}
+
+			// Vérifier scope table si token la contient
+			if (
+				req.user.tableId &&
+				reservation.tableId &&
+				reservation.tableId.toString() !== req.user.tableId.toString()
+			) {
+				return res.status(200).json({ valid: false, reason: "table_mismatch" });
+			}
+
+			return res.status(200).json({ valid: true, reservation });
+		} catch (err) {
+			console.error("❌ [RESUME] Erreur:", err);
+			return res.status(500).json({ valid: false, reason: "server_error" });
 		}
 	},
 );
