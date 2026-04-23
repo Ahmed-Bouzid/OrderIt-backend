@@ -664,13 +664,32 @@ router.post(
 	"/webhook/stripe",
 	async (req, res) => {
 		const sig = req.headers["stripe-signature"];
-		const rawPayload = req.rawBody || req.body;
+
+		const readRawRequestBody = async (request) => {
+			if (!request.readable) return null;
+
+			return await new Promise((resolve, reject) => {
+				const chunks = [];
+				request.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+				request.on("end", () => resolve(Buffer.concat(chunks)));
+				request.on("error", reject);
+			});
+		};
+
+		let rawPayload = req.rawBody;
+		if (!rawPayload && Buffer.isBuffer(req.body)) {
+			rawPayload = req.body;
+		}
+		if (!rawPayload) {
+			rawPayload = await readRawRequestBody(req);
+		}
 
 		// 📊 DEBUG: Log webhook reception
 		console.log("[🔔 WEBHOOK] POST /webhook/stripe reçu", {
 			hasSignature: !!sig,
 			bodySize: rawPayload?.length,
 			hasRawBody: !!req.rawBody,
+			hasBufferBody: Buffer.isBuffer(req.body),
 		});
 
 		try {
