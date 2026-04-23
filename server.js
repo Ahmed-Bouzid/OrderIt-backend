@@ -141,7 +141,7 @@ app.use("/products", auth, require("./routes/products"));
 app.use("/products", auth, require("./routes/productOptions")); // ⭐ Routes options produits
 app.use("/products", auth, require("./routes/productAllergens")); // ⭐ Routes allergènes produits
 app.use("/allergens", require("./routes/allergens")); // ⭐ Routes allergènes
-app.use("/payments", auth, require("./routes/payments")); // 💳 Routes Stripe
+app.use("/payments", require("./routes/payments")); // 💳 Routes Stripe (webhook public, routes sensibles protégées dans le router)
 app.use("/feedback", require("./routes/feedback")); // 🛠️ Routes feedback utilisateurs
 app.use("/client-feedback", require("./routes/api/clientFeedback")); // 🌟 Routes feedback clients & avis Google
 app.use("/mfa", require("./routes/mfa")); // 🔐 Routes MFA (Multi-Factor Authentication)
