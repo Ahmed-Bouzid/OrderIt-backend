@@ -664,16 +664,18 @@ router.post(
 	"/webhook/stripe",
 	async (req, res) => {
 		const sig = req.headers["stripe-signature"];
+		const rawPayload = req.rawBody || req.body;
 
 		// 📊 DEBUG: Log webhook reception
 		console.log("[🔔 WEBHOOK] POST /webhook/stripe reçu", {
 			hasSignature: !!sig,
-			bodySize: req.body?.length,
+			bodySize: rawPayload?.length,
+			hasRawBody: !!req.rawBody,
 		});
 
 		try {
 			// Vérifier la signature du webhook
-			const event = stripeService.verifyWebhookSignature(req.body, sig);
+			const event = stripeService.verifyWebhookSignature(rawPayload, sig);
 
 			console.log("[🔔 WEBHOOK] Signature vérifiée, event type:", event.type);
 

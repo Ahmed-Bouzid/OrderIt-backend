@@ -92,7 +92,16 @@ app.use(
 // À placer AVANT express.json(), sinon la signature échoue (400 webhook).
 app.use("/payments/webhook/stripe", express.raw({ type: "application/json" }));
 
-app.use(express.json({ limit: "10mb" }));
+app.use(
+	express.json({
+		limit: "10mb",
+		verify: (req, _res, buf) => {
+			if (req.originalUrl === "/payments/webhook/stripe") {
+				req.rawBody = buf;
+			}
+		},
+	}),
+);
 // Pour les formulaires (si jamais utilisé)
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.use(express.static(path.join(__dirname, "public"))); // 📦 Sert les fichiers statiques (APK, etc.)
