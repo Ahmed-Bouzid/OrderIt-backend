@@ -550,4 +550,68 @@ router.post(
 	},
 );
 
+// ⭐ POST /batch - créer N tables d'un coup (onboarding wizard)
+router.post(
+	"/batch",
+	auth,
+	checkRoles(["admin", "developer"]),
+	[
+		body("restaurantId").isMongoId().withMessage("restaurantId invalide"),
+		body("count")
+			.isInt({ min: 1, max: 50 })
+			.withMessage("count doit être entre 1 et 50"),
+		body("capacity").optional().isInt({ min: 1, max: 20 }),
+		body("clientAppUrl").optional().isURL().withMessage("clientAppUrl invalide"),
+	],
+	checkUserRestaurantBody("restaurantId"),
+	async (req, res) => {
+		const errors = validationResult(req);
+		if (!errors.isEmpty())
+			return res.status(400).json({ errors: errors.array() });
+
+		const { restaurantId, count, capacity = 4, clientAppUrl } = req.body;
+
+		try {
+			// Trouver le dernier numéro de table pour ce restaurant
+			const lastTable = await Table.findOne({ restaurantId })
+				.sort({ number: -1 })
+				.select("number");
+			const startNumber = lastTable ? lastTable.number + 1 : 1;
+
+			const tables = [];
+			for (let i = 0; i < count; i++) {
+				const number = startNumber + i;
+				const table = new Table({
+					restaurantId,
+					number,
+					capacity,
+					status: TABLE_STATUS.AVAILABLE,
+					// qrCodeUrl sera remplie après création (besoin de l'_id)
+				});
+				await table.save();
+
+				// Générer le qrCodeUrl avec l'_id de la table
+				if (clientAppUrl) {
+					table.qrCodeUrl = `${clientAppUrl}/r/${restaurantId}/${table._id}`;
+					await table.save();
+				}
+
+				tables.push(table.toObject());
+			}
+
+			const io = getIO(req);
+			if (io) {
+				tables.forEach((t) =>
+					emitTableEvent(io, restaurantId, "created", t),
+				);
+			}
+
+			res.status(201).json({ tables, count: tables.length });
+		} catch (err) {
+			console.error("❌ [TABLES BATCH] Erreur:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
+
 module.exports = router;
