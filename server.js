@@ -14,6 +14,7 @@ const {
 const clientTokenRoutes = require("./routes/clientToken");
 const clientProductsRoutes = require("./routes/clientProducts");
 const enforceHttps = require("./middlewares/enforceHttps");
+const stripeService = require("./services/stripeService");
 // ⭐ BLOC4 — Structured logging sur routes critiques
 const structuredLogger = require("./middlewares/structuredLogger");
 
@@ -88,9 +89,31 @@ app.use(
 	}),
 );
 
-// ⚠️ Stripe webhook: le body DOIT rester brut pour vérifier la signature.
-// À placer AVANT express.json(), sinon la signature échoue (400 webhook).
-app.use("/payments/webhook/stripe", express.raw({ type: "application/json" }));
+// ⚠️ Webhook Stripe monté tôt pour garantir le payload brut (signature fiable).
+app.post("/payments/webhook/stripe", express.raw({ type: "*/*" }), async (req, res) => {
+	const sig = req.headers["stripe-signature"];
+
+	console.log("[🔔 WEBHOOK EARLY] reçu", {
+		hasSignature: !!sig,
+		contentType: req.headers["content-type"],
+		bodyIsBuffer: Buffer.isBuffer(req.body),
+		bodySize: Buffer.isBuffer(req.body) ? req.body.length : null,
+	});
+
+	try {
+		const event = stripeService.verifyWebhookSignature(req.body, sig);
+		const result = await stripeService.handleWebhookEvent(event);
+		console.log("[🔔 WEBHOOK EARLY] traité", {
+			eventType: event.type,
+			success: result?.success,
+			orderId: result?.orderId,
+		});
+		return res.json({ received: true, result });
+	} catch (err) {
+		console.error("❌ [WEBHOOK EARLY] Erreur webhook Stripe:", err);
+		return res.status(400).send(`Webhook Error: ${err.message}`);
+	}
+});
 
 app.use(
 	express.json({
