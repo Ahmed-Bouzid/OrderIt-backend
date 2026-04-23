@@ -228,19 +228,14 @@ router.post(
 				await table.save();
 				// Continue vers création de réservation (après les cas)
 			}
-			// CAS 2: Dernière résa terminée + table non dispo → Refuser (sauf foodtruck)
-			// ⭐ Pour les foodtrucks : la résa terminée = client précédent payé, le suivant peut créer la sienne
-			else if (lastReservation?.status === "terminée" && !isFoodtruck) {
-				return res.status(400).json({
-					message: "Impossible de rejoindre : la réservation est terminée.",
-				});
-			}
-			// CAS 2b: Foodtruck + dernière résa terminée → reset table + nouvelle résa individuelle
-			else if (lastReservation?.status === "terminée" && isFoodtruck) {
-				table.guests = [];
-				table.status = "available";
-				table.markModified("guests");
-				await table.save();
+			// CAS 2: Dernière résa terminée + table non dispo → recycler la table puis créer une nouvelle réservation
+			else if (lastReservation?.status === "terminée") {
+				if (table) {
+					table.guests = [];
+					table.status = "available";
+					table.markModified("guests");
+					await table.save();
+				}
 				// Continue vers création de réservation
 			}
 			// CAS 3: Réservation en cours → Rejoindre (sauf pour foodtrucks)
