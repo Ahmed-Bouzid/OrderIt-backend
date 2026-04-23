@@ -5,7 +5,9 @@
 	"scripts": {
 		"start": "node start.js",
 		"dev": "nodemon start.js",
-		"test": "jest"
+		"test": "jest",
+		"payments:backfill:dry": "node scripts/backfillStripePaymentStatuses.js --only-test",
+		"payments:backfill:apply": "node scripts/backfillStripePaymentStatuses.js --apply --only-test"
 	},
 	"keywords": [],
 	"author": "",

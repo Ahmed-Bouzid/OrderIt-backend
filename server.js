@@ -88,6 +88,10 @@ app.use(
 	}),
 );
 
+// ⚠️ Stripe webhook: le body DOIT rester brut pour vérifier la signature.
+// À placer AVANT express.json(), sinon la signature échoue (400 webhook).
+app.use("/payments/webhook/stripe", express.raw({ type: "application/json" }));
+
 app.use(express.json({ limit: "10mb" }));
 // Pour les formulaires (si jamais utilisé)
 app.use(express.urlencoded({ limit: "10mb", extended: true }));

@@ -662,7 +662,6 @@ router.post(
 
 router.post(
 	"/webhook/stripe",
-	express.raw({ type: "application/json" }), // Important: body brut pour vérification signature
 	async (req, res) => {
 		const sig = req.headers["stripe-signature"];
 
