@@ -809,6 +809,10 @@ router.get(
 	async (req, res) => {
 		try {
 			const excludeTest = req.query.excludeTest === "true";
+			const tzOffsetMinutesRaw = Number(req.query.tzOffsetMinutes);
+			const hasValidTzOffset = Number.isFinite(tzOffsetMinutesRaw);
+			// JS offset: UTC - local (ex: CEST => -120)
+			const tzOffsetMinutes = hasValidTzOffset ? tzOffsetMinutesRaw : 0;
 			const requestedRestaurantId = req.query.restaurantId;
 			const restaurantId =
 				req.user.role === "admin" && requestedRestaurantId
@@ -818,9 +822,13 @@ router.get(
 				return res.status(400).json({ error: "restaurantId manquant" });
 			}
 
-			// Début de journée (minuit locale → UTC approximatif)
-			const startOfDay = new Date();
-			startOfDay.setHours(0, 0, 0, 0);
+			// Début de journée basé sur le fuseau du client (device).
+			// Sans paramètre, fallback UTC (offset 0).
+			const now = new Date();
+			const localNowMs = now.getTime() - tzOffsetMinutes * 60 * 1000;
+			const localNow = new Date(localNowMs);
+			localNow.setHours(0, 0, 0, 0);
+			const startOfDay = new Date(localNow.getTime() + tzOffsetMinutes * 60 * 1000);
 
 			// Récupérer les paiements du jour
 			const query = {
@@ -835,7 +843,7 @@ router.get(
 
 			const payments = await Payment.find(query)
 				.sort({ createdAt: -1 })
-				.limit(50)
+				.limit(200)
 				.populate({
 					path: "orderId",
 					select: "tableId reservationId total",
@@ -846,8 +854,52 @@ router.get(
 				})
 				.lean();
 
+			// Dédupliquer par commande: s'il y a plusieurs intents dans la journée,
+			// garder une seule ligne et privilégier un intent réussi pour éviter
+			// les "pending" fantômes quand une tentative parallèle a aussi existé.
+			const statusPriority = {
+				succeeded: 4,
+				processing: 3,
+				requires_action: 2,
+				pending: 1,
+				failed: 0,
+				canceled: 0,
+			};
+
+			const paymentByOrder = new Map();
+			const standalonePayments = [];
+
+			for (const payment of payments) {
+				if (!payment.orderId?._id) {
+					standalonePayments.push(payment);
+					continue;
+				}
+
+				const orderKey = payment.orderId._id.toString();
+				const existing = paymentByOrder.get(orderKey);
+
+				if (!existing) {
+					paymentByOrder.set(orderKey, payment);
+					continue;
+				}
+
+				const currentPriority = statusPriority[payment.status] ?? -1;
+				const existingPriority = statusPriority[existing.status] ?? -1;
+
+				if (currentPriority > existingPriority) {
+					paymentByOrder.set(orderKey, payment);
+				}
+			}
+
+			const effectivePayments = [
+				...paymentByOrder.values(),
+				...standalonePayments,
+			]
+				.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+				.slice(0, 50);
+
 			// Formater pour le frontend
-			const formatted = payments.map((p) => {
+			const formatted = effectivePayments.map((p) => {
 				const order = p.orderId;
 				const table = order?.tableId;
 				const reservation = order?.reservationId;
@@ -882,6 +934,8 @@ router.get(
 				userRole: req.user.role,
 				requestedRestaurantId,
 				resolvedRestaurantId: restaurantId,
+				tzOffsetMinutes,
+				startOfDayIso: startOfDay.toISOString(),
 				excludeTest,
 				count: formatted.length,
 			});

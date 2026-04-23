@@ -91,6 +91,47 @@ class StripeService {
 			throw new Error("Le montant minimum est de 0.50€");
 		}
 
+		// 2.b Réutiliser un intent ouvert existant pour éviter les doublons
+		const existingOpenPayment = await Payment.findOne({
+			orderId: order._id,
+			amount: totalAmount,
+			status: { $in: ["pending", "processing", "requires_action"] },
+			isFake: { $ne: true },
+		})
+			.sort({ createdAt: -1 })
+			.maxTimeMS(10000);
+
+		if (existingOpenPayment?.stripePaymentIntentId) {
+			try {
+				const existingIntent = await this.stripe.paymentIntents.retrieve(
+					existingOpenPayment.stripePaymentIntentId,
+				);
+
+				if (!["canceled", "succeeded"].includes(existingIntent.status)) {
+					logger.info("Réutilisation PaymentIntent existant", {
+						orderId: order._id.toString(),
+						paymentId: existingOpenPayment._id.toString(),
+						paymentIntentId:
+							existingIntent.id.substring(0, 12) + "...",
+						status: existingIntent.status,
+					});
+
+					return {
+						paymentIntent: existingIntent,
+						payment: existingOpenPayment,
+						clientSecret:
+							existingOpenPayment.clientSecret || existingIntent.client_secret,
+					};
+				}
+			} catch (reuseErr) {
+				logger.warn("Impossible de réutiliser le PaymentIntent existant", {
+					orderId: order._id.toString(),
+					paymentId: existingOpenPayment._id.toString(),
+					error: reuseErr.message,
+				});
+			}
+		}
+
 		// ─── Stripe Connect : commission SunnyGo ───────────────────────────
 		// Si le restaurant a un compte Connect onboardé, l'argent va directement
 		// sur son compte. SunnyGo prélève une commission via application_fee_amount.
@@ -132,12 +173,18 @@ class StripeService {
 			};
 		}
 
-		const paymentIntent = await this.stripe.paymentIntents.create(paymentIntentParams);
+		const retryWindow = Math.floor(Date.now() / (2 * 60 * 1000)); // fenêtre 2 minutes
+		const idempotencyKey = `order_${order._id.toString()}_${totalAmount}_${paymentMode}_${retryWindow}`;
+		const paymentIntent = await this.stripe.paymentIntents.create(
+			paymentIntentParams,
+			{ idempotencyKey },
+		);
 
 		logger.info("PaymentIntent créé avec succès", {
 			paymentIntentId: paymentIntent.id.substring(0, 12) + "...",
 			amount: totalAmount / 100 + "€",
 			currency: currency,
+			idempotencyKey,
 			connectAccount: hasConnect ? restaurant.stripeAccountId?.substring(0, 12) + "..." : "direct",
 			platformFee: platformFee / 100 + "€",
 		});

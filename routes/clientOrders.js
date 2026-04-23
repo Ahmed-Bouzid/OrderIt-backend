@@ -1,7 +1,9 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const router = express.Router();
 const Order = require("../models/Order");
 const Reservation = require("../models/Reservation");
+const Payment = require("../models/Payment");
 const validateObjectIds = require("../middlewares/validateObjectId");
 const { clientOrderModifyLimiter } = require("../middlewares/rateLimiter");
 const auth = require("../middlewares/auth");
@@ -56,6 +58,229 @@ const normalizeTrackingStatus = (order) => {
 
 	return "pending";
 };
+
+const CMD_CODE_REGEX = /^#?[A-Z0-9]{4}$/i;
+
+const getCmdCodeFromOrderId = (orderId) => {
+	if (!orderId) return null;
+	return `#${String(orderId).slice(-4).toUpperCase()}`;
+};
+
+const buildOrderTimeline = (order, payment) => {
+	const events = [];
+
+	if (order?.createdAt) {
+		events.push({
+			type: "order_created",
+			label: "Commande créée",
+			timestamp: order.createdAt,
+		});
+	}
+
+	if (order?.confirmedAt) {
+		events.push({
+			type: "order_confirmed",
+			label: "Commande confirmée",
+			timestamp: order.confirmedAt,
+		});
+	}
+
+	if (order?.orderStatus === "in_progress") {
+		events.push({
+			type: "order_in_progress",
+			label: "Commande en préparation",
+			timestamp: order.updatedAt,
+		});
+	}
+
+	if (order?.orderStatus === "ready") {
+		events.push({
+			type: "order_ready",
+			label: "Commande prête",
+			timestamp: order.updatedAt,
+		});
+	}
+
+	if (order?.completedAt) {
+		events.push({
+			type: "order_completed",
+			label: "Commande terminée",
+			timestamp: order.completedAt,
+		});
+	}
+
+	if (order?.cancelledAt) {
+		events.push({
+			type: "order_cancelled",
+			label: "Commande annulée",
+			timestamp: order.cancelledAt,
+		});
+	}
+
+	if (payment?.createdAt) {
+		events.push({
+			type: "payment_created",
+			label: "Paiement initié",
+			timestamp: payment.createdAt,
+		});
+	}
+
+	if (payment?.confirmedAt) {
+		events.push({
+			type: "payment_succeeded",
+			label: "Paiement confirmé",
+			timestamp: payment.confirmedAt,
+		});
+	}
+
+	if (payment?.failedAt) {
+		events.push({
+			type: "payment_failed",
+			label: "Paiement échoué",
+			timestamp: payment.failedAt,
+		});
+	}
+
+	if (payment?.refundedAt) {
+		events.push({
+			type: "payment_refunded",
+			label: "Paiement remboursé",
+			timestamp: payment.refundedAt,
+		});
+	}
+
+	return events
+		.filter((evt) => !!evt.timestamp)
+		.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+};
+
+// GET /client-orders/lookup/:cmdCode - Lookup public par code CMD (#FA24)
+router.get("/lookup/:cmdCode", async (req, res) => {
+	try {
+		const rawCode = String(req.params.cmdCode || "").trim().toUpperCase();
+		if (!CMD_CODE_REGEX.test(rawCode)) {
+			return res.status(400).json({ message: "Format CMD invalide" });
+		}
+
+		const normalizedCode = rawCode.startsWith("#") ? rawCode : `#${rawCode}`;
+		const restaurantId = req.query.restaurantId;
+
+		if (!restaurantId) {
+			return res.status(400).json({ message: "restaurantId invalide" });
+		}
+
+		const cmdSuffix = normalizedCode.replace("#", "");
+		const escapedSuffix = cmdSuffix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		const restaurantMatch = mongoose.Types.ObjectId.isValid(restaurantId)
+			? {
+				$or: [
+					{ restaurantId: new mongoose.Types.ObjectId(restaurantId) },
+					{ restaurantId: restaurantId },
+				],
+			}
+			: { restaurantId: restaurantId };
+
+		const matchedOrderRows = await Order.aggregate([
+			{
+				$match: restaurantMatch,
+			},
+			{
+				$match: {
+					$expr: {
+						$regexMatch: {
+							input: {
+								$toUpper: { $toString: "$_id" },
+							},
+							regex: `${escapedSuffix}$`,
+						},
+					},
+				},
+			},
+			{ $sort: { createdAt: -1 } },
+			{ $limit: 1 },
+			{ $project: { _id: 1 } },
+		])
+			.option({ maxTimeMS: 10000 });
+
+		const matchedOrderId = matchedOrderRows?.[0]?._id;
+		const order = matchedOrderId
+			? await Order.findById(matchedOrderId)
+				.populate("tableId", "number")
+				.maxTimeMS(10000)
+			: null;
+
+		if (!order) {
+			return res.status(404).json({ message: "Commande introuvable" });
+		}
+
+		const payment = await Payment.findOne({
+			orderId: order._id,
+			isFake: { $ne: true },
+		})
+			.sort({ createdAt: -1 })
+			.maxTimeMS(10000)
+			.lean();
+
+		const trackingStatus = normalizeTrackingStatus(order);
+		const cmdCode = getCmdCodeFromOrderId(order._id);
+
+		const payload = {
+			order: {
+				id: order._id,
+				cmdCode,
+				reservationId: order.reservationId,
+				tableNumber: order.tableId?.number || null,
+				clientName: order.clientName || null,
+				status: order.orderStatus,
+				trackingStatus,
+				paymentStatus: order.paymentStatus,
+				paymentMethod: order.paymentMethod,
+				paid: order.paid,
+				totalAmount: order.totalAmount,
+				paidAmount: order.paidAmount,
+				tip: order.tip,
+				createdAt: order.createdAt,
+				updatedAt: order.updatedAt,
+				confirmedAt: order.confirmedAt || null,
+				completedAt: order.completedAt || null,
+				cancelledAt: order.cancelledAt || null,
+				items: Array.isArray(order.items)
+					? order.items.map((item) => ({
+						name: item.name,
+						quantity: item.quantity,
+						price: item.price,
+						status: item.itemStatus,
+					}))
+					: [],
+			},
+			payment: payment
+				? {
+					status: payment.status,
+					amountCents: payment.amount,
+					amount: payment.amount / 100,
+					currency: payment.currency,
+					paymentMethod: payment.paymentMethod,
+					cardBrand: payment.cardDetails?.brand || null,
+					cardLast4: payment.cardDetails?.last4 || null,
+					stripePaymentIntentId: payment.stripePaymentIntentId,
+					errorMessage: payment.errorMessage || null,
+					refundAmount: (payment.refundAmount || 0) / 100,
+					createdAt: payment.createdAt,
+					confirmedAt: payment.confirmedAt || null,
+					failedAt: payment.failedAt || null,
+					refundedAt: payment.refundedAt || null,
+				}
+				: null,
+			timeline: buildOrderTimeline(order, payment),
+			serverTime: new Date().toISOString(),
+		};
+
+		return res.json(payload);
+	} catch (err) {
+		console.error("❌ Erreur lookup CMD:", err);
+		return res.status(500).json({ message: "Erreur serveur" });
+	}
+});
 
 // GET /client-orders/order/:orderId - Tracking d'une commande (public)
 router.get("/order/:orderId", validateObjectIds(["orderId"]), async (req, res) => {
