@@ -332,13 +332,25 @@ class StripeService {
 	 */
 	async handlePaymentSucceeded(paymentIntent) {
 
+		console.log("[💳 PAYMENT SUCCESS] Traitement PaymentIntent:", {
+			paymentIntentId: paymentIntent.id,
+			amount: paymentIntent.amount,
+			status: paymentIntent.status,
+		});
+
 		// 1. Récupérer le paiement dans la DB
 		const payment = await Payment.findByPaymentIntentId(paymentIntent.id);
 
 		if (!payment) {
-			console.error(`❌ Payment introuvable pour PI: ${paymentIntent.id}`);
-			return { error: "Payment not found in database" };
+			console.error(`❌ [CRITICAL] Payment introuvable pour PI: ${paymentIntent.id}. Payment record n'a pas été créé lors du createPaymentIntent!`);
+			return { success: false, error: "Payment not found in database" };
 		}
+
+		console.log("[💳 PAYMENT FOUND] Payment document trouvé dans DB:", {
+			paymentId: payment._id,
+			orderId: payment.orderId,
+			status: payment.status,
+		});
 
 		// 2. Extraire les infos de la carte (si disponible)
 		let cardDetails = null;
@@ -382,6 +394,13 @@ class StripeService {
 		} else {
 			console.error(`❌ Commande ${payment.orderId} introuvable`);
 		}
+
+		console.log("[✅ PAYMENT SUCCESS] Paiement finalisé avec succès!", {
+			paymentId: payment._id,
+			orderId: payment.orderId,
+			amount: payment.amount,
+			status: payment.status,
+		});
 
 		return {
 			success: true,

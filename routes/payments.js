@@ -666,13 +666,26 @@ router.post(
 	async (req, res) => {
 		const sig = req.headers["stripe-signature"];
 
+		// 📊 DEBUG: Log webhook reception
+		console.log("[🔔 WEBHOOK] POST /webhook/stripe reçu", {
+			hasSignature: !!sig,
+			bodySize: req.body?.length,
+		});
+
 		try {
 			// Vérifier la signature du webhook
 			const event = stripeService.verifyWebhookSignature(req.body, sig);
 
+			console.log("[🔔 WEBHOOK] Signature vérifiée, event type:", event.type);
 
 			// Traiter l'événement
 			const result = await stripeService.handleWebhookEvent(event);
+
+			console.log("[🔔 WEBHOOK] Événement traité, result:", {
+				eventType: event.type,
+				success: result.success,
+				orderId: result.orderId,
+			});
 
 			// Si paiement réussi, émettre événement WebSocket
 			if (
@@ -775,7 +788,12 @@ router.get(
 	checkRoles(["admin", "server"]),
 	async (req, res) => {
 		try {
-			const restaurantId = req.user.restaurantId;
+			const excludeTest = req.query.excludeTest === "true";
+			const requestedRestaurantId = req.query.restaurantId;
+			const restaurantId =
+				req.user.role === "admin" && requestedRestaurantId
+					? requestedRestaurantId
+					: req.user.restaurantId;
 			if (!restaurantId) {
 				return res.status(400).json({ error: "restaurantId manquant" });
 			}
@@ -785,12 +803,17 @@ router.get(
 			startOfDay.setHours(0, 0, 0, 0);
 
 			// Récupérer les paiements du jour
-			const payments = await Payment.find({
+			const query = {
 				restaurantId,
 				createdAt: { $gte: startOfDay },
-				isTest: { $ne: true },
 				isFake: { $ne: true },
-			})
+			};
+
+			if (excludeTest) {
+				query.isTest = { $ne: true };
+			}
+
+			const payments = await Payment.find(query)
 				.sort({ createdAt: -1 })
 				.limit(50)
 				.populate({
@@ -833,6 +856,14 @@ router.get(
 						minute: "2-digit",
 					}),
 				};
+			});
+
+			console.log("[payments/today]", {
+				userRole: req.user.role,
+				requestedRestaurantId,
+				resolvedRestaurantId: restaurantId,
+				excludeTest,
+				count: formatted.length,
 			});
 
 			res.json({
