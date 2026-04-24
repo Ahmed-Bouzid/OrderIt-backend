@@ -149,13 +149,29 @@ router.post(
 				return res.status(403).json({ error: "Accès refusé à cette commande." });
 			}
 
-			// ── Sécurité : valider que le montant déclaré ≥ total réel de la commande ──
-			// Empêche un client de sous-déclarer le montant pour payer moins
+			// ── Sécurité : valider le montant contre le reste à payer de la commande ──
 			const orderTotalCents = Math.round((order.totalAmount || 0) * 100);
-			if (amount < orderTotalCents) {
+			const paidAmountCents = Math.round((order.paidAmount || 0) * 100);
+			const remainingCents = Math.max(0, orderTotalCents - paidAmountCents);
+
+			if (remainingCents <= 0) {
 				return res.status(400).json({
-					error: "Montant insuffisant.",
-					message: `Le montant déclaré (${amount} cts) est inférieur au total de la commande (${orderTotalCents} cts).`,
+					error: "Commande déjà réglée.",
+					message: "Cette commande est déjà entièrement payée.",
+				});
+			}
+
+			if (amount > remainingCents) {
+				return res.status(400).json({
+					error: "Montant trop élevé.",
+					message: `Le montant déclaré (${amount} cts) dépasse le reste à payer (${remainingCents} cts).`,
+				});
+			}
+
+			if (amount <= 0) {
+				return res.status(400).json({
+					error: "Montant invalide.",
+					message: "Le montant du paiement doit être supérieur à 0.",
 				});
 			}
 

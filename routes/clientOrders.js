@@ -4,6 +4,9 @@ const router = express.Router();
 const Order = require("../models/Order");
 const Reservation = require("../models/Reservation");
 const Payment = require("../models/Payment");
+const {
+	cancelOpenStripePaymentsForOrder,
+} = require("../utils/cancelOpenStripePayments");
 const validateObjectIds = require("../middlewares/validateObjectId");
 const { clientOrderModifyLimiter } = require("../middlewares/rateLimiter");
 const auth = require("../middlewares/auth");
@@ -228,8 +231,11 @@ router.get("/lookup/:cmdCode", async (req, res) => {
 			order: {
 				id: order._id,
 				cmdCode,
+				restaurantId: order.restaurantId,
 				reservationId: order.reservationId,
+				tableId: order.tableId?._id || order.tableId || null,
 				tableNumber: order.tableId?.number || null,
+				clientId: order.clientId || null,
 				clientName: order.clientName || null,
 				status: order.orderStatus,
 				trackingStatus,
@@ -397,6 +403,17 @@ router.put(
 			order.paymentMethod = "cash";
 			await order.save();
 
+			const cancelResult = await cancelOpenStripePaymentsForOrder(
+				order._id,
+				"client_counter_payment",
+			);
+			if (cancelResult.errors.length > 0) {
+				console.warn("⚠️ [COUNTER_PAYMENT] Annulation intents incomplète", {
+					orderId: order._id.toString(),
+					errors: cancelResult.errors,
+				});
+			}
+
 			// Émettre l'événement WebSocket
 			const io = req.app.locals.io;
 			if (io && order.restaurantId) {
@@ -409,7 +426,11 @@ router.put(
 				);
 			}
 
-			res.json({ message: "Paiement au comptoir déclaré", order });
+			res.json({
+				message: "Paiement au comptoir déclaré",
+				order,
+				canceledStripeIntents: cancelResult.canceled,
+			});
 		} catch (err) {
 			console.error("❌ Erreur déclaration paiement comptoir:", err);
 			res.status(500).json({ message: "Erreur serveur" });

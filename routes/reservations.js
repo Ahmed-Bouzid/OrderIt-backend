@@ -33,6 +33,9 @@ const { requireClientDeviceBinding } = require("../middlewares/auth");
 // ⭐ Phase B — TableSession + Participant (dual-write)
 const TableSession = require("../models/TableSession");
 const Participant = require("../models/Participant");
+const {
+	cancelOpenStripePaymentsForOrder,
+} = require("../utils/cancelOpenStripePayments");
 
 /**
  * Dual-write : crée ou récupère la TableSession pour cette réservation,
@@ -839,6 +842,19 @@ router.put(
 					{ _id: { $in: reservation.orderIds } },
 					{ $set: { paymentStatus: "paid", paid: true, paidAt: new Date() } },
 				);
+
+				for (const orderId of reservation.orderIds) {
+					const cancelResult = await cancelOpenStripePaymentsForOrder(
+						orderId,
+						"reservation_payment_finalization",
+					);
+					if (cancelResult.errors.length > 0) {
+						console.warn("⚠️ [RESERVATION_PAYMENT] Annulation intents incomplète", {
+							orderId: orderId.toString(),
+							errors: cancelResult.errors,
+						});
+					}
+				}
 			}
 
 			// Mettre à jour les champs de paiement
@@ -1318,6 +1334,17 @@ router.put("/client/:id/close", async (req, res) => {
 				order.paidAmount = order.totalAmount;
 				order.paidAt = now;
 				await order.save();
+
+				const cancelResult = await cancelOpenStripePaymentsForOrder(
+					order._id,
+					"reservation_client_close",
+				);
+				if (cancelResult.errors.length > 0) {
+					console.warn("⚠️ [CLIENT_CLOSE] Annulation intents incomplète", {
+						orderId: order._id.toString(),
+						errors: cancelResult.errors,
+					});
+				}
 
 				// ⚡ Émettre WebSocket pour notifier le frontend
 				if (io && order.restaurantId) {

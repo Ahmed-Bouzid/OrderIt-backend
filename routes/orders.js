@@ -11,6 +11,9 @@ const Table = require("../models/Table");
 const Product = require("../models/Product");
 const Order = require("../models/Order");
 const Reservation = require("../models/Reservation");
+const {
+	cancelOpenStripePaymentsForOrder,
+} = require("../utils/cancelOpenStripePayments");
 const { validationResult } = require("express-validator");
 const { getAuditUser, addAudit } = require("../utils/auditHelper");
 
@@ -148,6 +151,17 @@ router.post(
 			});
 
 			await order.save();
+
+			const cancelResult = await cancelOpenStripePaymentsForOrder(
+				order._id,
+				"order_mark_as_paid",
+			);
+			if (cancelResult.errors.length > 0) {
+				console.warn("⚠️ [MARK_AS_PAID] Annulation intents incomplète", {
+					orderId: order._id.toString(),
+					errors: cancelResult.errors,
+				});
+			}
 
 			// ⭐ Émettre événement WebSocket pour notifier le frontend
 			const io = req.app.locals.io;
@@ -621,6 +635,17 @@ router.post(
 
 			await order.save();
 
+			const cancelResult = await cancelOpenStripePaymentsForOrder(
+				order._id,
+				"order_mark_as_paid",
+			);
+			if (cancelResult.errors.length > 0) {
+				console.warn("⚠️ [MARK_AS_PAID] Annulation intents incomplète", {
+					orderId: order._id.toString(),
+					errors: cancelResult.errors,
+				});
+			}
+
 			// ⚡ Émettre WebSocket pour notifier le frontend
 			const io = req.app.locals.io;
 			if (io && order.restaurantId) {
@@ -636,6 +661,7 @@ router.post(
 			res.json({
 				success: true,
 				message: "Commande marquée comme payée",
+				canceledStripeIntents: cancelResult.canceled,
 				order,
 			});
 		} catch (err) {
