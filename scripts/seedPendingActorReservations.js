@@ -1,0 +1,119 @@
+/**
+ * Seed 10 "en attente" reservations for TODAY using US actor names.
+ *
+ * Usage:
+ *   node backend/scripts/seedPendingActorReservations.js <restaurantId>
+ */
+
+const mongoose = require("mongoose");
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "../.env") });
+
+const Reservation = require("../models/Reservation");
+
+const ACTORS = [
+	"Tom Hanks",
+	"Leonardo DiCaprio",
+	"Denzel Washington",
+	"Brad Pitt",
+	"Robert De Niro",
+	"Morgan Freeman",
+	"Scarlett Johansson",
+	"Meryl Streep",
+	"Samuel L Jackson",
+	"Jennifer Lawrence",
+];
+
+const SOURCES = ["Sur place", "À distance"];
+
+function pad(n) {
+	return String(n).padStart(2, "0");
+}
+
+function randomPhone() {
+	const prefix = Math.random() > 0.5 ? "06" : "07";
+	let rest = "";
+	for (let i = 0; i < 8; i++) rest += Math.floor(Math.random() * 10);
+	return prefix + rest;
+}
+
+function randomTime() {
+	const startMinutes = 11 * 60 + 30;
+	const endMinutes = 22 * 60 + 30;
+	const slots = Math.floor((endMinutes - startMinutes) / 15);
+	const slot = Math.floor(Math.random() * (slots + 1));
+	const total = startMinutes + slot * 15;
+	return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+}
+
+async function main() {
+	const restaurantId = process.argv[2];
+	if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) {
+		console.error("❌ Usage: node seedPendingActorReservations.js <restaurantId>");
+		process.exit(1);
+	}
+	if (!process.env.MONGO_URI) {
+		console.error("❌ MONGO_URI manquant dans backend/.env");
+		process.exit(1);
+	}
+
+	await mongoose.connect(process.env.MONGO_URI);
+	console.log("✅ Connecté à MongoDB");
+
+	const today = new Date();
+	today.setHours(0, 0, 0, 0);
+
+	const docs = ACTORS.map((name, i) => {
+		const time = randomTime();
+		const [hh, mm] = time.split(":").map(Number);
+		const reservationDate = new Date(today);
+		reservationDate.setHours(hh, mm, 0, 0);
+
+		return {
+			restaurantId,
+			clientName: name,
+			phone: randomPhone(),
+			nbPersonnes: 1 + Math.floor(Math.random() * 6),
+			reservationDate,
+			reservationTime: time,
+			reservationSource: SOURCES[i % SOURCES.length],
+			status: "en attente",
+			isPresent: false,
+			dishStatus: "En attente",
+			notes: "Seed test (en attente)",
+			openedBy: "SeedScript",
+			auditLog: [
+				{
+					timestamp: new Date(),
+					action: "created",
+					userType: "system",
+					userName: "SeedScript",
+					message: "Réservation seed (en attente)",
+				},
+			],
+		};
+	});
+
+	console.log(`📝 Insertion de ${docs.length} réservations "en attente" pour ${today.toISOString().slice(0, 10)}...`);
+
+	const created = [];
+	for (const data of docs) {
+		const r = new Reservation(data);
+		await r.save();
+		created.push(r);
+	}
+
+	console.log(`✅ ${created.length} réservations créées:`);
+	created.forEach((r) => {
+		console.log(`   - ${r.reservationTime}  ${r.clientName}  (${r.nbPersonnes} pers.)`);
+	});
+
+	await mongoose.disconnect();
+	console.log("👋 Déconnecté");
+}
+
+main().catch(async (err) => {
+	console.error("❌ Erreur:", err);
+	try { await mongoose.disconnect(); } catch (_) {}
+	process.exit(1);
+});

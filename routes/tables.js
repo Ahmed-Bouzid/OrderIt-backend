@@ -72,8 +72,30 @@ router.post(
 
 			res.status(201).json(table);
 		} catch (err) {
-			console.error(err);
-			res.status(500).json({ message: "Erreur server" });
+			// Doublon (index unique restaurantId+number)
+			if (err && err.code === 11000) {
+				console.warn(
+					"[POST /tables] Doublon table:",
+					err.keyValue || err.message,
+				);
+				return res.status(409).json({
+					message: `La table "${req.body.number}" existe déjà pour ce restaurant.`,
+					code: "TABLE_DUPLICATE",
+				});
+			}
+			// Erreur de validation Mongoose
+			if (err && err.name === "ValidationError") {
+				console.warn("[POST /tables] Validation Mongoose:", err.message);
+				return res.status(400).json({
+					message: err.message,
+					code: "TABLE_VALIDATION",
+				});
+			}
+			console.error("[POST /tables] Erreur serveur:", err);
+			res.status(500).json({
+				message: err && err.message ? err.message : "Erreur serveur",
+				code: "TABLE_CREATE_FAILED",
+			});
 		}
 	},
 );

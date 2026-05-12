@@ -188,7 +188,7 @@ router.post(
 );
 
 // GET /api/orders - Récupérer les commandes avec filtres (restaurantId, status, origin)
-router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
+router.get("/", auth, checkRoles(["server", "admin", "developer"]), async (req, res) => {
 	try {
 		const { restaurantId, status, origin } = req.query;
 
