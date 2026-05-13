@@ -8,6 +8,7 @@ const { requireClientDeviceBinding } = require("../middlewares/auth");
 const checkRoles = require("../middlewares/checkRoles");
 const { paymentIntentLimiter } = require("../middlewares/rateLimiter");
 const { body, validationResult } = require("express-validator");
+const Reservation = require("../models/Reservation");
 const {
 	emitOrderEvent,
 	emitPaymentCompleted,
@@ -149,6 +150,39 @@ router.post(
 				return res.status(403).json({ error: "Accès refusé à cette commande." });
 			}
 
+			// 🛡️ Garde anti-fraude C1 : un client ne peut payer une commande
+			// d'un AUTRE client que s'il détient le paymentLock de la réservation.
+			if (
+				req.user?.role === "client" &&
+				order.clientId &&
+				req.user.clientId &&
+				order.clientId.toString() !== req.user.clientId.toString()
+			) {
+				try {
+					const reservation = order.reservationId
+						? await Reservation.findById(order.reservationId).select("paymentLock")
+						: null;
+					const lock = reservation?.paymentLock;
+					const now = new Date();
+					const lockActive =
+						lock?.clientId &&
+						lock?.expiresAt &&
+						new Date(lock.expiresAt) > now;
+					const lockHeldByMe =
+						lockActive && lock.clientId === req.user.clientId;
+					if (!lockHeldByMe) {
+						return res.status(403).json({
+							error: "cross_payment_forbidden",
+							message:
+								"Vous devez d'abord activer le mode \"payer pour la table\" pour régler les commandes des autres clients.",
+						});
+					}
+				} catch (e) {
+					console.error("[PAYMENT-LOCK] check error:", e.message);
+					return res.status(500).json({ error: "Erreur vérification paiement." });
+				}
+			}
+
 			// ── Sécurité : valider le montant contre le reste à payer de la commande ──
 			const orderTotalCents = Math.round((order.totalAmount || 0) * 100);
 			const paidAmountCents = Math.round((order.paidAmount || 0) * 100);
@@ -219,6 +253,177 @@ router.post(
 				});
 			}
 
+			res.status(500).json({
+				error: "Erreur serveur",
+				message: err.message,
+			});
+		}
+	},
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+// ROUTE: POST /payments/create-aggregated-intent
+// Crée 1 PaymentIntent Stripe pour N commandes (paiement multi-orders en 1 fois)
+// Body: { orderSlices: [{orderId, amount}], currency, paymentMethodTypes, ... }
+// Au webhook succeeded, toutes les commandes sont marquées paid via cascade.
+// ════════════════════════════════════════════════════════════════════════════
+
+router.post(
+	"/create-aggregated-intent",
+	auth,
+	paymentIntentLimiter,
+	requireClientDeviceBinding,
+	[
+		body("orderSlices")
+			.isArray({ min: 2 })
+			.withMessage("orderSlices doit contenir au moins 2 commandes"),
+		body("orderSlices.*.orderId").notEmpty().withMessage("orderId requis"),
+		body("orderSlices.*.amount")
+			.isInt({ min: 1 })
+			.withMessage("amount > 0 (centimes)"),
+		body("currency").optional().isString(),
+		body("paymentMethodTypes").optional().isArray(),
+		body("tipAmount").optional().isInt({ min: 0 }),
+		body("paymentMode")
+			.optional()
+			.isIn(["client", "terminal"])
+			.withMessage("paymentMode doit être 'client' ou 'terminal'"),
+	],
+	async (req, res) => {
+		const errors = validationResult(req);
+		if (!errors.isEmpty()) {
+			return res.status(400).json({ errors: errors.array() });
+		}
+
+		try {
+			const {
+				orderSlices,
+				currency = "eur",
+				paymentMethodTypes = ["card"],
+				tipAmount = 0,
+				paymentMode = "client",
+				metadata = {},
+			} = req.body;
+
+			// 1. Charger toutes les commandes en parallèle
+			const orders = await Promise.all(
+				orderSlices.map((s) => Order.findById(s.orderId).lean()),
+			);
+			for (let i = 0; i < orders.length; i++) {
+				if (!orders[i]) {
+					return res.status(404).json({
+						error: `Commande ${orderSlices[i].orderId} introuvable.`,
+					});
+				}
+				if (!canAccessOrder(req, orders[i])) {
+					return res.status(403).json({
+						error: `Accès refusé à la commande ${orders[i]._id}.`,
+					});
+				}
+			}
+
+			// 2. Toutes doivent appartenir à la MÊME réservation
+			const reservationIds = [
+				...new Set(
+					orders.map((o) => o.reservationId?.toString()).filter(Boolean),
+				),
+			];
+			if (reservationIds.length !== 1) {
+				return res.status(400).json({
+					error: "Toutes les commandes doivent être de la même réservation.",
+				});
+			}
+			const reservationId = reservationIds[0];
+
+			// 3. Garde anti-fraude C1 — si l'une des commandes appartient à un autre
+			//    client, exiger le paymentLock détenu par moi.
+			if (req.user?.role === "client" && req.user.clientId) {
+				const hasOtherClientOrder = orders.some(
+					(o) =>
+						o.clientId &&
+						o.clientId.toString() !== req.user.clientId.toString(),
+				);
+				if (hasOtherClientOrder) {
+					try {
+						const reservation =
+							await Reservation.findById(reservationId).select("paymentLock");
+						const lock = reservation?.paymentLock;
+						const now = new Date();
+						const lockActive =
+							lock?.clientId &&
+							lock?.expiresAt &&
+							new Date(lock.expiresAt) > now;
+						const lockHeldByMe =
+							lockActive && lock.clientId === req.user.clientId;
+						if (!lockHeldByMe) {
+							return res.status(403).json({
+								error: "cross_payment_forbidden",
+								message:
+									"Vous devez d'abord activer le mode \"payer pour la table\" pour régler les commandes des autres clients.",
+							});
+						}
+					} catch (e) {
+						console.error("[PAYMENT-LOCK] check error:", e.message);
+						return res
+							.status(500)
+							.json({ error: "Erreur vérification paiement." });
+					}
+				}
+			}
+
+			// 4. Validation montant : chaque slice <= reste à payer de la commande
+			for (let i = 0; i < orders.length; i++) {
+				const o = orders[i];
+				const totalCents = Math.round((o.totalAmount || 0) * 100);
+				const paidCents = Math.round((o.paidAmount || 0) * 100);
+				const remainingCents = Math.max(0, totalCents - paidCents);
+				if (orderSlices[i].amount > remainingCents) {
+					return res.status(400).json({
+						error: "Montant trop élevé.",
+						message: `Slice ${orderSlices[i].amount} cts > reste à payer ${remainingCents} cts pour ${o._id}.`,
+					});
+				}
+				if (o.paid) {
+					return res.status(400).json({
+						error: "Commande déjà payée.",
+						message: `La commande ${o._id} est déjà entièrement payée.`,
+					});
+				}
+			}
+
+			// 5. Vérifier que Stripe est configuré
+			if (!stripeService.isConfigured()) {
+				return res.status(503).json({
+					error: "Service de paiement indisponible",
+					message: "Stripe n'est pas configuré.",
+				});
+			}
+
+			// 6. Créer le PaymentIntent agrégé
+			const result = await stripeService.createAggregatedPaymentIntent({
+				orderSlices,
+				currency,
+				paymentMode,
+				paymentMethodTypes,
+				tipAmount,
+				metadata: {
+					...metadata,
+					userId: req.user.id || req.user.clientId,
+					userRole: req.user.role,
+				},
+			});
+
+			res.json({
+				success: true,
+				clientSecret: result.clientSecret,
+				paymentIntentId: result.paymentIntent.id,
+				paymentId: result.payment._id,
+				amount: result.payment.amount,
+				currency: result.payment.currency,
+				ordersCount: orderSlices.length,
+			});
+		} catch (err) {
+			console.error("❌ Erreur create-aggregated-intent:", err);
 			res.status(500).json({
 				error: "Erreur serveur",
 				message: err.message,

@@ -438,32 +438,40 @@ router.put(
 	},
 );
 
-// GET /client-orders/:reservationId - Toutes les commandes d'une réservation (public)
+// GET /client-orders/:reservationId - Toutes les commandes d'une réservation (auth client)
 router.get(
 	"/:reservationId",
+	auth,
+	requireClientDeviceBinding,
 	validateObjectIds(["reservationId"]),
 	async (req, res) => {
 		try {
-			const clientId = req.query.clientId;
-
 			const reservation = await Reservation.findById(
 				req.params.reservationId,
-			).select("_id tableId clientName");
+			).select("_id tableId clientName restaurantId");
 
 			if (!reservation) {
 				return res.status(404).json({ message: "Réservation non trouvée" });
 			}
 
-			// ⭐ FILTRAGE PAR CLIENTID si fourni (foodtruck multi-user)
-			// ⭐ EXCLURE les commandes annulées
+			// 🛡️ Sécurité : restaurant du token doit matcher
+			if (
+				req.user?.role === "client" &&
+				reservation.restaurantId &&
+				req.user.restaurantId &&
+				reservation.restaurantId.toString() !==
+					req.user.restaurantId.toString()
+			) {
+				return res.status(403).json({ message: "Accès refusé." });
+			}
+
+			// ⭐ C2 : on retourne TOUTES les commandes (payées + non payées),
+			// le frontend filtre/affiche les payées en grisé avec "Payé par X".
+			// On exclut juste les commandes annulées.
 			const query = {
 				reservationId: req.params.reservationId,
-				paid: { $ne: true },
 				orderStatus: { $ne: "cancelled" },
 			};
-			if (clientId) {
-				query.clientId = clientId;
-			}
 			const orders = await Order.find(query)
 				.populate("tableId", "number")
 				.populate("serverId", "name");

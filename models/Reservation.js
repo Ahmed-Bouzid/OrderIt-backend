@@ -79,6 +79,16 @@ const reservationSchema = new mongoose.Schema(
 		paidAmount: { type: Number, default: 0 }, // Montant déjà payé
 		remainingAmount: { type: Number, default: 0 }, // Montant restant à payer
 
+		// 🛡️ Lock pessimiste "payeur de toute la table"
+		// Un seul client à la fois peut payer les items des autres.
+		// Le lock expire automatiquement (TTL ~5 min) pour ne pas bloquer la table.
+		paymentLock: {
+			clientId: { type: String, default: null },
+			clientName: { type: String, default: null },
+			lockedAt: { type: Date, default: null },
+			expiresAt: { type: Date, default: null },
+		},
+
 		isPresent: { type: Boolean, default: false },
 		canceled: { type: Boolean, default: false },
 		canceledAt: { type: Date },

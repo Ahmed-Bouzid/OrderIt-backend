@@ -36,6 +36,86 @@ const Participant = require("../models/Participant");
 const {
 	cancelOpenStripePaymentsForOrder,
 } = require("../utils/cancelOpenStripePayments");
+const generateClientToken = require("../utils/generateClientToken");
+
+/**
+ * Normalise un nom (Option B) : trim + lowercase + suppression des accents.
+ * Sert au matching d'identité lors d'une reconnexion : un client qui retape
+ * “herve” au lieu de “Hervé” retrouve son identité stable.
+ */
+function normalizeClientName(name) {
+	if (typeof name !== "string") return null;
+	const trimmed = name.trim().toLowerCase();
+	if (!trimmed) return null;
+	return trimmed.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/**
+ * Résout l'identité stable d'un client qui rejoint / reprend une réservation.
+ * Cherche dans cet ordre, parmi les Participants ACTIFS de la session :
+ *   1) match par deviceId (le plus fiable, même device qui revient)
+ *   2) match par nom normalisé (même personne qui a réinstallé / clear cache)
+ *
+ * Retourne { resolved: true, clientId } si trouvé (le clientId existant
+ * doit être réutilisé), sinon { resolved: false, clientId: tokenClientId }.
+ */
+async function resolveStableClientId({
+	reservation,
+	tokenClientId,
+	deviceId,
+	clientName,
+}) {
+	try {
+		if (!reservation?._id) {
+			return { resolved: false, clientId: tokenClientId || null };
+		}
+		const session = await TableSession.findOne({
+			reservationId: reservation._id,
+			status: "active",
+		}).select("_id");
+		if (!session) {
+			return { resolved: false, clientId: tokenClientId || null };
+		}
+		const participants = await Participant.find({
+			tableSessionId: session._id,
+			leftAt: null,
+		}).select("clientId clientName deviceId");
+
+		// 1) Match deviceId
+		if (deviceId) {
+			const byDevice = participants.find(
+				(p) => p.deviceId && p.deviceId === deviceId && p.clientId,
+			);
+			if (byDevice && byDevice.clientId !== tokenClientId) {
+				return { resolved: true, clientId: byDevice.clientId };
+			}
+			if (byDevice) {
+				return { resolved: false, clientId: byDevice.clientId };
+			}
+		}
+
+		// 2) Match nom normalisé
+		const normalizedNew = normalizeClientName(clientName);
+		if (normalizedNew) {
+			const byName = participants.find(
+				(p) =>
+					p.clientId &&
+					normalizeClientName(p.clientName) === normalizedNew,
+			);
+			if (byName && byName.clientId !== tokenClientId) {
+				return { resolved: true, clientId: byName.clientId };
+			}
+			if (byName) {
+				return { resolved: false, clientId: byName.clientId };
+			}
+		}
+
+		return { resolved: false, clientId: tokenClientId || null };
+	} catch (err) {
+		console.error("[STABLE-CLIENT] Erreur résolution:", err.message);
+		return { resolved: false, clientId: tokenClientId || null };
+	}
+}
 
 /**
  * Dual-write : crée ou récupère la TableSession pour cette réservation,
@@ -260,18 +340,87 @@ router.post(
 
 				// ⭐ Phase B — Dual-write : enregistrer ce participant sur la session existante
 				const joinDeviceId = req.headers["x-device-id"] || null;
+
+				// �️ ANTI-DOUBLON DE PRÉNOM (normalisé)
+				// Empêche 2 personnes d'utiliser le même prénom sur la même table
+				// (Hélène ≠ helene → tout pareil après normalisation NFD).
+				// On autorise UNIQUEMENT si c'est le même device qui revient.
+				try {
+					const normalizedNew = normalizeClientName(clientName);
+					if (normalizedNew) {
+						const activeSession = await TableSession.findOne({
+							reservationId: lastReservation._id,
+							status: "active",
+						}).select("_id");
+						if (activeSession) {
+							const sameNameParticipants = await Participant.find({
+								tableSessionId: activeSession._id,
+								leftAt: null,
+							}).select("clientName deviceId clientId");
+							const conflict = sameNameParticipants.find(
+								(p) =>
+									normalizeClientName(p.clientName) === normalizedNew &&
+									(!joinDeviceId || p.deviceId !== joinDeviceId),
+							);
+							if (conflict) {
+								return res.status(409).json({
+									error: "duplicate_client_name",
+									message: `Le prénom "${clientName.trim()}" est déjà utilisé sur cette table. Choisissez un prénom différent (ex. ajoutez une initiale).`,
+								});
+							}
+						}
+					}
+				} catch (e) {
+					console.error("[DUPLICATE-NAME] Vérification échouée:", e.message);
+				}
+
+				// �🔐 Résoudre l'identité stable (deviceId puis nom normalisé)
+				const stable = await resolveStableClientId({
+					reservation: lastReservation,
+					tokenClientId: req.user?.clientId || null,
+					deviceId: joinDeviceId,
+					clientName,
+				});
+				const effectiveClientId =
+					stable.clientId || req.user?.clientId || null;
+
 				dualWriteSession({
 					reservation: lastReservation,
 					clientName,
-					clientId: req.user?.clientId || null,
+					clientId: effectiveClientId,
 					deviceId: joinDeviceId,
 					isCreator,
 				});
+
+				// 🔑 Si on a résolu un autre clientId que celui du token → réémettre un JWT
+				let reissuedToken = null;
+				if (
+					stable.resolved &&
+					effectiveClientId &&
+					joinDeviceId &&
+					lastReservation.restaurantId
+				) {
+					try {
+						reissuedToken = generateClientToken({
+							clientId: effectiveClientId,
+							restaurantId: lastReservation.restaurantId.toString(),
+							tableId: lastReservation.tableId
+								? (lastReservation.tableId._id || lastReservation.tableId).toString()
+								: null,
+							deviceId: joinDeviceId,
+							expiresIn: 2 * 3600,
+						});
+					} catch (e) {
+						console.error("[STABLE-CLIENT] Réémission token échouée:", e.message);
+					}
+				}
 
 				return res.status(200).json({
 					reservation: lastReservation,
 					creatorName: lastReservation.clientName,
 					guests,
+					resolvedClientId: effectiveClientId,
+					token: reissuedToken, // null si pas réémis (frontend ignore)
 					message: isCreator
 						? "Vous êtes déjà inscrit à cette table."
 						: `Table réservée par ${lastReservation.clientName}. Vous avez rejoint !`,
@@ -1406,5 +1555,108 @@ router.put("/client/:id/close", async (req, res) => {
 		});
 	}
 });
+
+// 🛡️ POST /reservations/client/:reservationId/payment-lock
+// Acquiert un lock pessimiste "payeur table" pour 5 min.
+// Empêche que 2 clients paient simultanément la note des autres.
+router.post(
+	"/client/:reservationId/payment-lock",
+	auth,
+	requireClientDeviceBinding,
+	async (req, res) => {
+		try {
+			if (req.user?.role !== "client") {
+				return res.status(403).json({ message: "Réservé aux clients." });
+			}
+			const { reservationId } = req.params;
+			const reservation = await Reservation.findById(reservationId);
+			if (!reservation) {
+				return res.status(404).json({ message: "Réservation introuvable." });
+			}
+			// Sécurité : restaurant du token doit matcher
+			if (
+				reservation.restaurantId?.toString() !==
+				req.user.restaurantId?.toString()
+			) {
+				return res.status(403).json({ message: "Accès refusé." });
+			}
+
+			const now = new Date();
+			const lock = reservation.paymentLock;
+			const isActive =
+				lock?.clientId && lock?.expiresAt && new Date(lock.expiresAt) > now;
+			const isOwnLock = isActive && lock.clientId === req.user.clientId;
+
+			if (isActive && !isOwnLock) {
+				return res.status(409).json({
+					locked: true,
+					lockedBy: lock.clientName || "un autre client",
+					expiresAt: lock.expiresAt,
+					message: `${lock.clientName || "Un autre client"} est déjà en train de payer pour la table.`,
+				});
+			}
+
+			const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 min
+			reservation.paymentLock = {
+				clientId: req.user.clientId,
+				clientName:
+					req.body?.clientName?.trim?.() ||
+					lock?.clientName ||
+					"Client",
+				lockedAt: now,
+				expiresAt,
+			};
+			await reservation.save();
+
+			return res.json({
+				locked: true,
+				lockedBy: reservation.paymentLock.clientName,
+				expiresAt: reservation.paymentLock.expiresAt,
+				ownLock: true,
+			});
+		} catch (err) {
+			console.error("❌ [PAYMENT-LOCK] Erreur:", err);
+			return res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
+
+// 🛡️ DELETE /reservations/client/:reservationId/payment-lock
+// Libère le lock si on en est le détenteur (ex: cancel paiement).
+router.delete(
+	"/client/:reservationId/payment-lock",
+	auth,
+	requireClientDeviceBinding,
+	async (req, res) => {
+		try {
+			if (req.user?.role !== "client") {
+				return res.status(403).json({ message: "Réservé aux clients." });
+			}
+			const reservation = await Reservation.findById(
+				req.params.reservationId,
+			);
+			if (!reservation) {
+				return res.status(404).json({ message: "Réservation introuvable." });
+			}
+			const lock = reservation.paymentLock;
+			if (!lock?.clientId || lock.clientId !== req.user.clientId) {
+				return res
+					.status(200)
+					.json({ released: false, message: "Aucun lock à libérer." });
+			}
+			reservation.paymentLock = {
+				clientId: null,
+				clientName: null,
+				lockedAt: null,
+				expiresAt: null,
+			};
+			await reservation.save();
+			return res.json({ released: true });
+		} catch (err) {
+			console.error("❌ [PAYMENT-LOCK] Erreur release:", err);
+			return res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
 
 module.exports = router;

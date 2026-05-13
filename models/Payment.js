@@ -214,6 +214,23 @@ const paymentSchema = new mongoose.Schema(
 			default: 0,
 			min: 0,
 		},
+
+		// ════════════════════════════════════════════════════════════
+		// PAIEMENT AGRÉGÉ (multi-orders en une seule transaction Stripe)
+		// ════════════════════════════════════════════════════════════
+		// Si présent, ce paiement règle plusieurs commandes en 1 PaymentIntent.
+		// `orderId` (ci-dessus) = commande "principale". `relatedOrders` = autres.
+		// Au webhook succeeded, on cascade le paid sur chaque commande listée.
+		relatedOrders: [
+			{
+				orderId: {
+					type: mongoose.Schema.Types.ObjectId,
+					ref: "Order",
+				},
+				amount: { type: Number, min: 0 }, // centimes pour cette commande
+				_id: false,
+			},
+		],
 	},
 	{
 		timestamps: true, // createdAt, updatedAt automatiques

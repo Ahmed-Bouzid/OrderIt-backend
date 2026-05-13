@@ -221,6 +221,151 @@ class StripeService {
 	}
 
 	/**
+	 * Crée un PaymentIntent AGRÉGÉ (1 transaction Stripe pour N commandes).
+	 * Au webhook succeeded, on cascade le paid sur toutes les commandes via
+	 * Payment.relatedOrders[] (incluant la commande principale en index 0).
+	 */
+	async createAggregatedPaymentIntent({
+		orderSlices,
+		currency = "eur",
+		paymentMode = "client",
+		paymentMethodTypes = ["card"],
+		tipAmount = 0,
+		metadata = {},
+	}) {
+		if (!this.isConfigured()) {
+			throw new Error("Stripe n'est pas configuré");
+		}
+		if (!Array.isArray(orderSlices) || orderSlices.length < 2) {
+			throw new Error("createAggregatedPaymentIntent: 2+ commandes requises");
+		}
+
+		const orders = await Promise.all(
+			orderSlices.map((s) =>
+				Order.findById(s.orderId)
+					.populate("reservationId")
+					.populate("restaurantId"),
+			),
+		);
+		for (let i = 0; i < orders.length; i++) {
+			if (!orders[i]) {
+				throw new Error(`Commande ${orderSlices[i].orderId} introuvable`);
+			}
+			if (orders[i].paid) {
+				throw new Error(`Commande ${orders[i]._id} déjà payée`);
+			}
+		}
+		const restaurantId = orders[0].restaurantId._id.toString();
+		const reservationId = orders[0].reservationId?._id?.toString() || "";
+		for (const o of orders) {
+			if (o.restaurantId._id.toString() !== restaurantId) {
+				throw new Error(
+					"Toutes les commandes doivent appartenir au même restaurant",
+				);
+			}
+			const rid = o.reservationId?._id?.toString() || "";
+			if (rid !== reservationId) {
+				throw new Error(
+					"Toutes les commandes doivent appartenir à la même réservation",
+				);
+			}
+		}
+
+		const restaurant = orders[0].restaurantId;
+		const totalAmount =
+			orderSlices.reduce((s, x) => s + (x.amount || 0), 0) + tipAmount;
+
+		if (totalAmount < 50) {
+			throw new Error("Le montant minimum est de 0.50€");
+		}
+
+		const hasConnect = !!(
+			restaurant?.stripeOnboarded && restaurant?.stripeAccountId
+		);
+		const commissionPlan = restaurant?.stripeCommissionPlan || "pay_per_use";
+		const platformFee = hasConnect
+			? commissionPlan === "annual"
+				? 0
+				: 100
+			: 0;
+
+		const orderIdsCsv = orderSlices.map((s) => s.orderId.toString()).join(",");
+		const amountsCsv = orderSlices.map((s) => s.amount.toString()).join(",");
+
+		const paymentIntentParams = {
+			amount: totalAmount,
+			currency: currency.toLowerCase(),
+			payment_method_types: paymentMethodTypes,
+			metadata: {
+				aggregated: "true",
+				orderIds: orderIdsCsv,
+				amounts: amountsCsv,
+				restaurantId,
+				reservationId,
+				paymentMode,
+				tipAmount: tipAmount.toString(),
+				commissionPlan,
+				...metadata,
+			},
+			description: `${orders.length} commandes – ${restaurant.name || "Restaurant"}`,
+			capture_method: "automatic",
+		};
+
+		if (hasConnect) {
+			paymentIntentParams.application_fee_amount = platformFee;
+			paymentIntentParams.transfer_data = {
+				destination: restaurant.stripeAccountId,
+			};
+		}
+
+		const retryWindow = Math.floor(Date.now() / (2 * 60 * 1000));
+		const idempotencyKey = `aggr_${orderIdsCsv}_${totalAmount}_${paymentMode}_${retryWindow}`;
+		const paymentIntent = await this.stripe.paymentIntents.create(
+			paymentIntentParams,
+			{ idempotencyKey },
+		);
+
+		logger.info("PaymentIntent agrégé créé", {
+			paymentIntentId: paymentIntent.id.substring(0, 12) + "...",
+			ordersCount: orders.length,
+			totalAmount: totalAmount / 100 + "€",
+		});
+
+		const [primarySlice, ...otherSlices] = orderSlices;
+		const payment = new Payment({
+			orderId: primarySlice.orderId,
+			restaurantId: restaurant._id,
+			reservationId: orders[0].reservationId?._id,
+			stripePaymentIntentId: paymentIntent.id,
+			clientSecret: paymentIntent.client_secret,
+			amount: totalAmount,
+			currency,
+			status: "pending",
+			paymentMethod: paymentMethodTypes.includes("apple_pay")
+				? "apple_pay"
+				: "card",
+			paymentMode,
+			tipAmount,
+			isTest: this.isTestMode,
+			isFake: false,
+			platformFee,
+			stripeConnectAccountId: hasConnect ? restaurant.stripeAccountId : null,
+			commissionPlan: hasConnect ? commissionPlan : "none",
+			relatedOrders: [
+				{ orderId: primarySlice.orderId, amount: primarySlice.amount },
+				...otherSlices.map((s) => ({ orderId: s.orderId, amount: s.amount })),
+			],
+		});
+		await payment.save();
+
+		return {
+			paymentIntent,
+			payment,
+			clientSecret: paymentIntent.client_secret,
+		};
+	}
+
+	/**
 	 * Récupère un PaymentIntent depuis Stripe
 	 *
 	 * @param {string} paymentIntentId - ID du PaymentIntent
@@ -419,27 +564,49 @@ class StripeService {
 		await payment.markAsSucceeded(cardDetails);
 		await payment.addStripeEvent(paymentIntent.id, "payment_intent.succeeded");
 
-		// 4. Mettre à jour la commande
-		const order = await Order.findById(payment.orderId);
-		if (order) {
-			order.paid = true;
-			order.paymentStatus = "paid";
-			order.paidAmount = payment.amount / 100; // Convertir en euros
-			order.tip = payment.tipAmount / 100;
-			order.paidAt = new Date();
+		// 4. Mettre à jour la/les commande(s)
+		// 🆕 Cas AGRÉGÉ : Payment.relatedOrders[] liste toutes les commandes
+		// concernées (incluant la commande principale en index 0). On marque
+		// chacune comme payée avec son slice de montant.
+		const isAggregated =
+			Array.isArray(payment.relatedOrders) &&
+			payment.relatedOrders.length > 0;
 
-			// Changer le statut si encore pending
-			if (order.orderStatus === "pending") {
-				order.orderStatus = "confirmed";
+		if (isAggregated) {
+			console.log(
+				`[💳 AGGREGATED] Cascade paid sur ${payment.relatedOrders.length} commandes`,
+			);
+			for (const slice of payment.relatedOrders) {
+				const o = await Order.findById(slice.orderId);
+				if (!o) {
+					console.error(`❌ Commande ${slice.orderId} introuvable (agrégé)`);
+					continue;
+				}
+				if (o.paid) continue;
+				o.paid = true;
+				o.paymentStatus = "paid";
+				o.paidAmount = (slice.amount || 0) / 100;
+				o.paidAt = new Date();
+				if (o.orderStatus === "pending") {
+					o.orderStatus = "confirmed";
+				}
+				await o.save();
 			}
-
-			await order.save();
-
-
-			// 5. Émettre un événement WebSocket (si disponible)
-			// Note: req.app.locals.io n'est pas disponible ici, gérer dans le contrôleur
 		} else {
-			console.error(`❌ Commande ${payment.orderId} introuvable`);
+			const order = await Order.findById(payment.orderId);
+			if (order) {
+				order.paid = true;
+				order.paymentStatus = "paid";
+				order.paidAmount = payment.amount / 100;
+				order.tip = payment.tipAmount / 100;
+				order.paidAt = new Date();
+				if (order.orderStatus === "pending") {
+					order.orderStatus = "confirmed";
+				}
+				await order.save();
+			} else {
+				console.error(`❌ Commande ${payment.orderId} introuvable`);
+			}
 		}
 
 		console.log("[✅ PAYMENT SUCCESS] Paiement finalisé avec succès!", {
