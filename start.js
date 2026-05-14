@@ -467,3 +467,12 @@ mongoose
 	.catch((err) => {
 		console.error("❌ Erreur connexion MongoDB:", err);
 	});
+
+// 🛡️ Crash safety — log unhandled rejections, exit cleanly on uncaught exceptions (Render auto-restarts)
+process.on("unhandledRejection", (reason) => {
+	console.error("[unhandledRejection]", reason);
+});
+process.on("uncaughtException", (err) => {
+	console.error("[uncaughtException]", err);
+	setTimeout(() => process.exit(1), 500);
+});

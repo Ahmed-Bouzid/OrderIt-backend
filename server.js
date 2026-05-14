@@ -89,6 +89,32 @@ app.use(
 	}),
 );
 
+// 🩺 Health check (avant toute auth) — Render Health Check Path = /health
+const mongoose = require("mongoose");
+app.get("/health", async (req, res) => {
+	try {
+		const ping = mongoose.connection.db.admin().ping();
+		await Promise.race([
+			ping,
+			new Promise((_, rej) =>
+				setTimeout(() => rej(new Error("mongo timeout")), 2000),
+			),
+		]);
+		return res.json({
+			status: "ok",
+			db: "connected",
+			uptime: process.uptime(),
+			ts: new Date().toISOString(),
+		});
+	} catch (e) {
+		return res.status(503).json({
+			status: "down",
+			db: "disconnected",
+			error: e.message,
+		});
+	}
+});
+
 // ⚠️ Webhook Stripe monté tôt pour garantir le payload brut (signature fiable).
 app.post("/payments/webhook/stripe", express.raw({ type: "*/*" }), async (req, res) => {
 	const sig = req.headers["stripe-signature"];

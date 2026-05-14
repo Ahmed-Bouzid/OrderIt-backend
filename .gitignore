@@ -5,3 +5,10 @@ npm-debug.log
 yarn-error.log
 package-lock.json
 yarn.lock
+
+# Backend hardening artifacts
+audit-report.json
+package-lock.json.backup
+
+# User uploads (use object storage in prod)
+uploads/
