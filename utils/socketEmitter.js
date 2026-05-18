@@ -327,7 +327,6 @@ const emitPaymentMonitorUpdate = (
 	io.to(roomName).emit("payment-monitor", payload);
 
 	return true;
-	}
 };
 
 /**

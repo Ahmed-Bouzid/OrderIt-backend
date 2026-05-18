@@ -462,6 +462,96 @@ router.patch(
 );
 
 /**
+ * PATCH /developer/restaurants/:id
+ * Modifie les propriétés d'un restaurant (catégorie, etc.)
+ * Body: { category: "restaurant|foodtruck|fast-food|cafe|boulangerie|bar", ... }
+ */
+router.patch(
+	"/restaurants/:id",
+	auth,
+	checkDeveloper,
+	async (req, res) => {
+		try {
+			const { id } = req.params;
+			const { category, serviceMode, styleKey, ...otherUpdates } = req.body;
+
+			const restaurant = await Restaurant.findById(id);
+			if (!restaurant) {
+				return res.status(404).json({
+					status: "error",
+					message: "Restaurant introuvable",
+				});
+			}
+
+			// Valider la catégorie si fournie
+			const VALID_CATEGORIES = [
+				"restaurant",
+				"foodtruck",
+				"fast-food",
+				"cafe",
+				"boulangerie",
+				"bar",
+			];
+			if (category && !VALID_CATEGORIES.includes(category)) {
+				return res.status(400).json({
+					status: "error",
+					message: `Catégorie invalide. Doit être l'une de: ${VALID_CATEGORIES.join(", ")}`,
+				});
+			}
+
+			// Valider serviceMode si fourni
+			const VALID_SERVICE_MODES = ["table", "counter"];
+			if (serviceMode && !VALID_SERVICE_MODES.includes(serviceMode)) {
+				return res.status(400).json({
+					status: "error",
+					message: `Mode de service invalide. Doit être l'une de: ${VALID_SERVICE_MODES.join(", ")}`,
+				});
+			}
+
+			// Mettre à jour les champs autorisés
+			if (category) restaurant.category = category;
+			if (serviceMode) restaurant.serviceMode = serviceMode;
+			if (styleKey) restaurant.styleKey = styleKey;
+
+			// Mettre à jour les autres champs sûrs (ignorer les champs sensibles)
+			const allowedFields = [
+				"turnoverTime",
+				"openingHours",
+				"isMessagingEnabled",
+				"subscriptionPlan",
+			];
+			allowedFields.forEach((field) => {
+				if (field in otherUpdates) {
+					restaurant[field] = otherUpdates[field];
+				}
+			});
+
+			await restaurant.save();
+
+			res.json({
+				status: "success",
+				message: "Restaurant mis à jour avec succès",
+				restaurant: {
+					_id: restaurant._id,
+					name: restaurant.name,
+					category: restaurant.category,
+					serviceMode: restaurant.serviceMode,
+					styleKey: restaurant.styleKey,
+					active: restaurant.active,
+				},
+			});
+		} catch (error) {
+			console.error("❌ Erreur mise à jour restaurant:", error);
+			res.status(500).json({
+				status: "error",
+				message: "Erreur serveur",
+				error: error.message,
+			});
+		}
+	},
+);
+
+/**
  * DELETE /developer/restaurants/:id/tables
  * Supprime toutes les tables d'un restaurant
  */
