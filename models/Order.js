@@ -193,6 +193,14 @@ const orderSchema = new mongoose.Schema(
 			index: true,
 		},
 
+		// 🏪 Mode de source (Comptoir ou traditionnel)
+		source: {
+			type: String,
+			enum: ["server", "counter"],
+			default: "server",
+			index: true,
+		},
+
 		// ⭐⭐ Commande préparée et servie (foodtrucks uniquement)
 		isMade: {
 			type: Boolean,

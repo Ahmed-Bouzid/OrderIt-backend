@@ -42,6 +42,33 @@ const tableSessionSchema = new mongoose.Schema(
 			type: Date,
 			default: null,
 		},
+
+		// 🏪 Mode Comptoir — champs additionnels (optionnels)
+		// Lorsqu'une session est ouverte via POST /counter/sessions
+		source: {
+			type: String,
+			enum: ["reservation", "counter"],
+			default: "reservation",
+		},
+		// Montant total accumulé pour la session counter (cumul des orders)
+		totalAmount: {
+			type: Number,
+			default: 0,
+			min: 0,
+		},
+		// Statut paiement counter : "open" | "bill_requested" | "closed"
+		// Différent de status car bill_requested = table active mais addition demandée
+		billStatus: {
+			type: String,
+			enum: ["open", "bill_requested", "closed"],
+			default: "open",
+		},
+		// Méthode de paiement (pour mode counter off-app)
+		paymentMethod: {
+			type: String,
+			enum: ["cash", "card_offline", null],
+			default: null,
+		},
 	},
 	{
 		timestamps: true,
@@ -55,6 +82,18 @@ tableSessionSchema.index({ tableId: 1, status: 1 });
 tableSessionSchema.index({ restaurantId: 1, status: 1 });
 // ⭐ Une réservation → une session (sparse car reservationId optionnel)
 tableSessionSchema.index({ reservationId: 1 }, { sparse: true });
+
+// ⭐ Index pour counter mode : une seule session "counter" "open" par table (conditionnel)
+tableSessionSchema.index(
+	{ tableId: 1, source: 1, billStatus: 1 },
+	{
+		sparse: true,
+		partialFilterExpression: {
+			source: "counter",
+			billStatus: { $ne: "closed" },
+		},
+	},
+);
 
 // ⭐ Virtual : participants de cette session
 tableSessionSchema.virtual("participants", {

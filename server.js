@@ -193,6 +193,7 @@ app.use("/client-messages", require("./routes/clientMessages")); // 💬 Route m
 app.use("/messages", auth, require("./routes/messages")); // 📨 Route messagerie interne manager → serveur
 app.use("/servers", require("./routes/servers"));
 app.use("/reservations", require("./routes/reservations"));
+app.use("/counter", auth, require("./routes/counter")); // 🏪 Routes mode Comptoir (prise de commande directe)
 app.use("/assistant", require("./routes/assistant")); // ⭐ Assistant intelligent réservations
 app.use("/ai", require("./routes/ai")); // 🤖 Fonctions IA — créneaux, heatmap, prédiction, liste attente
 app.use("/developer", require("./routes/developer")); // 🔧 Routes développeur

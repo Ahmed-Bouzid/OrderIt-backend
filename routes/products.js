@@ -93,7 +93,7 @@ router.get(
 	"/restaurant/:restaurantId",
 	auth,
 	validateObjectIds(["restaurantId"]),
-	checkRoles(["admin", "server", "server", "client"]),
+	checkRoles(["admin", "developer", "server", "client"]),
 	checkUserRestaurant("restaurantId"),
 	async (req, res) => {
 		try {

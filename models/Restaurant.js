@@ -8,7 +8,7 @@ const restaurantSchema = new mongoose.Schema({
 	address: String,
 	role: {
 		type: String,
-		enum: ["admin", "manager"],
+		enum: ["admin", "manager", "developer"],
 		default: "admin",
 	},
 	// 🏢 Catégorie de restaurant (pour adapter l'interface)
@@ -95,6 +95,16 @@ const restaurantSchema = new mongoose.Schema({
 		type: String,
 		enum: ["pay_per_use", "annual"],
 		default: "pay_per_use",
+	},
+
+	// 🏪 Mode de service (Activity onglet)
+	// "table" = onglet Activity avec réservations (par serveur)
+	// "counter" = onglet Activity Comptoir (prise de commande directe par table, tablette partagée)
+	serviceMode: {
+		type: String,
+		enum: ["table", "counter"],
+		default: "table",
+		index: true,
 	},
 });
 

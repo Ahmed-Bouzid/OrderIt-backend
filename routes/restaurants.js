@@ -201,7 +201,7 @@ router.get(
 	"/:id/servers",
 	auth,
 	validateObjectIds(["id"]),
-	checkRoles(["admin", "server", "restaurant"]),
+	checkRoles(["admin", "developer", "server", "restaurant"]),
 	checkUserRestaurant("id"),
 	async (req, res) => {
 		try {

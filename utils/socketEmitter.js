@@ -327,6 +327,14 @@ const emitPaymentMonitorUpdate = (
 	io.to(roomName).emit("payment-monitor", payload);
 
 	return true;
+	}
+};
+
+/**
+ * 🏪 Événements de session table (mode Comptoir)
+ */
+const emitTableSessionEvent = (io, restaurantId, eventName, data) => {
+	return emitEvent(io, restaurantId, "table-session", eventName, data);
 };
 
 module.exports = {
@@ -342,4 +350,5 @@ module.exports = {
 	emitNotification,
 	emitPaymentCompleted, // 🔔 Notification paiement
 	emitPaymentMonitorUpdate, // 📊 PaymentsCommandCenter temps réel
+	emitTableSessionEvent, // 🏪 Événements session table Comptoir
 };

@@ -40,6 +40,8 @@ router.post(
 				clientId, // ⭐ AJOUTER
 				clientName, // ⭐ AJOUTER
 				clientPhone, // 📱 AJOUTER
+				source = "server", // 🏪 Mode source (server|counter)
+				tableSessionId, // 🏪 Session table counter (optionnel)
 			} = req.body;
 
 			// 🌟 Si c'est un client, on lui impose les champs du token (source de vérité)
@@ -148,6 +150,8 @@ router.post(
 				clientName, // ⭐ AJOUTÉ
 				clientPhone, // 📱 AJOUTÉ
 				origin: role === "client" ? "client" : "server",
+				source, // 🏪 Mode source (server|counter)
+				tableSessionId, // 🏪 Session table counter (optionnel)
 			});
 
 			await order.save();
