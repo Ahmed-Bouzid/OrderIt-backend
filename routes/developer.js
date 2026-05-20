@@ -1199,7 +1199,7 @@ router.put(
 
 /**
  * PATCH /developer/restaurants/:restaurantId/comptoir
- * Toggle le mode Comptoir (FastFood uniquement)
+ * Toggle le mode Comptoir (disponible pour TOUS les types de restaurants)
  */
 router.patch(
 	"/restaurants/:restaurantId/comptoir",
@@ -1221,14 +1221,7 @@ router.patch(
 				return res.status(404).json({ message: "Restaurant non trouvé" });
 			}
 
-			// Vérifier que c'est un fast-food
-			if (!["fast-food", "foodtruck"].includes(restaurant.category)) {
-				return res.status(400).json({
-					message:
-						"Le mode Comptoir est réservé aux Fast Food et Food Trucks",
-				});
-			}
-
+			// ⭐ Mode Comptoir maintenant disponible pour TOUS les types de restaurants
 			restaurant.enableComptoir = enableComptoir;
 			await restaurant.save();
 
