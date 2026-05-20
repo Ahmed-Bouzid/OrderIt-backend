@@ -17,7 +17,7 @@ router.get("/restaurants", auth, checkDeveloper, async (req, res) => {
 	try {
 		const restaurants = await Restaurant.find()
 			.select(
-				"_id name email phone address createdAt turnoverTime active subscriptionPlan styleKey category featureOverrides",
+				"_id name email phone address createdAt turnoverTime active subscriptionPlan styleKey category featureOverrides enableComptoir",
 			)
 			.lean();
 
@@ -1192,6 +1192,59 @@ router.put(
 			});
 		} catch (error) {
 			console.error("❌ Erreur PUT feature-overrides:", error);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
+
+/**
+ * PATCH /developer/restaurants/:restaurantId/comptoir
+ * Toggle le mode Comptoir (FastFood uniquement)
+ */
+router.patch(
+	"/restaurants/:restaurantId/comptoir",
+	auth,
+	checkDeveloper,
+	async (req, res) => {
+		try {
+			const { restaurantId } = req.params;
+			const { enableComptoir } = req.body;
+
+			if (typeof enableComptoir !== "boolean") {
+				return res.status(400).json({
+					message: "enableComptoir doit être un booléen",
+				});
+			}
+
+			const restaurant = await Restaurant.findById(restaurantId);
+			if (!restaurant) {
+				return res.status(404).json({ message: "Restaurant non trouvé" });
+			}
+
+			// Vérifier que c'est un fast-food
+			if (!["fast-food", "foodtruck"].includes(restaurant.category)) {
+				return res.status(400).json({
+					message:
+						"Le mode Comptoir est réservé aux Fast Food et Food Trucks",
+				});
+			}
+
+			restaurant.enableComptoir = enableComptoir;
+			await restaurant.save();
+
+			console.log(
+				`✅ Mode Comptoir ${enableComptoir ? "activé" : "désactivé"} pour ${restaurant.name}`,
+			);
+
+			res.json({
+				status: "success",
+				restaurantId: restaurant._id,
+				name: restaurant.name,
+				category: restaurant.category,
+				enableComptoir: restaurant.enableComptoir,
+			});
+		} catch (error) {
+			console.error("❌ Erreur PATCH comptoir:", error);
 			res.status(500).json({ message: "Erreur serveur" });
 		}
 	},

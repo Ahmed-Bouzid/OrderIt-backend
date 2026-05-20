@@ -54,6 +54,12 @@ const restaurantSchema = new mongoose.Schema({
 		default: true,
 		index: true,
 	},
+	// 🏪 Mode Comptoir (FastFood uniquement) - remplace Activity onglet
+	enableComptoir: {
+		type: Boolean,
+		default: false,
+		index: true,
+	},
 	// 🔧 Overrides de fonctionnalités par restaurant
 	// Clé = nom de feature (ex: "chat_client"), valeur = true (activer) / false (désactiver)
 	// Surcharge la matrice de base déterminée par la catégorie.
