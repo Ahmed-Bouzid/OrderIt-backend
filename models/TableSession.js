@@ -69,6 +69,16 @@ const tableSessionSchema = new mongoose.Schema(
 			enum: ["cash", "card_offline", null],
 			default: null,
 		},
+		// 👤 Serveur assigné (mode comptoir)
+		waiterName: {
+			type: String,
+			default: null,
+		},
+		waiterId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "Server",
+			default: null,
+		},
 	},
 	{
 		timestamps: true,

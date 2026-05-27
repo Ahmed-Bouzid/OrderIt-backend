@@ -32,7 +32,7 @@ router.post(
 	checkRoles(["server", "admin"]),
 	async (req, res) => {
 		try {
-			const { restaurantId, tableId } = req.body;
+			const { restaurantId, tableId, waiterName, waiterId } = req.body;
 
 			// Validation
 			if (
@@ -93,6 +93,8 @@ router.post(
 				totalAmount: 0,
 				paymentMethod: null,
 				openedAt: new Date(),
+				...(waiterName && { waiterName }),
+				...(waiterId && mongoose.Types.ObjectId.isValid(waiterId) && { waiterId }),
 			});
 
 			await session.save();
