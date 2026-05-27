@@ -307,12 +307,10 @@ router.get(
 			const reportData = await generateFullReport(restaurantId, start, end);
 
 			if (format === "csv") {
-				res.setHeader("Content-Type", "text/csv");
-				res.setHeader(
-					"Content-Disposition",
-					`attachment; filename="crm-report-${period}.csv"`,
-				);
-				res.send(convertToCSV(reportData));
+				return res.status(501).json({
+					success: false,
+					message: "Export CSV non implémenté",
+				});
 			} else {
 				res.json({
 					success: true,
@@ -515,9 +513,10 @@ async function getOrdersAnalytics(restaurantId, start, end) {
 		fastestServer: [...topPerformers].sort(
 			(a, b) => a.averageServiceTime - b.averageServiceTime,
 		)[0],
-		upsellRate: 15, // TODO: calculer via les add-ons
-		totalAddOns: 0, // TODO: calculer
-		addOnRevenue: 0, // TODO: calculer
+		upsellRate: null, // TODO: calculer via les add-ons
+		totalAddOns: null, // TODO: calculer
+		addOnRevenue: null, // TODO: calculer
+		_partialData: true,
 	};
 }
 
@@ -590,7 +589,7 @@ async function getMessagesAnalytics(restaurantId, start, end) {
 		totalMessages,
 		unreadCount,
 		averageResponseTime,
-		hourlyDistribution: {}, // TODO: implémenter distribution horaire
+		hourlyDistribution: null, // TODO: implémenter distribution horaire
 	};
 }
 
