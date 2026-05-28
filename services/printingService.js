@@ -5,10 +5,16 @@
  *
  * Protocole : ESC/POS, papier 58mm (~32 caractères de large)
  * Commande CUPS : lp -d GEZHI_micro_printer -o raw ticket.bin
+ *
+ * ── Mode réseau (TCP/IP) ──────────────────────────────────────────────────────
+ * Pour les imprimantes en réseau (mode Comptoir), utiliser printTicketOverNetwork().
+ * Configurer l'IP dans la variable d'env PRINTER_IP (ex: PRINTER_IP=192.168.1.100)
+ * Le port par défaut est 9100 (port ESC/POS standard).
  */
 
 const fs = require("fs");
 const path = require("path");
+const net = require("net");
 const { exec } = require("child_process");
 const os = require("os");
 
@@ -145,4 +151,68 @@ async function printTicket({ tableNumber, items, total, note }) {
 	});
 }
 
-module.exports = { printTicket, generateTicket };
+module.exports = { printTicket, generateTicket, printTicketOverNetwork, printCounterOrder };
+
+// ── Configuration imprimante réseau ───────────────────────────────────────────
+// IP à configurer dans les variables d'env : PRINTER_IP=192.168.x.x
+// Port ESC/POS standard : 9100
+const COUNTER_PRINTER_IP = process.env.PRINTER_IP || null;
+const COUNTER_PRINTER_PORT = parseInt(process.env.PRINTER_PORT || "9100", 10);
+
+/**
+ * Envoie un ticket ESC/POS directement à une imprimante réseau via TCP (port 9100).
+ * Protocole raw ESC/POS — pas besoin de CUPS ni de driver.
+ *
+ * @param {Buffer} ticketBuffer - Buffer ESC/POS généré par generateTicket()
+ * @param {string} [printerIp]  - IP de l'imprimante (défaut : PRINTER_IP env)
+ * @param {number} [printerPort] - Port TCP (défaut : 9100)
+ * @returns {Promise<{success: boolean}>}
+ */
+function printTicketOverNetwork(ticketBuffer, printerIp, printerPort = 9100) {
+	const ip = printerIp || COUNTER_PRINTER_IP;
+	const port = printerPort || COUNTER_PRINTER_PORT;
+
+	if (!ip) {
+		console.warn("[PRINT] PRINTER_IP non configuré — impression réseau ignorée");
+		return Promise.resolve({ success: false, reason: "no_ip" });
+	}
+
+	return new Promise((resolve, reject) => {
+		const socket = new net.Socket();
+		const timeout = 5000; // 5 secondes max
+
+		socket.setTimeout(timeout);
+
+		socket.connect(port, ip, () => {
+			socket.write(ticketBuffer, () => {
+				socket.destroy();
+				console.log(`[PRINT] Ticket envoyé via TCP → ${ip}:${port}`);
+				resolve({ success: true });
+			});
+		});
+
+		socket.on("timeout", () => {
+			socket.destroy();
+			console.error(`[PRINT] Timeout connexion → ${ip}:${port}`);
+			reject(new Error(`Printer timeout: ${ip}:${port}`));
+		});
+
+		socket.on("error", (err) => {
+			socket.destroy();
+			console.error(`[PRINT] Erreur TCP → ${ip}:${port} :`, err.message);
+			reject(err);
+		});
+	});
+}
+
+/**
+ * Point d'entrée principal pour le mode Comptoir.
+ * Génère le ticket ESC/POS et l'envoie via TCP à l'imprimante réseau.
+ *
+ * @param {object} params - { tableNumber, items, total, note }
+ * @param {string} [printerIp] - IP optionnelle (sinon utilise PRINTER_IP env)
+ */
+async function printCounterOrder(params, printerIp) {
+	const buffer = generateTicket(params);
+	return printTicketOverNetwork(buffer, printerIp);
+}

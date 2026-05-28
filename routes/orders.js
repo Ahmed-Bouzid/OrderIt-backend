@@ -126,15 +126,17 @@ router.post(
 				}),
 			);
 
-			// Vérification du total
+			// Vérification du total (floating-point safe : tolérance 1 centime)
 			const calculatedTotal = enrichedItems.reduce(
 				(sum, i) => sum + i.price * i.quantity,
 				0,
 			);
-			if (total !== calculatedTotal) {
+			if (Math.abs((total ?? 0) - calculatedTotal) > 0.01) {
 				return res
 					.status(400)
-					.json({ message: "Le total ne correspond pas aux articles" });
+					.json({
+						message: `Total invalide : reçu ${total}, calculé ${calculatedTotal.toFixed(2)}`,
+					});
 			}
 
 			// Création de la commande
@@ -196,19 +198,32 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
 		const { restaurantId, status, origin, tableSessionId, tableId, source, since } = req.query;
 
+		const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id) && String(id).length === 24;
+
 		const query = {};
 
 		if (tableSessionId) {
+			if (!isValidObjectId(tableSessionId)) {
+				return res.status(400).json({ message: "tableSessionId invalide" });
+			}
 			query.tableSessionId = tableSessionId;
 		}
 
 		if (restaurantId) {
+			if (!isValidObjectId(restaurantId)) {
+				return res.status(400).json({ message: "restaurantId invalide" });
+			}
 			query.restaurantId = restaurantId;
 		}
 
 		if (tableId) {
+			if (!isValidObjectId(tableId)) {
+				return res.status(400).json({ message: "tableId invalide" });
+			}
 			query.tableId = tableId;
 		}
+
+		console.log("[GET /orders] query:", JSON.stringify(query));
 
 		if (source) {
 			query.source = source;

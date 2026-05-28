@@ -117,27 +117,30 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("🔌 Connexion à MongoDB...");
-  await mongoose.connect(mongoUri);
-  console.log(`✅ Connecté — Restaurant Baghera (${RESTAURANT_ID})\n`);
+  console.log("Connexion a MongoDB...");
+  await mongoose.connect(mongoUri, {
+    serverSelectionTimeoutMS: 15000,
+    socketTimeoutMS: 20000,
+  });
+  console.log(`Connecte - Restaurant Baghera (${RESTAURANT_ID})\n`);
 
   // ── Reset optionnel ──────────────────────────
   if (RESET) {
-    console.log("🗑️  --reset : suppression des comptes Baghera existants...");
+    console.log("--reset : suppression des comptes Baghera existants...");
     const emails = STAFF.map((s) => s.email);
     const result = await Server.deleteMany({ email: { $in: emails } });
-    console.log(`  ↳ ${result.deletedCount} compte(s) supprimé(s)\n`);
+    console.log(`  ${result.deletedCount} compte(s) supprime(s)\n`);
   }
 
   // ── Création des comptes ─────────────────────
-  console.log("👥 Création des comptes...\n");
+  console.log("Creation des comptes...\n");
   const SALT_ROUNDS = 10;
 
   for (const member of STAFF) {
     const existing = await Server.findOne({ email: member.email });
     if (existing) {
       console.log(
-        `  ⚠️  ${member.name} (${member.role}) — déjà présent (id: ${existing._id})`
+        `  SKIP ${member.name} (${member.role}) - deja present (id: ${existing._id})`
       );
       continue;
     }
@@ -154,9 +157,9 @@ async function main() {
       role: member.role,
     });
 
-    const icon = member.role === "manager" ? "🏆" : "🧑‍🍳";
+    const icon = member.role === "manager" ? "[MANAGER]" : "[SERVER]";
     console.log(
-      `  ${icon} ${member.name} (${member.role}) créé — id: ${doc._id}`
+      `  ${icon} ${member.name} (${member.role}) cree - id: ${doc._id}`
     );
   }
 
@@ -164,7 +167,7 @@ async function main() {
   const serverCount = STAFF.filter((s) => s.role === "server").length;
 
   console.log(
-    `\n✅ Terminé — ${managerCount} manager + ${serverCount} serveurs pour Baghera`
+    `\nTermine - ${managerCount} manager + ${serverCount} serveurs pour Baghera`
   );
   await mongoose.disconnect();
 }
