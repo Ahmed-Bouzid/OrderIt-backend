@@ -214,7 +214,6 @@ app.use("/client/products", clientProductsRoutes);
 app.use("/print", auth, require("./routes/print")); // 🖨️ Impression thermique ESC/POS (Chez Ahmed)
 app.use("/api/app", require("./routes/appVersion")); // 📱 Version APK + téléchargement
 app.use("/api/themes", require("./routes/themes")); // 🎨 Routes thèmes & personnalisation
-app.use("/z-reports", auth, require("./routes/zReports")); // 🧾 Z de caisse (admin uniquement)
 
 // ✅ SÉCURITÉ: Middlewares de gestion d'erreurs (TOUJOURS EN DERNIER)
 app.use(notFoundHandler); // 404 pour routes non trouvées
