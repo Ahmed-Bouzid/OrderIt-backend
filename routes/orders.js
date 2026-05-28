@@ -194,12 +194,31 @@ router.post(
 // GET /api/orders - Récupérer les commandes avec filtres (restaurantId, status, origin)
 router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 	try {
-		const { restaurantId, status, origin } = req.query;
+		const { restaurantId, status, origin, tableSessionId, tableId, source, since } = req.query;
 
 		const query = {};
 
+		if (tableSessionId) {
+			query.tableSessionId = tableSessionId;
+		}
+
 		if (restaurantId) {
 			query.restaurantId = restaurantId;
+		}
+
+		if (tableId) {
+			query.tableId = tableId;
+		}
+
+		if (source) {
+			query.source = source;
+		}
+
+		if (since) {
+			const sinceDate = new Date(since);
+			if (!isNaN(sinceDate.getTime())) {
+				query.createdAt = { $gte: sinceDate };
+			}
 		}
 
 		if (status) {
