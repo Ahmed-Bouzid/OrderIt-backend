@@ -334,7 +334,7 @@ router.get(
 
 			const tables = await Table.find(query)
 				.select(
-					"_id number capacity roomNumber x y size status isAvailable",
+					"_id number capacity roomNumber position size status isAvailable",
 				);
 
 			// Récupérer les sessions counter actives
