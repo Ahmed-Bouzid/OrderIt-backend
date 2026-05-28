@@ -627,7 +627,7 @@ router.get(
 		try {
 			const { restaurantId } = req.params;
 			const now = new Date();
-			const upcomingWindow = new Date(now.getTime() + 3 * 60 * 60 * 1000); // +3h
+			const upcomingWindow = new Date(now.getTime() + 72 * 60 * 60 * 1000); // +72h (3 jours)
 
 			const upcomingReservations = await Reservation.find({
 				restaurantId,
