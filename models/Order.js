@@ -99,6 +99,15 @@ const orderSchema = new mongoose.Schema(
 					enum: ["confirmed", "preparing", "ready", "served", "cancelled"],
 					default: "confirmed",
 				},
+				// ⭐ CAS 15 — Annulation urgente d'item
+				cancelReason: {
+					type: String,
+					default: null,
+				},
+				cancelledAt: {
+					type: Date,
+					default: null,
+				},
 				// ⭐⭐ Timer pour le plan de salle
 				startTime: {
 					type: Date,

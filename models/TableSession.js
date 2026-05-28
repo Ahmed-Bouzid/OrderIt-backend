@@ -69,6 +69,61 @@ const tableSessionSchema = new mongoose.Schema(
 			enum: ["cash", "card_offline", null],
 			default: null,
 		},
+		// ⭐ CAS 11 — Transfert de table mid-service
+		transferHistory: [{
+			fromTableId: {
+				type: mongoose.Schema.Types.ObjectId,
+				ref: "Table",
+			},
+			toTableId: {
+				type: mongoose.Schema.Types.ObjectId,
+				ref: "Table",
+			},
+			transferredAt: {
+				type: Date,
+				default: Date.now,
+			},
+			reason: String,
+		}],
+		// ⭐ CAS 12 — Split bill (paiements séparés)
+		splitPayments: [{
+			amount: {
+				type: Number,
+				required: true,
+				min: 0,
+			},
+			orderIds: [{
+				type: mongoose.Schema.Types.ObjectId,
+				ref: "Order",
+			}],
+			paidAt: {
+				type: Date,
+				default: null,
+			},
+			paymentMethod: {
+				type: String,
+				enum: ["cash", "card_offline"],
+			},
+		}],
+		// ⭐ CAS 14 — Prolongation de session (client revient)
+		parentSessionId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "TableSession",
+			default: null,
+		},
+		reopenedAt: {
+			type: Date,
+			default: null,
+		},
+		extensionCount: {
+			type: Number,
+			default: 0,
+		},
+		// ⭐ CAS 10 — Multi-tables (index du groupe)
+		groupIndex: {
+			type: Number,
+			default: null,
+		},
 	},
 	{
 		timestamps: true,

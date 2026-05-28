@@ -8,6 +8,33 @@ const reservationSchema = new mongoose.Schema(
 			required: false,
 			index: true,
 		},
+		// ⭐ Multi-tables (grands groupes) — array de tables
+		tableIds: [{
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "Table",
+		}],
+		// ⭐ Réassignation de table (CAS 13 — conflit overbooking)
+		originalTableId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "Table",
+			default: null,
+		},
+		actualTableId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "Table",
+			default: null,
+		},
+		reassignReason: {
+			type: String,
+			default: null,
+		},
+		// ⭐ Link vers TableSession (quand client arrive)
+		tableSessionId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "TableSession",
+			default: null,
+			index: true,
+		},
 		restaurantId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Restaurant",

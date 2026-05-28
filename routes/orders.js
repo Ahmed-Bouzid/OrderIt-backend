@@ -963,4 +963,63 @@ router.delete(
 	},
 );
 
+/**
+ * DELETE /orders/:orderId/items/:itemId
+ * CAS 15 — Annulation urgente d'un item (client part avant réception)
+ */
+router.delete(
+	"/:orderId/items/:itemId",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { orderId, itemId } = req.params;
+			const { reason } = req.body;
+
+			if (!mongoose.Types.ObjectId.isValid(orderId)) {
+				return res.status(400).json({ message: "ID commande invalide" });
+			}
+
+			const order = await Order.findById(orderId);
+			if (!order) {
+				return res.status(404).json({ message: "Commande introuvable" });
+			}
+
+			const itemIndex = order.items.findIndex(
+				(item) => item._id.toString() === itemId
+			);
+
+			if (itemIndex === -1) {
+				return res.status(404).json({ message: "Item introuvable" });
+			}
+
+			// Marquer item comme cancelled
+			order.items[itemIndex].itemStatus = "cancelled";
+			order.items[itemIndex].cancelReason = reason || "Customer emergency";
+			order.items[itemIndex].cancelledAt = new Date();
+
+			// Recalculer totalAmount (exclure items cancelled)
+			order.totalAmount = order.items
+				.filter((item) => item.itemStatus !== "cancelled")
+				.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+			await order.save();
+
+			// WebSocket
+			const io = req.app.get("io");
+			if (io && order.restaurantId) {
+				io.to(`restaurant_${order.restaurantId}`).emit("order", {
+					type: "item_cancelled",
+					data: order.toObject(),
+				});
+			}
+
+			res.status(200).json(order);
+		} catch (err) {
+			console.error("Erreur annulation item :", err);
+			res.status(500).json({ message: err.message });
+		}
+	}
+);
+
 module.exports = router;

@@ -401,4 +401,229 @@ router.get(
 	},
 );
 
+/**
+ * POST /counter/sessions/:id/transfer
+ * CAS 11 — Transfert de table mid-service
+ */
+router.post(
+	"/sessions/:id/transfer",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { id } = req.params;
+			const { newTableId, reason } = req.body;
+
+			if (!mongoose.Types.ObjectId.isValid(id)) {
+				return res.status(400).json({ message: "ID session invalide" });
+			}
+
+			if (!newTableId || !mongoose.Types.ObjectId.isValid(newTableId)) {
+				return res.status(400).json({ message: "newTableId invalide" });
+			}
+
+			// Récupérer la session
+			const session = await TableSession.findById(id);
+			if (!session) {
+				return res.status(404).json({ message: "Session introuvable" });
+			}
+
+			if (session.billStatus === "closed") {
+				return res.status(400).json({ message: "Session déjà fermée" });
+			}
+
+			// Vérifier que la nouvelle table existe et est disponible
+			const newTable = await Table.findById(newTableId);
+			if (!newTable) {
+				return res.status(404).json({ message: "Table cible introuvable" });
+			}
+
+			// Vérifier qu'aucune session active sur la nouvelle table
+			const existingSession = await TableSession.findOne({
+				tableId: newTableId,
+				billStatus: { $ne: "closed" },
+			});
+
+			if (existingSession) {
+				return res.status(409).json({
+					message: "Table cible déjà occupée",
+				});
+			}
+
+			const oldTableId = session.tableId;
+
+			// Ajouter au transferHistory
+			session.transferHistory = session.transferHistory || [];
+			session.transferHistory.push({
+				fromTableId: oldTableId,
+				toTableId: newTableId,
+				transferredAt: new Date(),
+				reason: reason || "Staff request",
+			});
+
+			// Mettre à jour tableId
+			session.tableId = newTableId;
+			await session.save();
+
+			// Mettre à jour tous les orders liés
+			await Order.updateMany(
+				{ tableSessionId: session._id },
+				{ tableId: newTableId }
+			);
+
+			// Libérer ancienne table
+			if (oldTableId) {
+				await Table.findByIdAndUpdate(oldTableId, {
+					status: "available",
+				});
+			}
+
+			// Occuper nouvelle table
+			await Table.findByIdAndUpdate(newTableId, {
+				status: "occupied",
+			});
+
+			// WebSocket
+			const io = req.app.locals.io;
+			if (io && session.restaurantId) {
+				emitTableSessionEvent(
+					io,
+					session.restaurantId.toString(),
+					"transferred",
+					session.toObject()
+				);
+			}
+
+			res.status(200).json(session);
+		} catch (err) {
+			console.error("Erreur transfert table :", err);
+			res.status(500).json({ message: err.message });
+		}
+	}
+);
+
+/**
+ * POST /counter/sessions/:id/split
+ * CAS 12 — Split bill (addition séparée)
+ */
+router.post(
+	"/sessions/:id/split",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { id } = req.params;
+			const { splits } = req.body;
+
+			if (!mongoose.Types.ObjectId.isValid(id)) {
+				return res.status(400).json({ message: "ID session invalide" });
+			}
+
+			if (!Array.isArray(splits) || splits.length === 0) {
+				return res.status(400).json({
+					message: "Format splits invalide (array requis)",
+				});
+			}
+
+			const session = await TableSession.findById(id);
+			if (!session) {
+				return res.status(404).json({ message: "Session introuvable" });
+			}
+
+			if (session.billStatus === "closed") {
+				return res.status(400).json({ message: "Session déjà fermée" });
+			}
+
+			// Valider chaque split
+			for (const split of splits) {
+				if (!split.amount || split.amount <= 0) {
+					return res.status(400).json({
+						message: "Chaque split doit avoir un amount > 0",
+					});
+				}
+			}
+
+			// Ajouter les splits
+			session.splitPayments = splits.map((s) => ({
+				amount: s.amount,
+				orderIds: s.orderIds || [],
+				paidAt: s.paidAt || null,
+				paymentMethod: s.paymentMethod || null,
+			}));
+
+			await session.save();
+
+			// WebSocket
+			const io = req.app.locals.io;
+			if (io && session.restaurantId) {
+				emitTableSessionEvent(
+					io,
+					session.restaurantId.toString(),
+					"split_created",
+					session.toObject()
+				);
+			}
+
+			res.status(200).json(session);
+		} catch (err) {
+			console.error("Erreur split payment :", err);
+			res.status(500).json({ message: err.message });
+		}
+	}
+);
+
+/**
+ * POST /counter/sessions/:id/extend
+ * CAS 14 — Prolongation session (client revient)
+ */
+router.post(
+	"/sessions/:id/extend",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { id } = req.params;
+
+			if (!mongoose.Types.ObjectId.isValid(id)) {
+				return res.status(400).json({ message: "ID session invalide" });
+			}
+
+			const session = await TableSession.findById(id);
+			if (!session) {
+				return res.status(404).json({ message: "Session introuvable" });
+			}
+
+			if (session.billStatus !== "closed") {
+				return res.status(400).json({
+					message: "Seule une session fermée peut être prolongée",
+				});
+			}
+
+			// Rouvrir la session
+			session.billStatus = "open";
+			session.reopenedAt = new Date();
+			session.extensionCount = (session.extensionCount || 0) + 1;
+			session.status = "active";
+
+			await session.save();
+
+			// WebSocket
+			const io = req.app.locals.io;
+			if (io && session.restaurantId) {
+				emitTableSessionEvent(
+					io,
+					session.restaurantId.toString(),
+					"extended",
+					session.toObject()
+				);
+			}
+
+			res.status(200).json(session);
+		} catch (err) {
+			console.error("Erreur prolongation session :", err);
+			res.status(500).json({ message: err.message });
+		}
+	}
+);
+
 module.exports = router;

@@ -195,6 +195,32 @@ router.post(
 				});
 			}
 
+			// ⭐ CAS 16 — Validation double booking sur la même table
+			if (req.body.tableId) {
+				const requestedTime = new Date(req.body.reservationDate);
+				const twoHoursBefore = new Date(requestedTime.getTime() - 2 * 3600 * 1000);
+				const twoHoursAfter = new Date(requestedTime.getTime() + 2 * 3600 * 1000);
+
+				const existingResa = await Reservation.findOne({
+					tableId: req.body.tableId,
+					reservationDate: {
+						$gte: twoHoursBefore,
+						$lte: twoHoursAfter,
+					},
+					status: { $in: ["en attente", "ouverte"] },
+				});
+
+				if (existingResa) {
+					return res.status(409).json({
+						message: `Table ${req.body.tableId} déjà réservée à ce créneau`,
+						conflictingReservation: {
+							clientName: existingResa.clientName,
+							reservationDate: existingResa.reservationDate,
+						},
+					});
+				}
+			}
+
 			const reservation = new Reservation(req.body);
 
 			// ⭐ Audit : création
@@ -1657,6 +1683,212 @@ router.delete(
 			return res.status(500).json({ message: "Erreur serveur" });
 		}
 	},
+);
+
+/**
+ * POST /reservations/:id/arrive
+ * CAS 1/10/13 — Client arrive : créer TableSession(s) + link avec Reservation
+ * Gère multi-tables (CAS 10) et override table (CAS 13)
+ */
+router.post(
+	"/:id/arrive",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { id } = req.params;
+			const { overrideTableId, actualArrivalTime } = req.body;
+
+			if (!mongoose.Types.ObjectId.isValid(id)) {
+				return res.status(400).json({ message: "ID réservation invalide" });
+			}
+
+			const reservation = await Reservation.findById(id);
+			if (!reservation) {
+				return res.status(404).json({ message: "Réservation introuvable" });
+			}
+
+			if (reservation.tableSessionId) {
+				return res.status(400).json({
+					message: "Client déjà arrivé (session existe)",
+				});
+			}
+
+			// Déterminer les tables (multi-tables ou single)
+			let tableIds = [];
+			if (overrideTableId) {
+				// CAS 13 : override table (conflit)
+				tableIds = [overrideTableId];
+				reservation.originalTableId = reservation.tableId;
+				reservation.actualTableId = overrideTableId;
+				reservation.reassignReason = req.body.reassignReason || "Staff override";
+			} else if (reservation.tableIds && reservation.tableIds.length > 0) {
+				// CAS 10 : multi-tables
+				tableIds = reservation.tableIds;
+			} else if (reservation.tableId) {
+				// Single table classique
+				tableIds = [reservation.tableId];
+			} else {
+				return res.status(400).json({
+					message: "Aucune table assignée à cette réservation",
+				});
+			}
+
+			// Vérifier que toutes les tables sont disponibles
+			for (const tableId of tableIds) {
+				const existingSession = await TableSession.findOne({
+					tableId,
+					billStatus: { $ne: "closed" },
+				});
+
+				if (existingSession) {
+					const table = await Table.findById(tableId);
+					return res.status(409).json({
+						message: `Table ${table?.number || tableId} déjà occupée`,
+					});
+				}
+			}
+
+			// Créer TableSession(s)
+			const sessions = [];
+			for (let i = 0; i < tableIds.length; i++) {
+				const session = new TableSession({
+					restaurantId: reservation.restaurantId,
+					tableId: tableIds[i],
+					reservationId: reservation._id,
+					source: "reservation",
+					status: "active",
+					billStatus: "open",
+					openedAt: actualArrivalTime || new Date(),
+					groupIndex: tableIds.length > 1 ? i + 1 : null,
+				});
+
+				await session.save();
+				sessions.push(session);
+
+				// Lock table
+				await Table.findByIdAndUpdate(tableIds[i], {
+					status: "occupied",
+				});
+			}
+
+			// Link première session à la résa (ou toutes si multi)
+			reservation.tableSessionId = sessions[0]._id;
+			reservation.status = "ouverte";
+			reservation.arrivalTime = actualArrivalTime || new Date();
+
+			// Audit
+			const user = await getAuditUser(req);
+			await addAudit(reservation, "status_changed", user, {
+				from: reservation.status,
+				to: "ouverte",
+				note: "Client arrivé",
+			});
+
+			await reservation.save();
+
+			// WebSocket
+			const io = getIO(req);
+			if (io && reservation.restaurantId) {
+				emitReservationEvent(
+					io,
+					reservation.restaurantId.toString(),
+					"updated",
+					reservation.toObject()
+				);
+
+				sessions.forEach((s) => {
+					const { emitTableSessionEvent } = require("../utils/socketEmitter");
+					emitTableSessionEvent(
+						io,
+						reservation.restaurantId.toString(),
+						"opened",
+						s.toObject()
+					);
+				});
+			}
+
+			res.status(200).json({
+				reservation,
+				sessions,
+			});
+		} catch (err) {
+			console.error("Erreur arrive client :", err);
+			res.status(500).json({ message: err.message });
+		}
+	}
+);
+
+/**
+ * PATCH /reservations/:id/no-show
+ * CAS 3 — Marquer no-show (client pas venu)
+ */
+router.patch(
+	"/:id/no-show",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { id } = req.params;
+
+			if (!mongoose.Types.ObjectId.isValid(id)) {
+				return res.status(400).json({ message: "ID réservation invalide" });
+			}
+
+			const reservation = await Reservation.findById(id);
+			if (!reservation) {
+				return res.status(404).json({ message: "Réservation introuvable" });
+			}
+
+			if (reservation.tableSessionId) {
+				return res.status(400).json({
+					message: "Impossible : client déjà arrivé (session active)",
+				});
+			}
+
+			reservation.status = "annulée";
+			reservation.canceledAt = new Date();
+
+			// Libérer table(s)
+			const tableIds = reservation.tableIds?.length > 0
+				? reservation.tableIds
+				: reservation.tableId
+				? [reservation.tableId]
+				: [];
+
+			for (const tableId of tableIds) {
+				await Table.findByIdAndUpdate(tableId, {
+					status: "available",
+				});
+			}
+
+			// Audit
+			const user = await getAuditUser(req);
+			await addAudit(reservation, "status_changed", user, {
+				from: reservation.status,
+				to: "annulée",
+				note: "No-show",
+			});
+
+			await reservation.save();
+
+			// WebSocket
+			const io = getIO(req);
+			if (io && reservation.restaurantId) {
+				emitReservationEvent(
+					io,
+					reservation.restaurantId.toString(),
+					"no_show",
+					reservation.toObject()
+				);
+			}
+
+			res.status(200).json(reservation);
+		} catch (err) {
+			console.error("Erreur no-show :", err);
+			res.status(500).json({ message: err.message });
+		}
+	}
 );
 
 module.exports = router;
