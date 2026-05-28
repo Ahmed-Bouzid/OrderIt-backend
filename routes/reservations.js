@@ -651,6 +651,36 @@ router.get("/", auth, checkRoles(["admin", "server"]), async (req, res) => {
 	}
 });
 
+// GET /upcoming/:restaurantId - réservations à venir (dans les prochaines heures)
+router.get(
+	"/upcoming/:restaurantId",
+	auth,
+	validateObjectIds(["restaurantId"]),
+	checkRoles(["admin", "server"]),
+	async (req, res) => {
+		try {
+			const { restaurantId } = req.params;
+			const now = new Date();
+			const upcomingWindow = new Date(now.getTime() + 3 * 60 * 60 * 1000); // +3h
+
+			const upcomingReservations = await Reservation.find({
+				restaurantId,
+				status: "en attente",
+				reservationDate: { $gte: now, $lte: upcomingWindow },
+			})
+				.populate("serverId", "name serverId")
+				.populate("tableId", "number")
+				.populate("tableIds", "number")
+				.sort({ reservationDate: 1 });
+
+			res.json(upcomingReservations);
+		} catch (err) {
+			console.error("[UPCOMING-RESAS] Erreur:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	},
+);
+
 // PUT /:id - modifier réservation
 router.put(
 	"/:id",
