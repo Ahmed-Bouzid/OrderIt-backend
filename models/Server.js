@@ -65,6 +65,10 @@ const serverSchema = new mongoose.Schema({
 			},
 		},
 	],
+	avatar: {
+		type: String,
+		default: null,
+	},
 });
 
 module.exports = mongoose.model("Server", serverSchema);

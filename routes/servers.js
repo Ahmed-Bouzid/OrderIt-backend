@@ -238,7 +238,39 @@ router.put(
 		}
 	},
 );
-
+// === Mise à jour avatar (admin/manager) ===
+router.patch(
+	"/:serverId/avatar",
+	validateObjectIds(["serverId"]),
+	checkRoles(["admin", "restaurant"]),
+	checkAdmin,
+	async (req, res) => {
+		try {
+			const { avatar } = req.body;
+			if (!avatar || typeof avatar !== "string") {
+				return res.status(400).json({ message: "Avatar invalide." });
+			}
+			if (!avatar.startsWith("data:image/")) {
+				return res.status(400).json({ message: "Format image invalide." });
+			}
+			if (avatar.length > 300000) {
+				return res.status(400).json({ message: "Image trop grande (max 200KB)." });
+			}
+			const updated = await Server.findByIdAndUpdate(
+				req.params.serverId,
+				{ avatar },
+				{ new: true },
+			).select("-passwordHash");
+			if (!updated) {
+				return res.status(404).json({ message: "Serveur non trouvé." });
+			}
+			res.json({ message: "Avatar mis à jour.", server: updated });
+		} catch (err) {
+			console.error(err);
+			res.status(500).json({ message: "Erreur serveur." });
+		}
+	},
+);
 // === Suppression d’un server (admin uniquement) ===
 router.delete(
 	"/:serverId",
