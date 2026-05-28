@@ -3,10 +3,14 @@ const mongoose = require("mongoose");
 const orderSchema = new mongoose.Schema(
 	{
 		// ⭐⭐ RELATION ESSENTIELLE : Une commande appartient à une réservation
+		// Optionnel pour les commandes comptoir (source: "counter")
 		reservationId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Reservation",
-			required: true,
+			required: function () {
+				return this.source !== "counter";
+			},
+			default: null,
 			index: true,
 		},
 
