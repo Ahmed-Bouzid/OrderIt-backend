@@ -158,6 +158,11 @@ router.post(
 
 			await order.save();
 
+			// 🔍 Log de diagnostic pour le mode comptoir
+			if (source === "counter") {
+				console.log(`[Orders POST] Counter order created: orderId=${order._id} tableSessionId=${tableSessionId || 'MISSING'} table=${tableId} total=${total.toFixed(2)}€`);
+			}
+
 			const cancelResult = await cancelOpenStripePaymentsForOrder(
 				order._id,
 				"order_mark_as_paid",

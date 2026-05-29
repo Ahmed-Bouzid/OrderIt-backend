@@ -363,10 +363,11 @@ router.get(
 						};
 					}
 
-					// Récupérer les orders pour cette session
+					// Récupérer les orders pour cette session (excluant les annulés)
 					const orders = await Order.find({
 						tableSessionId: session._id,
 						source: "counter",
+						orderStatus: { $ne: "cancelled" }, // ✅ Exclure les orders annulés
 					});
 
 					const totalAmount = orders.reduce(
