@@ -230,6 +230,20 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 
 		console.log("[GET /orders] query:", JSON.stringify(query));
 
+		// 🔍 Log spécial pour debugging comptoir
+		if (tableSessionId) {
+			console.log(`[GET /orders] 🔍 DEBUG COMPTOIR: Recherche orders pour session=${tableSessionId}`);
+			// Compter tous les orders de cette table (sans filtre sessionId) pour comparer
+			const allTableOrders = await Order.find({ 
+				tableId: query.tableId,
+				source: "counter"
+			}).select('_id tableSessionId totalAmount orderStatus createdAt').lean();
+			console.log(`[GET /orders] 🔍 TOTAL orders table ${query.tableId} source=counter: ${allTableOrders.length}`);
+			allTableOrders.forEach((o, i) => {
+				console.log(`  ${i+1}. ${o._id} session=${o.tableSessionId || 'MISSING'} total=${o.totalAmount}€ status=${o.orderStatus} created=${new Date(o.createdAt).toLocaleString('fr-FR')}`);
+			});
+		}
+
 		if (source) {
 			query.source = source;
 		}
