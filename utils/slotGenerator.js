@@ -155,10 +155,13 @@ async function getAvailableSlotsForDay({
 			return eligibleIds.has(tableId);
 		}).length;
 
+		const availableTables = Math.max(0, totalEligible - occupiedEligible);
+
 		return {
 			time: slotTime,
-			availableTables: Math.max(0, totalEligible - occupiedEligible),
+			availableTables,
 			totalTables: totalEligible,
+			isAvailable: availableTables > 0,
 		};
 	});
 

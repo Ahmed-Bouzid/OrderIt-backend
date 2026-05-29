@@ -1939,9 +1939,14 @@ router.get("/public/availability/:restaurantId", async (req, res) => {
 		const targetDate = date ? new Date(date) : new Date();
 		
 		// Validation date (pas dans le passé)
+		// Normaliser les deux dates à minuit pour comparer uniquement jour/mois/année
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
-		if (targetDate < today) {
+		
+		const targetDateNormalized = new Date(targetDate);
+		targetDateNormalized.setHours(0, 0, 0, 0);
+		
+		if (targetDateNormalized < today) {
 			return res.status(400).json({ message: "Date dans le passé" });
 		}
 
