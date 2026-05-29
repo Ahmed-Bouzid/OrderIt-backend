@@ -280,7 +280,8 @@ router.post(
 			} = req.body;
 
 			// Utiliser les valeurs du token; ignorer le body pour ces champs critiques
-			const tableIdFinal = tokenTableId || req.body.tableId || "1";
+			// ⭐ Pour les réservations web (planifiées), tableId peut être null
+			const tableIdFinal = tokenTableId || req.body.tableId || null;
 			const bodyRestaurantId = tokenRestaurantId;
 
 			// Génère la note à partir des allergies/restrictions
@@ -292,11 +293,11 @@ router.post(
 				notes += `Restriction : ${restrictions.trim()} (${clientName})\n`;
 			}
 
-			// Récupère la table et la dernière réservation en parallèle
-			const [table, lastReservation] = await Promise.all([
+			// Récupère la table et la dernière réservation en parallèle (seulement si tableId existe)
+			const [table, lastReservation] = tableIdFinal ? await Promise.all([
 				Table.findById(tableIdFinal),
 				Reservation.findOne({ tableId: tableIdFinal }).sort({ createdAt: -1 }),
-			]);
+			]) : [null, null];
 
 			// ⭐ Récupérer le restaurant pour connaître sa catégorie
 			// Priorité : restaurantId du body (plus fiable), sinon table.restaurantId
@@ -471,6 +472,7 @@ router.post(
 			
 			const reservation = new Reservation({
 				...req.body,
+				restaurantId: tokenRestaurantId || req.body.restaurantId, // ⭐ Utiliser restaurantId du token
 				tableId: tableIdFinal,
 				status: "en attente",
 				isPresent: isWebReservation ? false : true, // Web = pas encore présent
@@ -500,9 +502,12 @@ router.post(
 
 			await reservation.populate("tableId");
 
-			// Mettre à jour la table
-			const freshTable = await Table.findById(tableIdFinal);
-			await addGuestAndOccupyTable(freshTable);
+			// Mettre à jour la table (seulement si une table est assignée)
+			let freshTable = null;
+			if (tableIdFinal) {
+				freshTable = await Table.findById(tableIdFinal);
+				await addGuestAndOccupyTable(freshTable);
+			}
 
 			// Émission WebSocket
 			const io = getIO(req);
