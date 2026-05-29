@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const mongoose = require("mongoose");
 const Reservation = require("../models/Reservation");
 const Table = require("../models/Table");
 const Restaurant = require("../models/Restaurant");
@@ -1920,5 +1921,55 @@ router.patch(
 		}
 	}
 );
+
+// 🌐 GET /public/availability/:restaurantId
+// Endpoint PUBLIC (pas d'auth) pour afficher les créneaux disponibles
+// Utilisé par le site web de réservation
+router.get("/public/availability/:restaurantId", async (req, res) => {
+	try {
+		const { restaurantId } = req.params;
+		const { date, guests } = req.query;
+
+		// Validation restaurantId
+		if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+			return res.status(400).json({ message: "restaurantId invalide" });
+		}
+
+		// Date par défaut = aujourd'hui si non fournie
+		const targetDate = date ? new Date(date) : new Date();
+		
+		// Validation date (pas dans le passé)
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		if (targetDate < today) {
+			return res.status(400).json({ message: "Date dans le passé" });
+		}
+
+		// Vérifier que le restaurant existe
+		const restaurant = await Restaurant.findById(restaurantId).select("name category").lean();
+		if (!restaurant) {
+			return res.status(404).json({ message: "Restaurant introuvable" });
+		}
+
+		// Générer les créneaux disponibles
+		const slots = await getAvailableSlotsForDay({
+			restaurantId,
+			date: targetDate,
+			guests: guests ? parseInt(guests) : undefined,
+		});
+
+		res.json({
+			restaurantId,
+			restaurantName: restaurant.name,
+			date: targetDate.toISOString().split('T')[0],
+			guests: guests ? parseInt(guests) : null,
+			slots,
+			totalSlots: slots.length,
+		});
+	} catch (err) {
+		console.error("❌ [PUBLIC/AVAILABILITY] Erreur:", err);
+		res.status(500).json({ message: "Erreur serveur" });
+	}
+});
 
 module.exports = router;
