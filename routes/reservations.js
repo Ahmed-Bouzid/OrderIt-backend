@@ -464,13 +464,19 @@ router.post(
 			}
 
 			// CRÉATION D'UNE NOUVELLE RÉSERVATION
+			
+			// ⭐ Détecter si c'est une réservation web (planifiée) ou sur place (immédiate)
+			const isWebReservation = req.body.reservationDate && req.body.reservationTime && req.body.nbPersonnes;
+			const reservationSource = isWebReservation ? "À distance" : "Sur place";
+			
 			const reservation = new Reservation({
 				...req.body,
 				tableId: tableIdFinal,
 				status: "en attente",
-				isPresent: true,
+				isPresent: isWebReservation ? false : true, // Web = pas encore présent
 				nbPersonnes: req.body.nbPersonnes || 1,
 				notes: notes.trim(),
+				reservationSource, // ⭐ Marquer la source
 			});
 
 			// ⭐ Audit : création client
