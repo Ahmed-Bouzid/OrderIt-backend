@@ -21,6 +21,7 @@ const Table = require("../models/Table");
 const Restaurant = require("../models/Restaurant");
 const Order = require("../models/Order");
 const { emitTableSessionEvent } = require("../utils/socketEmitter");
+const { applyDiscounts } = require("../utils/discountCalculator");
 
 /**
  * POST /counter/sessions
@@ -224,8 +225,10 @@ router.patch(
 
 /**
  * PATCH /counter/sessions/:id/close
- * Encaisser et libérer la table (passe au statut "closed")
- * Body : { paymentMethod: "cash" | "card_offline" }
+ * Encaisser
+ *   paymentMethod: "cash" | "card_offline",
+ *   discounts: [{ type, value, reason, description?, orderId?, itemIndex? }] (optionnel)
+ * }
  */
 router.patch(
 	"/sessions/:id/close",
@@ -234,7 +237,7 @@ router.patch(
 	async (req, res) => {
 		try {
 			const { id } = req.params;
-			const { paymentMethod } = req.body;
+			const { paymentMethod, discounts } = req.body;
 
 			if (!mongoose.Types.ObjectId.isValid(id)) {
 				return res.status(400).json({ message: "ID invalide" });
@@ -259,23 +262,56 @@ router.patch(
 				});
 			}
 
-			// Récupérer le total depuis les orders
+			// Récupérer toutes les commandes de la session
 			const orders = await Order.find({
 				tableSessionId: session._id,
 				source: "counter",
 			});
 
-			const totalAmount = orders.reduce(
-				(sum, order) => sum + (order.totalAmount || 0),
-				0,
-			);
+			// Appliquer les réductions si fournies
+			let pricing = { subtotal: 0, totalDiscounts: 0, finalAmount: 0 };
+			let processedDiscounts = [];
+			let discountErrors = [];
 
-			// Fermer la session
+			if (discounts && Array.isArray(discounts) && discounts.length > 0) {
+				const result = await applyDiscounts(
+					discounts,
+					orders,
+					req.user._id, // Serveur qui applique
+				);
+
+				pricing = result.pricing;
+				processedDiscounts = result.processedDiscounts;
+				discountErrors = result.errors;
+
+				// Si erreurs de validation, retourner avec détails
+				if (discountErrors.length > 0) {
+					return res.status(400).json({
+						message: "Certaines réductions sont invalides",
+						errors: discountErrors,
+					});
+				}
+			} else {
+				// Pas de réduction : calcul simple
+				const subtotal = orders.reduce(
+					(sum, order) => sum + (order.totalAmount || 0),
+					0,
+				);
+				pricing = {
+					subtotal: Math.round(subtotal * 100) / 100,
+					totalDiscounts: 0,
+					finalAmount: Math.round(subtotal * 100) / 100,
+				};
+			}
+
+			// Fermer la session avec les données de pricing
 			session.billStatus = "closed";
 			session.status = "closed";
 			session.closedAt = new Date();
-			session.totalAmount = totalAmount;
+			session.totalAmount = pricing.finalAmount; // Montant FINAL après réductions
 			session.paymentMethod = paymentMethod;
+			session.discounts = processedDiscounts;
+			session.pricing = pricing;
 
 			await session.save();
 
@@ -283,9 +319,25 @@ router.patch(
 			console.log(`[COUNTER] Session fermée :`, {
 				sessionId: session._id,
 				tableId: session.tableId,
-				totalAmount,
+				subtotal: pricing.subtotal,
+				totalDiscounts: pricing.totalDiscounts,
+				finalAmount: pricing.finalAmount,
+				discountsApplied: processedDiscounts.length,
 				paymentMethod,
 				closedAt: session.closedAt,
+			});
+
+			// Log détaillé des réductions
+			if (processedDiscounts.length > 0) {
+				console.log(`[COUNTER] Réductions appliquées :`, {
+					sessionId: session._id,
+					discounts: processedDiscounts.map((d) => ({
+						type: d.type,
+						reason: d.reason,
+						amountDeducted: d.amountDeducted,
+					})),
+				});
+			}osedAt: session.closedAt,
 			});
 
 			// Émettre événement WebSocket

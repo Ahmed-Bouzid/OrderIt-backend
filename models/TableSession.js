@@ -69,6 +69,87 @@ const tableSessionSchema = new mongoose.Schema(
 			enum: ["cash", "card_offline", null],
 			default: null,
 		},
+		// ⭐ Réductions/Promotions appliquées à l'encaissement
+		discounts: [{
+			type: {
+				type: String,
+				enum: ["item_removal", "percentage", "fixed_amount"],
+				required: true,
+			},
+			// Valeur : 10 pour 10%, ou 5.50 pour 5.50€ de réduction
+			value: {
+				type: Number,
+				required: true,
+				min: 0,
+			},
+			// Raison de la réduction
+			reason: {
+				type: String,
+				enum: [
+					"geste_commercial",
+					"erreur_cuisine",
+					"erreur_service",
+					"anniversaire",
+					"client_fidele",
+					"compensation",
+					"autre",
+				],
+				required: true,
+			},
+			// Description libre (si reason === "autre")
+			description: {
+				type: String,
+				default: "",
+			},
+			// Pour type "item_removal" : quel item de quelle commande
+			orderId: {
+				type: mongoose.Schema.Types.ObjectId,
+				ref: "Order",
+				required: function () {
+					return this.type === "item_removal";
+				},
+			},
+			itemIndex: {
+				type: Number,
+				required: function () {
+					return this.type === "item_removal";
+				},
+			},
+			// Montant réel déduit (calculé côté backend)
+			amountDeducted: {
+				type: Number,
+				required: true,
+				min: 0,
+			},
+			// Traçabilité
+			appliedBy: {
+				type: mongoose.Schema.Types.ObjectId,
+				ref: "Server",
+				required: true,
+			},
+			appliedAt: {
+				type: Date,
+				default: Date.now,
+			},
+		}],
+		// Montants détaillés pour l'encaissement
+		pricing: {
+			subtotal: {
+				type: Number,
+				default: 0,
+				min: 0,
+			},
+			totalDiscounts: {
+				type: Number,
+				default: 0,
+				min: 0,
+			},
+			finalAmount: {
+				type: Number,
+				default: 0,
+				min: 0,
+			},
+		},
 		// ⭐ CAS 11 — Transfert de table mid-service
 		transferHistory: [{
 			fromTableId: {
