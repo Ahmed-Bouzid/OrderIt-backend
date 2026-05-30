@@ -64,8 +64,8 @@ const reservationSchema = new mongoose.Schema(
 
 		status: {
 			type: String,
-			enum: ["en attente", "ouverte", "terminée", "annulée"],
-			default: "en attente",
+			enum: ["pending", "confirmed", "completed", "cancelled", "no_show"],
+			default: "pending",
 			index: true,
 		},
 		clientName: { type: String, required: true, trim: true },
@@ -73,11 +73,12 @@ const reservationSchema = new mongoose.Schema(
 		nbPersonnes: { type: Number, default: 1 },
 		reservationDate: { type: Date, required: true },
 		reservationTime: { type: String, default: "" },
-		arrivalTime: { type: Date },
+		arrivalTime: { type: Date }, // DEPRECATED: use arrivedAt instead
+		arrivedAt: { type: Date }, // 🆕 Timestamp when client actually arrives (Activity mode)
 		reservationSource: {
 			type: String,
-			enum: ["Sur place", "À distance", "Sans réservation"],
-			default: "Sur place",
+			enum: ["on_site", "online", "walk_in"],
+			default: "on_site",
 		},
 
 		allergies: { type: String, default: "" },
@@ -91,14 +92,14 @@ const reservationSchema = new mongoose.Schema(
 		orderSummary: { type: String, default: "" },
 		dishStatus: {
 			type: String,
-			enum: ["En attente", "En cours", "Annulé", "Terminé"],
-			default: "En attente",
+			enum: ["pending", "in_progress", "cancelled", "completed"],
+			default: "pending",
 		},
 
 		paymentMethod: {
 			type: String,
-			enum: ["Carte", "Espèces", "Autre"],
-			default: "Autre",
+			enum: ["card", "cash", "other"],
+			default: "other",
 		},
 
 		// ⭐⭐ MIS À JOUR : Calculé dynamiquement depuis les commandes
@@ -118,8 +119,7 @@ const reservationSchema = new mongoose.Schema(
 
 		isPresent: { type: Boolean, default: false },
 		canceled: { type: Boolean, default: false },
-		canceledAt: { type: Date },
-
+		canceledAt: { type: Date },	completedAt: { type: Date }, // 🆕 Activity mode: timestamp when service completed
 		// ⭐⭐ NOUVEAU : Historique d'audit des modifications
 		auditLog: [
 			{

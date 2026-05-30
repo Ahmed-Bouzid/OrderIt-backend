@@ -22,6 +22,7 @@ const Restaurant = require("../models/Restaurant");
 const Order = require("../models/Order");
 const { emitTableSessionEvent } = require("../utils/socketEmitter");
 const { applyDiscounts } = require("../utils/discountCalculator");
+const counterService = require("../services/counterService"); // ✅ Import du service
 
 /**
  * POST /counter/sessions
@@ -33,7 +34,7 @@ router.post(
 	checkRoles(["server", "admin"]),
 	async (req, res) => {
 		try {
-			const { restaurantId, tableId } = req.body;
+			const { restaurantId, tableId, reservationId, guestCount } = req.body;
 
 			// Validation
 			if (
@@ -48,14 +49,6 @@ router.post(
 				return res
 					.status(400)
 					.json({ message: "tableId invalide" });
-			}
-
-			// Vérifier que la table existe
-			const table = await Table.findById(tableId);
-			if (!table) {
-				return res
-					.status(404)
-					.json({ message: "Table non trouvée" });
 			}
 
 			// Vérifier que le restaurant existe et est en mode counter
@@ -84,19 +77,14 @@ router.post(
 				return res.status(200).json(existingSession);
 			}
 
-			// Créer une nouvelle session counter
-			const session = new TableSession({
+			// ✅ Utiliser counterService pour créer la session avec transaction atomique
+			const session = await counterService.createSession({
 				restaurantId,
 				tableId,
-				source: "counter",
-				status: "active",
-				billStatus: "open",
-				totalAmount: 0,
-				paymentMethod: null,
-				openedAt: new Date(),
+				reservationId: reservationId || null,
+				guestCount: guestCount || 1,
+				serverId: req.user._id,
 			});
-
-			await session.save();
 
 			// Émettre événement WebSocket
 			const io = req.app.locals.io;
@@ -112,6 +100,18 @@ router.post(
 			res.status(201).json(session);
 		} catch (err) {
 			console.error("Erreur création session counter :", err);
+			
+			// Gestion d'erreur spécifique
+			if (err.message === "Table not found") {
+				return res.status(404).json({ message: "Table non trouvée" });
+			}
+			if (err.message === "Table already occupied") {
+				return res.status(409).json({ message: "Table déjà occupée" });
+			}
+			if (err.message === "Reservation not found") {
+				return res.status(404).json({ message: "Réservation non trouvée" });
+			}
+			
 			res.status(500).json({ message: err.message });
 		}
 	},
@@ -187,22 +187,8 @@ router.patch(
 				return res.status(400).json({ message: "ID invalide" });
 			}
 
-			const session = await TableSession.findById(id);
-			if (!session) {
-				return res
-					.status(404)
-					.json({ message: "Session non trouvée" });
-			}
-
-			if (session.source !== "counter") {
-				return res.status(403).json({
-					message: "Cette session n'est pas en mode Comptoir",
-				});
-			}
-
-			// Passer à bill_requested
-			session.billStatus = "bill_requested";
-			await session.save({ validateModifiedOnly: true });
+			// ✅ Utiliser counterService.requestBill()
+			const session = await counterService.requestBill(id);
 
 			// Émettre événement WebSocket
 			const io = req.app.locals.io;
@@ -218,6 +204,22 @@ router.patch(
 			res.status(200).json(session);
 		} catch (err) {
 			console.error("Erreur demande addition :", err);
+			
+			// Gestion d'erreur spécifique
+			if (err.message === "Session not found") {
+				return res.status(404).json({ message: "Session non trouvée" });
+			}
+			if (err.message === "Session is not active") {
+				return res.status(400).json({ message: "Session n'est pas active" });
+			}
+			if (err.message === "Bill already closed") {
+				return res.status(400).json({ message: "Addition déjà encaissée" });
+			}
+			
+			res.status(500).json({ message: err.message });
+		}
+	},
+);
 			res.status(500).json({ message: err.message });
 		}
 	},

@@ -1988,4 +1988,207 @@ router.get("/public/availability/:restaurantId", async (req, res) => {
 	}
 });
 
+// ============================================================================
+// 🆕 ACTIVITY MODE — New endpoints for enhanced reservation workflow
+// ============================================================================
+
+const reservationService = require("../services/reservationService");
+
+/**
+ * PATCH /reservations/:id/mark-present
+ * Marquer un client comme présent (arrivé au restaurant)
+ * Activity Mode: Étape 1 du workflow
+ */
+router.patch(
+	"/:id/mark-present",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { id } = req.params;
+
+			if (!mongoose.Types.ObjectId.isValid(id)) {
+				return res.status(400).json({ message: "ID invalide" });
+			}
+
+			const io = getIO(req);
+			const reservation = await reservationService.markPresent(id, io);
+
+			res.status(200).json(reservation);
+		} catch (err) {
+			console.error("❌ [ACTIVITY] Error marking present:", err);
+			
+			if (err.message === "Reservation not found") {
+				return res.status(404).json({ message: "Réservation non trouvée" });
+			}
+			
+			if (err.message === "Only pending reservations can be marked as present") {
+				return res.status(400).json({ 
+					message: "Seules les réservations en attente peuvent être marquées présentes" 
+				});
+			}
+			
+			res.status(500).json({ message: err.message });
+		}
+	}
+);
+
+/**
+ * POST /reservations/:id/open
+ * Ouvrir le service (créer TableSession + passer à "confirmed")
+ * Activity Mode: Étape 2 du workflow
+ */
+router.post(
+	"/:id/open",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { id } = req.params;
+
+			if (!mongoose.Types.ObjectId.isValid(id)) {
+				return res.status(400).json({ message: "ID invalide" });
+			}
+
+			const io = getIO(req);
+			const result = await reservationService.openService(id, io);
+
+			res.status(200).json({
+				reservation: result.reservation,
+				session: result.session,
+				waitTime: result.waitTime, // minutes
+			});
+		} catch (err) {
+			console.error("❌ [ACTIVITY] Error opening service:", err);
+			
+			if (err.message === "Reservation not found") {
+				return res.status(404).json({ message: "Réservation non trouvée" });
+			}
+			
+			if (err.message === "Reservation already opened or completed") {
+				return res.status(400).json({ 
+					message: "Réservation déjà ouverte ou terminée" 
+				});
+			}
+			
+			if (err.message === "No table assigned to this reservation") {
+				return res.status(400).json({ 
+					message: "Aucune table assignée à cette réservation" 
+				});
+			}
+			
+			if (err.message === "Table is already occupied") {
+				return res.status(409).json({ 
+					message: "Table déjà occupée" 
+				});
+			}
+			
+			res.status(500).json({ message: err.message });
+		}
+	}
+);
+
+/**
+ * PATCH /reservations/:id/close
+ * Fermer le service et encaisser
+ * Activity Mode: Étape finale du workflow
+ */
+router.patch(
+	"/:id/close",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { id } = req.params;
+			const { paymentMethod, amountPaid, tip } = req.body;
+
+			if (!mongoose.Types.ObjectId.isValid(id)) {
+				return res.status(400).json({ message: "ID invalide" });
+			}
+
+			// Validation
+			if (!paymentMethod) {
+				return res.status(400).json({ message: "paymentMethod requis" });
+			}
+
+			if (typeof amountPaid !== "number" || amountPaid < 0) {
+				return res.status(400).json({ message: "amountPaid invalide" });
+			}
+
+			const io = getIO(req);
+			const result = await reservationService.closeService(
+				id, 
+				{ paymentMethod, amountPaid, tip },
+				io
+			);
+
+			res.status(200).json({
+				reservation: result.reservation,
+				session: result.session,
+				payment: result.payment,
+				serviceTime: result.serviceTime, // minutes
+			});
+		} catch (err) {
+			console.error("❌ [ACTIVITY] Error closing service:", err);
+			
+			if (err.message === "Reservation not found") {
+				return res.status(404).json({ message: "Réservation non trouvée" });
+			}
+			
+			if (err.message === "Reservation is not in service") {
+				return res.status(400).json({ 
+					message: "Réservation n'est pas en cours de service" 
+				});
+			}
+			
+			if (err.message.includes("Insufficient payment")) {
+				return res.status(400).json({ 
+					message: err.message 
+				});
+			}
+			
+			res.status(500).json({ message: err.message });
+		}
+	}
+);
+
+/**
+ * PATCH /reservations/:id/no-show
+ * Marquer une réservation comme no-show (client pas venu)
+ * Activity Mode: Alternative flow
+ */
+router.patch(
+	"/:id/no-show",
+	auth,
+	checkRoles(["server", "admin"]),
+	async (req, res) => {
+		try {
+			const { id } = req.params;
+
+			if (!mongoose.Types.ObjectId.isValid(id)) {
+				return res.status(400).json({ message: "ID invalide" });
+			}
+
+			const io = getIO(req);
+			const reservation = await reservationService.markNoShow(id, io);
+
+			res.status(200).json(reservation);
+		} catch (err) {
+			console.error("❌ [ACTIVITY] Error marking no-show:", err);
+			
+			if (err.message === "Reservation not found") {
+				return res.status(404).json({ message: "Réservation non trouvée" });
+			}
+			
+			if (err.message === "Only pending reservations can be marked as no-show") {
+				return res.status(400).json({ 
+					message: "Seules les réservations en attente peuvent être marquées no-show" 
+				});
+			}
+			
+			res.status(500).json({ message: err.message });
+		}
+	}
+);
+
 module.exports = router;
