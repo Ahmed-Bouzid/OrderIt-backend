@@ -337,8 +337,7 @@ router.patch(
 						amountDeducted: d.amountDeducted,
 					})),
 				});
-			}osedAt: session.closedAt,
-			});
+			}
 
 			// Émettre événement WebSocket
 			const io = req.app.locals.io;
