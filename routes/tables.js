@@ -233,10 +233,11 @@ router.post(
 
 			// Swapper le tableId des réservations FUTURES uniquement (pas les passées/annulées)
 			// Les sessions/commandes suivent l'_id (comportement voulu), les réservations restent au "slot" physique
-			const now = new Date();
+			const startOfToday = new Date();
+			startOfToday.setHours(0, 0, 0, 0);
 			const futureFilter = {
-				reservationDate: { $gte: now },
-				status: { $nin: ["cancelled", "completed", "no_show"] },
+				reservationDate: { $gte: startOfToday },
+				status: { $in: ["en attente", "ouverte"] },
 			};
 
 			// Collecter les _id des documents à mettre à jour AVANT de modifier (évite conflit A→B puis B→A)
