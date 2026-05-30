@@ -83,7 +83,7 @@ router.post(
 				tableId,
 				reservationId: reservationId || null,
 				guestCount: guestCount || 1,
-				serverId: req.user._id,
+				serverId: req.user.id, // ✅ auth middleware définit req.user.id, pas _id
 			});
 
 			// Émettre événement WebSocket
@@ -275,7 +275,7 @@ router.patch(
 				const result = await applyDiscounts(
 					discounts,
 					orders,
-					req.user._id, // Serveur qui applique
+					req.user.id, // ✅ Serveur qui applique (auth middleware définit req.user.id, pas _id)
 				);
 
 				pricing = result.pricing;

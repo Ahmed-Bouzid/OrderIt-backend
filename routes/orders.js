@@ -516,7 +516,7 @@ router.get(
 			// Si c'est un client, on limite à ses commandes seulement
 			if (req.user.role === "client") {
 				query.origin = "client";
-				query.userId = req.user._id; // si tu as ajouté userId dans l'Order
+				query.userId = req.user.id; // ✅ auth middleware définit req.user.id, pas _id
 			}
 
 			const orders = await Order.find(query)
