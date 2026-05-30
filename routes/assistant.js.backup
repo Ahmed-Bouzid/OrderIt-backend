@@ -258,7 +258,7 @@ router.post(
 			const reservations = await Reservation.find({
 				restaurantId: restaurantId,
 				reservationDate: { $gte: dateStart, $lte: dateEnd },
-				status: { $in: ["pending", "confirmed"] },
+				status: { $in: ["en attente", "ouverte"] },
 			});
 
 

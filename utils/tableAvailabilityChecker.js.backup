@@ -112,7 +112,7 @@ async function checkOverbooking({
 	const activeReservations = await Reservation.find({
 		restaurantId,
 		reservationDate: { $gte: startOfDay, $lte: endOfDay },
-		status: { $in: ["pending", "confirmed"] },
+		status: { $in: ["en attente", "ouverte"] },
 		reservationTime: { $exists: true, $ne: "" },
 		...(excludeReservationId && { _id: { $ne: excludeReservationId } }),
 	}).select("reservationTime reservationDate");
@@ -183,7 +183,7 @@ async function getAvailableTableIds({
 				$gte: startOfDay,
 				$lte: endOfDay,
 			},
-			status: { $in: ["pending", "confirmed"] }, // Réservations actives uniquement
+			status: { $in: ["en attente", "ouverte"] }, // Réservations actives uniquement
 			...(excludeReservationId && { _id: { $ne: excludeReservationId } }),
 		}).select("tableId reservationDate reservationTime");
 

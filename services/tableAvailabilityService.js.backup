@@ -54,7 +54,7 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 		const reservations = await Reservation.find({
 			restaurantId,
 			reservationDate: { $gte: startOfDay, $lte: endOfDay },
-			status: { $in: ["pending", "confirmed"] },
+			status: { $in: ["en attente", "ouverte"] },
 			tableId: { $ne: null },
 		}).lean();
 

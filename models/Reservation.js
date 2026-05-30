@@ -64,8 +64,8 @@ const reservationSchema = new mongoose.Schema(
 
 		status: {
 			type: String,
-			enum: ["en attente", "ouverte", "terminée", "annulée"],
-			default: "en attente",
+			enum: ["pending", "confirmed", "completed", "cancelled", "no_show"],
+			default: "pending",
 			index: true,
 		},
 		clientName: { type: String, required: true, trim: true },
@@ -217,10 +217,10 @@ reservationSchema.pre("save", async function (next) {
 
 			// Mettre à jour le statut automatiquement
 			if (this.remainingAmount <= 0 && this.totalAmount > 0) {
-				this.status = "terminée"; // Tout payé = terminée
-				this.isPresent = false; // ⭐ RÈGLE MÉTIER: isPresent=false si terminée
-			} else if (this.status === "terminée" && this.remainingAmount > 0) {
-				this.status = "ouverte"; // Ré-ouvrir si encore des impayés
+			this.status = "completed"; // Tout payé = completed
+			this.isPresent = false; // ⭐ RÈGLE MÉTIER: isPresent=false si completed
+		} else if (this.status === "completed" && this.remainingAmount > 0) {
+			this.status = "confirmed"; // Ré-ouvrir si encore des impayés
 			}
 		} catch (error) {
 			console.error("Erreur calcul montants réservation:", error);

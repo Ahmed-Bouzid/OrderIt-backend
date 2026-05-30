@@ -1135,16 +1135,16 @@ router.get(
 				createdAt: { $gte: start, $lte: end },
 			}).lean();
 			const avgSessionDuration =
-				sessions.filter((s) => s.updatedAt && s.status === "completed").length >
+				sessions.filter((s) => s.updatedAt && s.status === "terminée").length >
 				0
 					? sessions
-							.filter((s) => s.updatedAt && s.status === "completed")
+							.filter((s) => s.updatedAt && s.status === "terminée")
 							.reduce(
 								(sum, s) =>
 									sum + (new Date(s.updatedAt) - new Date(s.createdAt)),
 								0,
 							) /
-						sessions.filter((s) => s.status === "completed").length /
+						sessions.filter((s) => s.status === "terminée").length /
 						(1000 * 60)
 					: 0;
 

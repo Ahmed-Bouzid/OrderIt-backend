@@ -215,7 +215,7 @@ async function autoAssignTable(restaurantId, reservationId) {
 		restaurantId,
 		_id: { $ne: reservationId },
 		reservationDate: { $gte: dayStart, $lte: dayEnd },
-		status: { $in: ["pending", "confirmed"] },
+		status: { $in: ["en attente", "ouverte"] },
 		tableId: { $exists: true, $ne: null },
 	})
 		.select("tableId reservationTime reservationDate")
@@ -289,7 +289,7 @@ async function buildHeatmap(restaurantId, weeksBack = 8) {
 	const resas = await Reservation.find({
 		restaurantId,
 		reservationDate: { $gte: since },
-		status: { $in: ["confirmed", "completed"] },
+		status: { $in: ["ouverte", "terminée"] },
 		reservationTime: { $exists: true, $ne: "" },
 	})
 		.select("reservationDate reservationTime nbPersonnes")
@@ -378,7 +378,7 @@ async function detectGaps(restaurantId, date) {
 	const resas = await Reservation.find({
 		restaurantId,
 		reservationDate: { $gte: dayStart, $lte: dayEnd },
-		status: { $in: ["pending", "confirmed"] },
+		status: { $in: ["en attente", "ouverte"] },
 		tableId: { $exists: true, $ne: null },
 	})
 		.select("tableId reservationTime reservationDate")
@@ -479,7 +479,7 @@ async function getSmartDuration(restaurantId, nbPersonnes) {
 
 	const historicResas = await Reservation.find({
 		restaurantId,
-		status: "completed",
+		status: "terminée",
 		nbPersonnes: {
 			$gte: Math.max(1, nbPersonnes - 1),
 			$lte: nbPersonnes + 1,
@@ -518,7 +518,7 @@ async function getSmartDuration(restaurantId, nbPersonnes) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Retourne les réservations "pending" sans table, triées par score de priorité.
+ * Retourne les réservations "en attente" sans table, triées par score de priorité.
  *
  * Score de priorité :
  *  ancienneté (min depuis création) × 0.5 + nbPersonnes × 10
@@ -537,7 +537,7 @@ async function getWaitingList(restaurantId, date) {
 	const waitingResas = await Reservation.find({
 		restaurantId,
 		reservationDate: { $gte: start, $lte: end },
-		status: "pending",
+		status: "en attente",
 		$or: [{ tableId: null }, { tableId: { $exists: false } }],
 	}).lean();
 
@@ -629,7 +629,7 @@ async function predictAffluence(restaurantId, targetDate, weeksBack = 8) {
 		const count = await Reservation.countDocuments({
 			restaurantId,
 			reservationDate: { $gte: start, $lte: end },
-			status: { $in: ["pending", "confirmed", "completed"] },
+			status: { $in: ["en attente", "ouverte", "terminée"] },
 		});
 		historicPoints.push({
 			week: w,
@@ -682,7 +682,7 @@ async function predictAffluence(restaurantId, targetDate, weeksBack = 8) {
 	const peakResas = await Reservation.find({
 		restaurantId,
 		reservationDate: { $gte: sinceDate, $lte: target },
-		status: { $in: ["confirmed", "completed"] },
+		status: { $in: ["ouverte", "terminée"] },
 	})
 		.select("reservationTime reservationDate")
 		.lean();

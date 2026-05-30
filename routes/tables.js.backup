@@ -237,7 +237,7 @@ router.post(
 			startOfToday.setHours(0, 0, 0, 0);
 			const futureFilter = {
 				reservationDate: { $gte: startOfToday },
-				status: { $in: ["pending", "confirmed"] },
+				status: { $in: ["en attente", "ouverte"] },
 			};
 
 			// Collecter les _id des documents à mettre à jour AVANT de modifier (évite conflit A→B puis B→A)
@@ -599,11 +599,11 @@ router.post(
 			const closedReservations = await Reservation.updateMany(
 				{
 					tableId: table._id,
-					status: { $nin: ["completed", "cancelled"] },
+					status: { $nin: ["terminée", "annulée"] },
 				},
 				{
 					$set: {
-						status: "completed",
+						status: "terminée",
 						isPresent: false,
 						updatedAt: closedAt,
 					},
