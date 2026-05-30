@@ -202,7 +202,7 @@ router.patch(
 
 			// Passer à bill_requested
 			session.billStatus = "bill_requested";
-			await session.save();
+			await session.save({ validateModifiedOnly: true });
 
 			// Émettre événement WebSocket
 			const io = req.app.locals.io;
@@ -518,7 +518,7 @@ router.post(
 
 			// Mettre à jour tableId
 			session.tableId = newTableId;
-			await session.save();
+			await session.save({ validateModifiedOnly: true });
 
 			// Mettre à jour tous les orders liés
 			await Order.updateMany(
@@ -606,7 +606,7 @@ router.post(
 				paymentMethod: s.paymentMethod || null,
 			}));
 
-			await session.save();
+			await session.save({ validateModifiedOnly: true });
 
 			// WebSocket
 			const io = req.app.locals.io;
@@ -660,7 +660,7 @@ router.post(
 			session.extensionCount = (session.extensionCount || 0) + 1;
 			session.status = "active";
 
-			await session.save();
+			await session.save({ validateModifiedOnly: true });
 
 			// WebSocket
 			const io = req.app.locals.io;
