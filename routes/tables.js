@@ -204,6 +204,52 @@ router.get(
 	},
 );
 
+// POST /swap - échanger les numéros de deux tables (admin)
+router.post(
+	"/swap",
+	auth,
+	checkRoles(["admin"]),
+	async (req, res) => {
+		const { idA, idB } = req.body;
+		if (!idA || !idB) {
+			return res.status(400).json({ message: "idA et idB sont requis." });
+		}
+		try {
+			const [tableA, tableB] = await Promise.all([
+				Table.findById(idA),
+				Table.findById(idB),
+			]);
+			if (!tableA || !tableB) {
+				return res.status(404).json({ message: "Table introuvable." });
+			}
+			const numA = tableA.number;
+			const numB = tableB.number;
+			// Utiliser un numéro temporaire garanti unique (UUID) pour éviter le conflit d'index
+			const tempNum = `__swap_temp_${Date.now()}`;
+			await Table.updateOne({ _id: idA }, { $set: { number: tempNum } });
+			await Table.updateOne({ _id: idB }, { $set: { number: numA } });
+			await Table.updateOne({ _id: idA }, { $set: { number: numB } });
+
+			const [updatedA, updatedB] = await Promise.all([
+				Table.findById(idA),
+				Table.findById(idB),
+			]);
+
+			// Émettre WebSocket pour les deux tables
+			const io = getIO(req);
+			if (io && tableA.restaurantId) {
+				emitTableEvent(io, tableA.restaurantId, "updated", updatedA.toObject());
+				emitTableEvent(io, tableA.restaurantId, "updated", updatedB.toObject());
+			}
+
+			res.json({ tableA: updatedA, tableB: updatedB });
+		} catch (err) {
+			console.error("[POST /tables/swap] Erreur:", err);
+			res.status(500).json({ message: "Erreur lors de l'échange des tables." });
+		}
+	},
+);
+
 // PUT /:id - modifier table (admin)
 router.put(
 	"/:id",
