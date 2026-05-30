@@ -1,8 +1,8 @@
 /**
- * Script : Fermeture propre des résas "confirmed" de Chez Ahmed
+ * Script : Fermeture propre des résas "ouverte" de Chez Ahmed
  * 1. Marque tous les Orders de ces résas comme payés (paymentStatus: "paid", paid: true)
  * 2. Met à jour paidAmount / remainingAmount sur la résa
- * 3. Passe le status de la résa à "completed"
+ * 3. Passe le status de la résa à "terminée"
  *
  * Usage : node backend/scripts/closeChezAhmedResas.js
  */
@@ -20,14 +20,14 @@ async function main() {
 	const Reservation = require("../models/Reservation");
 	const Order = require("../models/Order");
 
-	// 1. Charger toutes les résas "confirmed" + "pending" du restaurant
+	// 1. Charger toutes les résas "ouverte" + "en attente" du restaurant
 	const reservations = await Reservation.find({
 		restaurantId: RESTAURANT_ID,
-		status: { $in: ["confirmed", "pending"] },
+		status: { $in: ["ouverte", "en attente"] },
 	});
 
 	console.log(
-		`📋 ${reservations.length} résa(s) "confirmed" + "pending" trouvée(s)\n`,
+		`📋 ${reservations.length} résa(s) "ouverte" + "en attente" trouvée(s)\n`,
 	);
 
 	if (reservations.length === 0) {
@@ -63,7 +63,7 @@ async function main() {
 		const totalAmount = resa.totalAmount || 0;
 		resa.paidAmount = totalAmount;
 		resa.remainingAmount = 0;
-		resa.status = "completed";
+		resa.status = "terminée";
 		resa.isPresent = false;
 
 		await resa.save();
@@ -79,19 +79,19 @@ async function main() {
 	console.log(`💳 ${totalOrdersPaid} order(s) marqué(s) "paid"`);
 	console.log("─────────────────────────────────────────\n");
 
-	// 4. Vérification finale : s'assurer qu'il ne reste plus aucune résa "confirmed"
+	// 4. Vérification finale : s'assurer qu'il ne reste plus aucune résa "ouverte"
 	const remaining = await Reservation.countDocuments({
 		restaurantId: RESTAURANT_ID,
-		status: { $in: ["confirmed", "pending"] },
+		status: { $in: ["ouverte", "en attente"] },
 	});
 
 	if (remaining === 0) {
 		console.log(
-			'🎉 Vérification OK — plus aucune résa "confirmed" pour Chez Ahmed',
+			'🎉 Vérification OK — plus aucune résa "ouverte" pour Chez Ahmed',
 		);
 	} else {
 		console.warn(
-			`⚠️  Attention : ${remaining} résa(s) encore "confirmed" — vérifier manuellement`,
+			`⚠️  Attention : ${remaining} résa(s) encore "ouverte" — vérifier manuellement`,
 		);
 	}
 

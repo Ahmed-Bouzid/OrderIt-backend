@@ -1,7 +1,7 @@
 /**
  * SCRIPT DE MIGRATION - 22 avril 2026
  * - Toutes les commandes: paymentStatus != "paid" -> "paid"
- * - Toutes les réservations: status != "completed" -> "completed" + isPresent = false
+ * - Toutes les réservations: status != "terminée" -> "terminée" + isPresent = false
  */
 require("dotenv").config();
 const mongoose = require("mongoose");
@@ -20,11 +20,11 @@ async function run() {
 		.countDocuments({ paymentStatus: { $ne: "paid" } });
 	const resasToUpdate = await db
 		.collection("reservations")
-		.countDocuments({ status: { $ne: "completed" } });
+		.countDocuments({ status: { $ne: "terminée" } });
 
 	console.log(`\n📊 PRE-CHECK:`);
 	console.log(`  Orders à passer en "paid": ${ordersToUpdate}`);
-	console.log(`  Réservations à passer en "completed": ${resasToUpdate}`);
+	console.log(`  Réservations à passer en "terminée": ${resasToUpdate}`);
 
 	// --- UPDATE ORDERS ---
 	const ordersResult = await db.collection("orders").updateMany(
@@ -43,10 +43,10 @@ async function run() {
 
 	// --- UPDATE RESERVATIONS ---
 	const resasResult = await db.collection("reservations").updateMany(
-		{ status: { $ne: "completed" } },
+		{ status: { $ne: "terminée" } },
 		{
 			$set: {
-				status: "completed",
+				status: "terminée",
 				isPresent: false,
 				updatedAt: new Date(),
 			},
@@ -62,14 +62,14 @@ async function run() {
 		.countDocuments({ paymentStatus: { $ne: "paid" } });
 	const resasRemaining = await db
 		.collection("reservations")
-		.countDocuments({ status: { $ne: "completed" } });
+		.countDocuments({ status: { $ne: "terminée" } });
 
 	console.log(`\n📊 POST-CHECK:`);
 	console.log(
 		`  Orders encore non "paid": ${ordersRemaining} (doit être 0)`
 	);
 	console.log(
-		`  Réservations encore non "completed": ${resasRemaining} (doit être 0)`
+		`  Réservations encore non "terminée": ${resasRemaining} (doit être 0)`
 	);
 
 	if (ordersRemaining === 0 && resasRemaining === 0) {

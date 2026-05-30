@@ -4,8 +4,8 @@
  * Exécuter avec: node scripts/migrateReservationStatus.js
  *
  * Ce script met à jour:
- * - "fermee" → "completed"
- * - "annulee" → "cancelled"
+ * - "fermee" → "terminée"
+ * - "annulee" → "annulée"
  */
 
 const mongoose = require("mongoose");
@@ -37,26 +37,26 @@ async function migrateReservationStatus() {
 			return;
 		}
 
-		// 2. Migrer "fermee" → "completed"
+		// 2. Migrer "fermee" → "terminée"
 		if (fermeeCount > 0) {
 			const resultFermee = await reservationsCollection.updateMany(
 				{ status: "fermee" },
 				{
 					$set: {
-						status: "completed",
+						status: "terminée",
 						isPresent: false, // S'assurer que isPresent est false
 					},
 				}
 			);
 		}
 
-		// 3. Migrer "annulee" → "cancelled"
+		// 3. Migrer "annulee" → "annulée"
 		if (annuleeCount > 0) {
 			const resultAnnulee = await reservationsCollection.updateMany(
 				{ status: "annulee" },
 				{
 					$set: {
-						status: "cancelled",
+						status: "annulée",
 						isPresent: false, // S'assurer que isPresent est false
 					},
 				}

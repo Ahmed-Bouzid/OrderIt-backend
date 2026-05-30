@@ -280,7 +280,7 @@ async function main() {
 				reservationTime: `${createdAt.getHours()}h${String(createdAt.getMinutes()).padStart(2, "0")}`,
 				arrivalTime: createdAt,
 				reservationSource: "Sur place",
-				status: "completed",
+				status: "terminée",
 				dishStatus: "Terminé",
 				openedBy: server.name,
 				createdAt,

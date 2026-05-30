@@ -1,6 +1,6 @@
 /**
  * Seed reservations for TODAY for a given restaurant.
- * Creates 5 "pending", 5 "completed", 5 "cancelled".
+ * Creates 5 "en attente", 5 "terminée", 5 "annulée".
  *
  * Usage:
  *   node backend/scripts/seedTodayReservations.js <restaurantId>
@@ -83,7 +83,7 @@ function buildReservation({ restaurantId, status, index, today }) {
 		],
 	};
 
-	if (status === "completed") {
+	if (status === "terminée") {
 		const total = 20 + Math.floor(Math.random() * 80); // 20-99 €
 		base.totalAmount = total;
 		base.paidAmount = total;
@@ -99,7 +99,7 @@ function buildReservation({ restaurantId, status, index, today }) {
 			userName: "SeedScript",
 			message: "Paiement complet (seed)",
 		});
-	} else if (status === "cancelled") {
+	} else if (status === "annulée") {
 		base.canceled = true;
 		base.canceledAt = new Date();
 		base.isPresent = false;
@@ -140,7 +140,7 @@ async function main() {
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
 
-	const STATUSES = ["pending", "completed", "cancelled"];
+	const STATUSES = ["en attente", "terminée", "annulée"];
 	const COUNT_PER_STATUS = 5;
 
 	const docs = [];

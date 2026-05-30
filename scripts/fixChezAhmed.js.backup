@@ -10,7 +10,7 @@ mongoose
 		// 1. Trouver toutes les résas cibles
 		const resas = await db
 			.collection("reservations")
-			.find({ restaurantId: id, status: { $in: ["confirmed", "pending"] } })
+			.find({ restaurantId: id, status: { $in: ["ouverte", "en attente"] } })
 			.toArray();
 		console.log("Résas à traiter:", resas.length);
 
@@ -33,15 +33,15 @@ mongoose
 		const resaResult = await db
 			.collection("reservations")
 			.updateMany(
-				{ restaurantId: id, status: { $in: ["confirmed", "pending"] } },
-				{ $set: { status: "completed", isPresent: false, remainingAmount: 0 } },
+				{ restaurantId: id, status: { $in: ["ouverte", "en attente"] } },
+				{ $set: { status: "terminée", isPresent: false, remainingAmount: 0 } },
 			);
 		console.log("Résas fermées:", resaResult.modifiedCount);
 
 		// 5. Vérification finale
 		const remaining = await db.collection("reservations").countDocuments({
 			restaurantId: id,
-			status: { $in: ["confirmed", "pending"] },
+			status: { $in: ["ouverte", "en attente"] },
 		});
 		console.log(
 			"Résas encore ouvertes:",
