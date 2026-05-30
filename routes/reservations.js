@@ -222,12 +222,7 @@ router.post(
 				}
 			}
 
-			// ⭐ Créer la réservation avec reservationSource forcé à "Sur place" (console staff)
-			const reservation = new Reservation({
-				...req.body,
-				reservationSource: "Sur place", // Forcé pour réservations console
-				isPresent: true, // Staff crée des réservations pour clients présents
-			});
+			const reservation = new Reservation(req.body);
 
 			// ⭐ Audit : création
 			const user = await getAuditUser(req);
