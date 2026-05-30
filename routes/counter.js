@@ -313,7 +313,10 @@ router.patch(
 			session.discounts = processedDiscounts;
 			session.pricing = pricing;
 
-			await session.save();
+			// validateModifiedOnly: true évite de revalider les sous-documents
+			// existants en DB qui pourraient avoir des champs required manquants
+			// (ex: discounts.appliedBy créés avant la contrainte)
+			await session.save({ validateModifiedOnly: true });
 
 			// Log d'encaissement (audit trail)
 			console.log(`[COUNTER] Session fermée :`, {
