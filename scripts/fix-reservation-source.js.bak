@@ -3,7 +3,7 @@
  * 
  * Problème : Certaines réservations créées avant le fix n'ont pas le bon reservationSource
  * Solution : Mettre à jour toutes les réservations sans reservationDate/reservationTime planifiés
- *           pour avoir reservationSource = "on_site"
+ *           pour avoir reservationSource = "Sur place"
  * 
  * Usage : node scripts/fix-reservation-source.js
  */
@@ -38,7 +38,7 @@ async function fixReservationSource() {
 		// Mettre à jour chaque réservation
 		let fixed = 0;
 		for (const resa of reservationsWithoutSource) {
-			resa.reservationSource = "on_site";
+			resa.reservationSource = "Sur place";
 			if (resa.isPresent === undefined || resa.isPresent === null) {
 				resa.isPresent = true; // Par défaut, réservations console = clients présents
 			}
@@ -49,9 +49,9 @@ async function fixReservationSource() {
 
 		console.log(`\n🎉 ${fixed} réservations corrigées`);
 		
-		// Optionnel : Corriger les réservations qui ont "online" mais pas de date/heure planifiée
+		// Optionnel : Corriger les réservations qui ont "À distance" mais pas de date/heure planifiée
 		const webReservationsWithoutDateTime = await Reservation.find({
-			reservationSource: "online",
+			reservationSource: "À distance",
 			$or: [
 				{ reservationDate: { $exists: false } },
 				{ reservationTime: { $exists: false } },
@@ -62,8 +62,8 @@ async function fixReservationSource() {
 		});
 
 		if (webReservationsWithoutDateTime.length > 0) {
-			console.log(`\n⚠️  Trouvé ${webReservationsWithoutDateTime.length} réservations "online" sans date/heure planifiée`);
-			console.log('Ces réservations devraient probablement être "on_site" :\n');
+			console.log(`\n⚠️  Trouvé ${webReservationsWithoutDateTime.length} réservations "À distance" sans date/heure planifiée`);
+			console.log('Ces réservations devraient probablement être "Sur place" :\n');
 			
 			for (const resa of webReservationsWithoutDateTime) {
 				console.log(`   - ${resa.clientName} (${resa._id})`);
@@ -73,7 +73,7 @@ async function fixReservationSource() {
 			
 			// Décommentez pour corriger automatiquement :
 			// for (const resa of webReservationsWithoutDateTime) {
-			// 	resa.reservationSource = "on_site";
+			// 	resa.reservationSource = "Sur place";
 			// 	resa.isPresent = true;
 			// 	await resa.save();
 			// 	console.log(`✅ Corrigé: ${resa.clientName}`);

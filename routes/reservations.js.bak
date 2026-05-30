@@ -468,7 +468,7 @@ router.post(
 			
 			// ⭐ Détecter si c'est une réservation web (planifiée) ou sur place (immédiate)
 			const isWebReservation = req.body.reservationDate && req.body.reservationTime && req.body.nbPersonnes;
-			const reservationSource = isWebReservation ? "online" : "on_site";
+			const reservationSource = isWebReservation ? "À distance" : "Sur place";
 			
 			const reservation = new Reservation({
 				...req.body,

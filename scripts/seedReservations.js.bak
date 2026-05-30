@@ -90,7 +90,7 @@ mongoose
 				reservationDate: resDate,
 				reservationTime: `${hour}:${min}`,
 				status: "pending",
-				reservationSource: "online",
+				reservationSource: "À distance",
 				notes: `Réservation test — Jour J+${i + 1}h`,
 			});
 		}
@@ -115,7 +115,7 @@ mongoose
 					reservationDate: resDate,
 					reservationTime: `${hour}:${min}`,
 					status: "pending",
-					reservationSource: "online",
+					reservationSource: "À distance",
 					notes: `Réservation test — Jour J+${day}`,
 				});
 			}

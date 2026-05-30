@@ -76,8 +76,8 @@ const reservationSchema = new mongoose.Schema(
 		arrivalTime: { type: Date },
 		reservationSource: {
 			type: String,
-			enum: ["on_site", "online", "walk_in"],
-			default: "on_site",
+			enum: ["Sur place", "À distance", "Sans réservation"],
+			default: "Sur place",
 		},
 
 		allergies: { type: String, default: "" },

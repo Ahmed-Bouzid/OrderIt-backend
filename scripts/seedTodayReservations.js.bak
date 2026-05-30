@@ -25,7 +25,7 @@ const LAST_NAMES = [
 ];
 
 const PHONE_PREFIXES = ["06", "07"];
-const SOURCES = ["on_site", "online"];
+const SOURCES = ["Sur place", "À distance"];
 
 function pad(n) {
 	return String(n).padStart(2, "0");
