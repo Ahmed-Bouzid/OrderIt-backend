@@ -33,6 +33,7 @@ router.post(
 	auth,
 	checkRoles(["server", "admin"]),
 	async (req, res) => {
+		const startTime = Date.now(); // ✅ Timer pour diagnostiquer
 		try {
 			const { restaurantId, tableId, reservationId, guestCount } = req.body;
 
@@ -50,6 +51,8 @@ router.post(
 					.status(400)
 					.json({ message: "tableId invalide" });
 			}
+
+			console.log(`[COUNTER] POST /sessions START: restaurantId=${restaurantId} tableId=${tableId}`);
 
 			// Vérifier que le restaurant existe et est en mode counter
 			const restaurant = await Restaurant.findById(restaurantId);
@@ -74,6 +77,8 @@ router.post(
 
 			if (existingSession) {
 				// Retourner la session existante
+				const elapsed = Date.now() - startTime;
+				console.log(`[COUNTER] Session existante retournée in ${elapsed}ms`);
 				return res.status(200).json(existingSession);
 			}
 
@@ -85,6 +90,9 @@ router.post(
 				guestCount: guestCount || 1,
 				serverId: req.user.id, // ✅ auth middleware définit req.user.id, pas _id
 			});
+
+			const elapsed = Date.now() - startTime;
+			console.log(`[COUNTER] Session créée in ${elapsed}ms - sessionId=${session._id}`);
 
 			// Émettre événement WebSocket
 			const io = req.app.locals.io;

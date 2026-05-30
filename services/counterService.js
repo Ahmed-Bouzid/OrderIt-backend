@@ -108,10 +108,14 @@ async function createSession({
 
     await session.commitTransaction();
 
-    // 6. Populate et retourner
-    return await TableSession.findById(tableSession._id)
-      .populate("tableId")
-      .populate("reservationId");
+    // 6. Populate et retourner (utiliser l'objet créé au lieu de refaire un findById)
+    // ✅ Plus rapide : populate directement sur l'objet existant
+    await tableSession.populate("tableId");
+    if (reservationId) {
+      await tableSession.populate("reservationId");
+    }
+    
+    return tableSession;
       
   } catch (error) {
     await session.abortTransaction();
