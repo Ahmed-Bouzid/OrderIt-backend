@@ -220,10 +220,6 @@ router.patch(
 		}
 	},
 );
-			res.status(500).json({ message: err.message });
-		}
-	},
-);
 
 /**
  * PATCH /counter/sessions/:id/close
