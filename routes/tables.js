@@ -12,6 +12,7 @@ const tableValidationRules = require("../middlewares/tableValidationRules");
 const tableUpdateValidationRules = require("../middlewares/tableUpdateValidationRules");
 const checkUserRestaurantBody = require("../middlewares/checkUserRestaurantBody");
 const Order = require("../models/Order");
+const Reservation = require("../models/Reservation");
 
 // ⭐ Import socket emitter
 const { emitTableEvent } = require("../utils/socketEmitter");
@@ -229,6 +230,40 @@ router.post(
 			await Table.updateOne({ _id: idA }, { $set: { number: tempNum } });
 			await Table.updateOne({ _id: idB }, { $set: { number: numA } });
 			await Table.updateOne({ _id: idA }, { $set: { number: numB } });
+
+			// Swapper le tableId des réservations FUTURES uniquement (pas les passées/annulées)
+			// Les sessions/commandes suivent l'_id (comportement voulu), les réservations restent au "slot" physique
+			const now = new Date();
+			const futureFilter = {
+				reservationDate: { $gte: now },
+				status: { $nin: ["cancelled", "completed", "no_show"] },
+			};
+
+			// Collecter les _id des documents à mettre à jour AVANT de modifier (évite conflit A→B puis B→A)
+			const [resIdsForA, resIdsForB] = await Promise.all([
+				Reservation.distinct("_id", { ...futureFilter, tableId: idA }),
+				Reservation.distinct("_id", { ...futureFilter, tableId: idB }),
+			]);
+			if (resIdsForA.length) await Reservation.updateMany({ _id: { $in: resIdsForA } }, { $set: { tableId: idB } });
+			if (resIdsForB.length) await Reservation.updateMany({ _id: { $in: resIdsForB } }, { $set: { tableId: idA } });
+
+			// tableIds array (réservations multi-tables) : même logique safe
+			const [arrIdsForA, arrIdsForB] = await Promise.all([
+				Reservation.distinct("_id", { ...futureFilter, tableIds: idA }),
+				Reservation.distinct("_id", { ...futureFilter, tableIds: idB }),
+			]);
+			// Docs qui ont SEULEMENT A (pas B) → remplacer A par B
+			const arrOnlyA = arrIdsForA.filter((id) => !arrIdsForB.some((b) => b.toString() === id.toString()));
+			// Docs qui ont SEULEMENT B (pas A) → remplacer B par A
+			const arrOnlyB = arrIdsForB.filter((id) => !arrIdsForA.some((a) => a.toString() === id.toString()));
+			if (arrOnlyA.length) await Reservation.updateMany(
+				{ _id: { $in: arrOnlyA } },
+				[{ $set: { tableIds: { $map: { input: "$tableIds", as: "t", in: { $cond: [{ $eq: ["$$t", { $toObjectId: idA }] }, { $toObjectId: idB }, "$$t"] } } } } }]
+			);
+			if (arrOnlyB.length) await Reservation.updateMany(
+				{ _id: { $in: arrOnlyB } },
+				[{ $set: { tableIds: { $map: { input: "$tableIds", as: "t", in: { $cond: [{ $eq: ["$$t", { $toObjectId: idB }] }, { $toObjectId: idA }, "$$t"] } } } } }]
+			);
 
 			const [updatedA, updatedB] = await Promise.all([
 				Table.findById(idA),
