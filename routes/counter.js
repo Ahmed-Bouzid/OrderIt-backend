@@ -83,29 +83,48 @@ router.post(
 			}
 
 			// ✅ Utiliser counterService pour créer la session avec transaction atomique
-			const session = await counterService.createSession({
-				restaurantId,
-				tableId,
-				reservationId: reservationId || null,
-				guestCount: guestCount || 1,
-				serverId: req.user.id, // ✅ auth middleware définit req.user.id, pas _id
-			});
+			try {
+				const session = await counterService.createSession({
+					restaurantId,
+					tableId,
+					reservationId: reservationId || null,
+					guestCount: guestCount || 1,
+					serverId: req.user.id,
+				});
 
-			const elapsed = Date.now() - startTime;
-			console.log(`[COUNTER] Session créée in ${elapsed}ms - sessionId=${session._id}`);
+				const elapsed = Date.now() - startTime;
+				console.log(`[COUNTER] Session créée in ${elapsed}ms - sessionId=${session._id}`);
 
-			// Émettre événement WebSocket
-			const io = req.app.locals.io;
-			if (io && restaurantId) {
-				emitTableSessionEvent(
-					io,
-					restaurantId.toString(),
-					"opened",
-					session.toObject(),
-				);
+				// Émettre événement WebSocket
+				const io = req.app.locals.io;
+				if (io && restaurantId) {
+					emitTableSessionEvent(
+						io,
+						restaurantId.toString(),
+						"opened",
+						session.toObject(),
+					);
+				}
+
+				res.status(201).json(session);
+			} catch (serviceErr) {
+				// ✅ Si erreur "Table already occupied" → peut-être race condition, re-chercher la session
+				if (serviceErr.message === "Table already occupied") {
+					const retrySession = await TableSession.findOne({
+						tableId,
+						source: "counter",
+						billStatus: { $ne: "closed" },
+					});
+					
+					if (retrySession) {
+						console.log(`[COUNTER] Session trouvée après 409 (race condition)`);
+						return res.status(200).json(retrySession);
+					}
+				}
+				
+				// Si autre erreur ou toujours pas de session → throw
+				throw serviceErr;
 			}
-
-			res.status(201).json(session);
 		} catch (err) {
 			console.error("Erreur création session counter :", err);
 			
