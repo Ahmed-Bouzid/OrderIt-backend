@@ -65,7 +65,24 @@ async function createSession({
       }
     }
 
-    // 2. Si réservation fournie → vérifier et mettre à jour
+    // 2. ⚠️ VÉRIFICATION CRITIQUE : Bloquer si réservation présente existe pour cette table
+    // Scénario à éviter : client réservé arrive → marqué présent → serveur ouvre en mode comptoir
+    // → Réservation jamais ouverte, commandes pas liées, stats faussées
+    if (!reservationId) {
+      const pendingReservation = await Reservation.findOne({
+        tableId,
+        status: RESERVATION_STATUS.PENDING,
+        isPresent: true,
+      }).session(session);
+      
+      if (pendingReservation) {
+        throw new Error(
+          `TABLE_HAS_PENDING_RESERVATION:${pendingReservation._id}:${pendingReservation.clientName}`
+        );
+      }
+    }
+
+    // 3. Si réservation fournie → vérifier et mettre à jour
     let reservation = null;
     let finalGuestCount = guestCount;
 
@@ -97,7 +114,7 @@ async function createSession({
       await reservation.save({ session, validateModifiedOnly: true });
     }
 
-    // 3. Créer la TableSession
+    // 4. Créer la TableSession
     const [tableSession] = await TableSession.create(
       [{
         restaurantId,
