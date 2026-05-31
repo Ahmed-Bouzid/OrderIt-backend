@@ -457,6 +457,29 @@ mongoose
 			// Don't block server startup if seeding fails
 		}
 
+		// 🔔 Initialiser le cron job pour annuler automatiquement les réservations en retard
+		try {
+			const cron = require("node-cron");
+			const { cancelOverdueReservations } = require("./services/reservationAutoCancellation");
+			
+			// ⭐ Exécuter toutes les minutes (00:00, 00:01, 00:02, etc.)
+			cron.schedule("* * * * *", async () => {
+				try {
+					const result = await cancelOverdueReservations(io);
+					if (result.cancelledCount > 0) {
+						console.log(`🔔 [AUTO-CANCEL] ${result.cancelledCount} réservations annulées`);
+					}
+				} catch (err) {
+					console.error("❌ [AUTO-CANCEL] Erreur cron job:", err.message);
+				}
+			});
+			
+			console.log("🔔 Cron job auto-annulation réservations démarré (toutes les minutes)");
+		} catch (error) {
+			console.warn("⚠️ Auto-cancellation cron setup error:", error.message);
+			// Don't block server startup if cron fails
+		}
+
 		server.listen(port, "0.0.0.0", () => {
 			const localIp = getLocalIp();
 			console.log(`🚀 Server EasyQR démarré sur http://0.0.0.0:${port}`);
