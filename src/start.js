@@ -437,6 +437,15 @@ function getLocalIp() {
 	return "localhost";
 }
 
+// 🚀 Démarrer le serveur HTTP immédiatement — Render exige que le port soit ouvert
+// indépendamment de MongoDB (sinon timeout si la connexion DB prend trop de temps)
+server.listen(port, "0.0.0.0", () => {
+	const localIp = getLocalIp();
+	console.log(`🚀 Server EasyQR démarré sur http://0.0.0.0:${port}`);
+	console.log(`🌐 Accès local: http://${localIp}:${port}`);
+	console.log(`🔌 WebSocket prêt sur ws://0.0.0.0:${port}`);
+});
+
 mongoose
 	.connect(process.env.MONGO_URI, {
 		serverSelectionTimeoutMS: 10000,
@@ -479,16 +488,10 @@ mongoose
 			console.warn("⚠️ Auto-cancellation cron setup error:", error.message);
 			// Don't block server startup if cron fails
 		}
-
-		server.listen(port, "0.0.0.0", () => {
-			const localIp = getLocalIp();
-			console.log(`🚀 Server EasyQR démarré sur http://0.0.0.0:${port}`);
-			console.log(`🌐 Accès local: http://${localIp}:${port}`);
-			console.log(`🔌 WebSocket prêt sur ws://0.0.0.0:${port}`);
-		});
 	})
 	.catch((err) => {
 		console.error("❌ Erreur connexion MongoDB:", err);
+		process.exit(1);
 	});
 
 // 🛡️ Crash safety — log unhandled rejections, exit cleanly on uncaught exceptions (Render auto-restarts)
