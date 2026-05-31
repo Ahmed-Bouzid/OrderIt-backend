@@ -1,164 +1,269 @@
-/**
- * 📧 Email Service - SunnyGo
- * Service centralisé pour l'envoi d'emails (reset password, notifications, etc.)
- *
- * Configuration requise dans .env (Render env vars):
- * - RESEND_API_KEY  : clé API Resend (https://resend.com)
- * - EMAIL_FROM      : expéditeur (ex: SunnyGo <sunnygo@sunflowersociety.fr>)
- *                     ⚠️  domaine doit être vérifié sur Resend
- *                     En mode test : utilisez "onboarding@resend.dev"
- */
+const brevo = require("@getbrevo/brevo");
+const logger = require("../utils/logger");
 
-const { Resend } = require("resend");
+// Init client (lazy loading pour éviter crash si pas config)
+let client = null;
 
-let resend = null;
+function getClient() {
+	if (client) return client;
 
-/**
- * Initialise le client Resend (appelé au démarrage du serveur)
- */
-const initEmailService = async () => {
-	const apiKey = process.env.RESEND_API_KEY;
+	const { BREVO_API_KEY } = process.env;
 
-	if (!apiKey) {
-		console.warn("⚠️ [EMAIL] RESEND_API_KEY non configuré - emails désactivés");
-		return false;
+	if (!BREVO_API_KEY) {
+		logger.warn("Email service non configuré (BREVO_API_KEY manquante)");
+		return null;
 	}
 
-	resend = new Resend(apiKey);
-	return true;
-};
+	const defaultClient = brevo.ApiClient.instance;
+	const apiKey = defaultClient.authentications["api-key"];
+	apiKey.apiKey = BREVO_API_KEY;
+
+	client = new brevo.TransactionalEmailsApi();
+	return client;
+}
 
 /**
- * Envoie un email via Resend
- * @param {Object} options - Options de l'email
- * @param {string} options.to - Destinataire
- * @param {string} options.subject - Sujet
- * @param {string} options.text - Contenu texte (fallback)
- * @param {string} options.html - Contenu HTML
+ * Envoie un email transactionnel via Brevo (300/jour gratuits)
+ * @param {Object} options
+ * @param {string} options.to - Email destinataire
+ * @param {string} options.subject - Sujet de l'email
+ * @param {string} options.htmlContent - Contenu HTML de l'email
+ * @param {string} [options.textContent] - Contenu texte brut (fallback)
+ * @returns {Promise<{success: boolean, messageId?: string, error?: string}>}
  */
-const sendEmail = async ({ to, subject, text, html }) => {
-	if (!resend) {
-		console.warn("⚠️ [EMAIL] Resend non initialisé, email non envoyé");
-		return { success: false, error: "Email service not configured" };
+async function sendEmail({ to, subject, htmlContent, textContent }) {
+	const brevoClient = getClient();
+	if (!brevoClient) {
+		logger.error("sendEmail appelé sans config Brevo");
+		return { success: false, error: "Email non configuré" };
+	}
+
+	// Validation basique
+	if (!to || !to.includes("@")) {
+		return { success: false, error: "Email invalide" };
 	}
 
 	try {
-		const from = process.env.EMAIL_FROM || "SunnyGo <onboarding@resend.dev>";
-
-		const { data, error } = await resend.emails.send({
-			from,
-			to,
-			subject,
-			html: html || `<p>${text}</p>`,
-			text,
-		});
-
-		if (error) {
-			console.error("❌ [EMAIL] Erreur Resend:", error.message);
-			return { success: false, error: error.message };
+		const sendSmtpEmail = new brevo.SendSmtpEmail();
+		sendSmtpEmail.sender = {
+			email: process.env.BREVO_SENDER_EMAIL || "noreply@sunnygo.fr",
+			name: process.env.BREVO_SENDER_NAME || "SunnyGo",
+		};
+		sendSmtpEmail.to = [{ email: to }];
+		sendSmtpEmail.subject = subject;
+		sendSmtpEmail.htmlContent = htmlContent;
+		if (textContent) {
+			sendSmtpEmail.textContent = textContent;
 		}
 
-		return { success: true, messageId: data.id };
+		const response = await brevoClient.sendTransacEmail(sendSmtpEmail);
+
+		logger.info(`Email envoyé : ${response.messageId} → ${to}`);
+		return { success: true, messageId: response.messageId };
 	} catch (error) {
-		console.error("❌ [EMAIL] Erreur envoi:", error.message);
-		return { success: false, error: error.message };
+		logger.error(`Erreur envoi email vers ${to} :`, error);
+		return {
+			success: false,
+			error: error.response?.body?.message || error.message,
+		};
 	}
-};
+}
 
 /**
- * Envoie un email de réinitialisation de mot de passe
- * @param {string} email - Email du destinataire
- * @param {string} resetToken - Token de réinitialisation
- * @param {string} resetUrl - URL complète de réinitialisation (optionnel)
+ * Template HTML pour email de confirmation
  */
-const sendPasswordResetEmail = async (email, resetToken, resetUrl = null) => {
-	// URL de reset (frontend ou fallback)
-	const frontendUrl = process.env.FRONTEND_URL || "https://sunnygo.app";
-	const fullResetUrl =
-		resetUrl || `${frontendUrl}/reset-password?token=${resetToken}`;
+function confirmationTemplate(reservation) {
+	const {
+		nom,
+		date,
+		heure,
+		nombrePersonnes,
+		restaurantName,
+		restaurantAddress,
+		restaurantPhone,
+	} = reservation;
 
-	const subject = "🔐 SunnyGo - Réinitialisation de mot de passe";
-
-	const text = `
-Bonjour,
-
-Vous avez demandé la réinitialisation de votre mot de passe SunnyGo.
-
-Votre code de réinitialisation est : ${resetToken}
-
-Ce code expire dans 1 heure.
-
-Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.
-
-L'équipe SunnyGo
-`;
-
-	const html = `
+	return `
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta charset="utf-8">
+	<style>
+		body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+		.container { max-width: 600px; margin: 0 auto; padding: 20px; }
+		.header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+		.content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+		.details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+		.detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+		.detail-label { font-weight: bold; color: #667eea; }
+		.footer { text-align: center; padding: 20px; color: #999; font-size: 12px; }
+	</style>
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-  <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-    
-    <!-- Header -->
-    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
-      <h1 style="color: #ffffff; margin: 0; font-size: 28px;">☀️ SunnyGo</h1>
-      <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 14px;">Réinitialisation de mot de passe</p>
-    </div>
-    
-    <!-- Content -->
-    <div style="padding: 30px;">
-      <p style="color: #333; font-size: 16px; margin: 0 0 20px;">Bonjour,</p>
-      
-      <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 0 0 25px;">
-        Vous avez demandé la réinitialisation de votre mot de passe. Utilisez le code ci-dessous :
-      </p>
-      
-      <!-- Code Box -->
-      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 25px; text-align: center; margin: 0 0 25px;">
-        <p style="color: rgba(255,255,255,0.8); font-size: 12px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 1px;">Votre code</p>
-        <p style="color: #ffffff; font-size: 32px; font-weight: bold; margin: 0; letter-spacing: 4px; font-family: monospace;">${resetToken}</p>
-      </div>
-      
-      <p style="color: #999; font-size: 13px; margin: 0 0 20px; text-align: center;">
-        ⏱️ Ce code expire dans <strong>1 heure</strong>
-      </p>
-      
-      <hr style="border: none; border-top: 1px solid #eee; margin: 25px 0;">
-      
-      <p style="color: #999; font-size: 12px; line-height: 1.5; margin: 0;">
-        Si vous n'avez pas demandé cette réinitialisation, vous pouvez ignorer cet email en toute sécurité. Votre mot de passe restera inchangé.
-      </p>
-    </div>
-    
-    <!-- Footer -->
-    <div style="background-color: #f8f9fa; padding: 20px; text-align: center;">
-      <p style="color: #999; font-size: 12px; margin: 0;">
-        © ${new Date().getFullYear()} SunnyGo - Commande à table simplifiée
-      </p>
-    </div>
-    
-  </div>
+<body>
+	<div class="container">
+		<div class="header">
+			<h1>✅ Réservation confirmée</h1>
+		</div>
+		<div class="content">
+			<p>Bonjour <strong>${nom}</strong>,</p>
+			<p>Votre réservation chez <strong>${restaurantName}</strong> est confirmée !</p>
+			
+			<div class="details">
+				<div class="detail-row">
+					<span class="detail-label">📅 Date</span>
+					<span>${date}</span>
+				</div>
+				<div class="detail-row">
+					<span class="detail-label">🕐 Heure</span>
+					<span>${heure}</span>
+				</div>
+				<div class="detail-row">
+					<span class="detail-label">👥 Nombre de personnes</span>
+					<span>${nombrePersonnes} personne(s)</span>
+				</div>
+				${
+					restaurantAddress
+						? `
+				<div class="detail-row">
+					<span class="detail-label">📍 Adresse</span>
+					<span>${restaurantAddress}</span>
+				</div>
+				`
+						: ""
+				}
+				${
+					restaurantPhone
+						? `
+				<div class="detail-row">
+					<span class="detail-label">📞 Contact</span>
+					<span>${restaurantPhone}</span>
+				</div>
+				`
+						: ""
+				}
+			</div>
+			
+			<p>Nous avons hâte de vous accueillir !</p>
+			<p style="color: #999; font-size: 14px;">En cas d'empêchement, merci de nous prévenir au plus tôt.</p>
+		</div>
+		<div class="footer">
+			<p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+		</div>
+	</div>
 </body>
 </html>
-`;
-
-	return sendEmail({ to: email, subject, text, html });
-};
+	`;
+}
 
 /**
- * Vérifie si le service email est opérationnel
+ * Envoie un email de confirmation de réservation
  */
-const isEmailServiceReady = () => {
-	return resend !== null;
-};
+async function sendReservationConfirmation(reservation) {
+	const { email, nom, date, heure, nombrePersonnes, restaurantName } =
+		reservation;
+
+	const htmlContent = confirmationTemplate(reservation);
+	const textContent = `Bonjour ${nom}, votre réservation chez ${restaurantName} le ${date} à ${heure} pour ${nombrePersonnes} personne(s) est confirmée. À bientôt !`;
+
+	return sendEmail({
+		to: email,
+		subject: `✅ Réservation confirmée - ${restaurantName}`,
+		htmlContent,
+		textContent,
+	});
+}
+
+/**
+ * Envoie un email de rappel (24h avant)
+ */
+async function sendReservationReminder(reservation) {
+	const { email, nom, date, heure, nombrePersonnes, restaurantName } =
+		reservation;
+
+	const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<style>
+		body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+		.container { max-width: 600px; margin: 0 auto; padding: 20px; }
+		.header { background: #fbbf24; color: #1f2937; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+		.content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div class="header">
+			<h1>⏰ Rappel de réservation</h1>
+		</div>
+		<div class="content">
+			<p>Bonjour <strong>${nom}</strong>,</p>
+			<p>Nous vous rappelons votre réservation <strong>demain ${date} à ${heure}</strong> pour <strong>${nombrePersonnes} personne(s)</strong>.</p>
+			<p>À très bientôt chez ${restaurantName} !</p>
+		</div>
+	</div>
+</body>
+</html>
+	`;
+
+	const textContent = `Rappel : votre réservation demain ${date} à ${heure} pour ${nombrePersonnes} personne(s) chez ${restaurantName}.`;
+
+	return sendEmail({
+		to: email,
+		subject: `⏰ Rappel : réservation demain - ${restaurantName}`,
+		htmlContent,
+		textContent,
+	});
+}
+
+/**
+ * Envoie un email d'annulation
+ */
+async function sendReservationCancellation(reservation) {
+	const { email, nom, date, heure, restaurantName } = reservation;
+
+	const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<style>
+		body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+		.container { max-width: 600px; margin: 0 auto; padding: 20px; }
+		.header { background: #ef4444; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+		.content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div class="header">
+			<h1>❌ Réservation annulée</h1>
+		</div>
+		<div class="content">
+			<p>Bonjour <strong>${nom}</strong>,</p>
+			<p>Votre réservation du <strong>${date} à ${heure}</strong> a été annulée.</p>
+			<p>Nous espérons vous accueillir très bientôt !</p>
+			<p style="color: #999; font-size: 14px;">Pour toute question, n'hésitez pas à nous contacter.</p>
+		</div>
+	</div>
+</body>
+</html>
+	`;
+
+	const textContent = `Bonjour ${nom}, votre réservation du ${date} à ${heure} a été annulée. Pour toute question, contactez-nous.`;
+
+	return sendEmail({
+		to: email,
+		subject: `❌ Réservation annulée - ${restaurantName}`,
+		htmlContent,
+		textContent,
+	});
+}
 
 module.exports = {
-	initEmailService,
 	sendEmail,
-	sendPasswordResetEmail,
-	isEmailServiceReady,
+	sendReservationConfirmation,
+	sendReservationReminder,
+	sendReservationCancellation,
 };
