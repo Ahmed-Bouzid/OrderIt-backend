@@ -89,8 +89,8 @@ mongoose
 				nbPersonnes: Math.floor(Math.random() * 4) + 2, // 2-5 personnes
 				reservationDate: resDate,
 				reservationTime: `${hour}:${min}`,
-				status: "en attente",
-				reservationSource: "À distance",
+				status: "pending",
+				reservationSource: "online",
 				notes: `Réservation test — Jour J+${i + 1}h`,
 			});
 		}
@@ -114,8 +114,8 @@ mongoose
 					nbPersonnes: Math.floor(Math.random() * 4) + 2, // 2-5 personnes
 					reservationDate: resDate,
 					reservationTime: `${hour}:${min}`,
-					status: "en attente",
-					reservationSource: "À distance",
+					status: "pending",
+					reservationSource: "online",
 					notes: `Réservation test — Jour J+${day}`,
 				});
 			}

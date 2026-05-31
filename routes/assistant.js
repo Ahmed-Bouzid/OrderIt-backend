@@ -247,7 +247,6 @@ router.post(
 
 
 			const Reservation = require("../models/Reservation");
-const { RESERVATION_STATUS, ACTIVE_STATUSES } = require("../constants/reservationStatus");
 
 			// Construire les bornes de la date
 			const dateStart = new Date(date);
@@ -259,7 +258,7 @@ const { RESERVATION_STATUS, ACTIVE_STATUSES } = require("../constants/reservatio
 			const reservations = await Reservation.find({
 				restaurantId: restaurantId,
 				reservationDate: { $gte: dateStart, $lte: dateEnd },
-				status: { $in: ACTIVE_STATUSES },
+				status: { $in: ["pending", "confirmed"] },
 			});
 
 

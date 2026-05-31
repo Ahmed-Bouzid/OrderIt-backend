@@ -89,10 +89,10 @@ function createAuditMessage(action, data = {}) {
 
 		case "status_changed": {
 			const statusLabels = {
-				"en attente": "En attente",
-				ouverte: "Ouverte",
-				terminée: "Terminée",
-				annulée: "Annulée",
+				pending: "En attente",
+				confirmed: "Ouverte",
+				completed: "Terminée",
+				cancelled: "Annulée", no_show: "No show",
 			};
 			return `Statut modifié : ${statusLabels[oldValue] || oldValue} → ${
 				statusLabels[newValue] || newValue

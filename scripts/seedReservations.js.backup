@@ -1,0 +1,143 @@
+/**
+ * seedReservations.js — Génère des réservations de test
+ *
+ * Usage:
+ *   node scripts/seedReservations.js                → liste les restaurants
+ *   node scripts/seedReservations.js <restaurantId> → crée 8 réservations
+ *
+ * Génère :
+ * - 2 réservations pour aujourd'hui (dans 1h et 2h)
+ * - 2 réservations par jour pour les 3 jours suivants
+ */
+require("dotenv").config();
+const mongoose = require("mongoose");
+const Reservation = require("../models/Reservation");
+
+const RESTAURANT_ID = process.argv[2];
+
+// Noms de clients fictifs
+const FAKE_NAMES = [
+	"Sophie Martin",
+	"Lucas Dubois",
+	"Emma Petit",
+	"Thomas Bernard",
+	"Léa Durand",
+	"Hugo Moreau",
+	"Chloé Laurent",
+	"Alexandre Simon",
+];
+
+// Téléphones fictifs
+const FAKE_PHONES = [
+	"06 12 34 56 78",
+	"06 23 45 67 89",
+	"06 34 56 78 90",
+	"06 45 67 89 01",
+	"06 56 78 90 12",
+	"06 67 89 01 23",
+	"06 78 90 12 34",
+	"06 89 01 23 45",
+];
+
+mongoose
+	.connect(process.env.MONGO_URI)
+	.then(async () => {
+		if (!RESTAURANT_ID) {
+			// Mode liste
+			const restaurants = await mongoose.connection.db
+				.collection("restaurants")
+				.find({}, { projection: { _id: 1, name: 1 } })
+				.toArray();
+
+			console.log("\n📋 Restaurants disponibles :\n");
+			restaurants.forEach((r) =>
+				console.log(`  ${r._id}  |  ${r.name || "(sans nom)"}`),
+			);
+			console.log("\nUsage: node scripts/seedReservations.js <restaurantId>\n");
+			process.exit(0);
+		}
+
+		// Vérifier que le restaurant existe
+		const restaurant = await mongoose.connection.db
+			.collection("restaurants")
+			.findOne({ _id: new mongoose.Types.ObjectId(RESTAURANT_ID) });
+
+		if (!restaurant) {
+			console.error(`❌ Restaurant ${RESTAURANT_ID} introuvable`);
+			process.exit(1);
+		}
+
+		console.log(`\n🏪 Restaurant: ${restaurant.name || RESTAURANT_ID}\n`);
+
+		const now = new Date();
+		const reservations = [];
+
+		// Jour J (aujourd'hui) — 2 réservations : dans 1h et 2h
+		const today = new Date(now);
+		today.setMinutes(0, 0, 0); // Arrondir à l'heure
+
+		for (let i = 0; i < 2; i++) {
+			const resDate = new Date(today);
+			resDate.setHours(resDate.getHours() + (i + 1)); // +1h, +2h
+			const hour = String(resDate.getHours()).padStart(2, "0");
+			const min = String(resDate.getMinutes()).padStart(2, "0");
+
+			reservations.push({
+				restaurantId: new mongoose.Types.ObjectId(RESTAURANT_ID),
+				clientName: FAKE_NAMES[i],
+				phone: FAKE_PHONES[i],
+				nbPersonnes: Math.floor(Math.random() * 4) + 2, // 2-5 personnes
+				reservationDate: resDate,
+				reservationTime: `${hour}:${min}`,
+				status: "en attente",
+				reservationSource: "À distance",
+				notes: `Réservation test — Jour J+${i + 1}h`,
+			});
+		}
+
+		// Jours J+1, J+2, J+3 — 2 réservations par jour
+		for (let day = 1; day <= 3; day++) {
+			for (let slot = 0; slot < 2; slot++) {
+				const resDate = new Date(today);
+				resDate.setDate(resDate.getDate() + day);
+				resDate.setHours(12 + slot * 7, 0, 0, 0); // 12h et 19h
+
+				const hour = String(resDate.getHours()).padStart(2, "0");
+				const min = String(resDate.getMinutes()).padStart(2, "0");
+
+				const idx = day * 2 + slot;
+
+				reservations.push({
+					restaurantId: new mongoose.Types.ObjectId(RESTAURANT_ID),
+					clientName: FAKE_NAMES[idx % FAKE_NAMES.length],
+					phone: FAKE_PHONES[idx % FAKE_PHONES.length],
+					nbPersonnes: Math.floor(Math.random() * 4) + 2, // 2-5 personnes
+					reservationDate: resDate,
+					reservationTime: `${hour}:${min}`,
+					status: "en attente",
+					reservationSource: "À distance",
+					notes: `Réservation test — Jour J+${day}`,
+				});
+			}
+		}
+
+		// Insérer toutes les réservations
+		const result = await Reservation.insertMany(reservations);
+
+		console.log(`✅ ${result.length} réservations créées :\n`);
+		result.forEach((r) => {
+			const date = new Date(r.reservationDate);
+			const dateStr = date.toLocaleDateString("fr-FR");
+			const timeStr = r.reservationTime;
+			console.log(
+				`  📅 ${dateStr} ${timeStr} | ${r.clientName} (${r.nbPersonnes} pers.)`,
+			);
+		});
+
+		console.log("\n✅ Terminé\n");
+		process.exit(0);
+	})
+	.catch((err) => {
+		console.error("❌ Erreur:", err);
+		process.exit(1);
+	});

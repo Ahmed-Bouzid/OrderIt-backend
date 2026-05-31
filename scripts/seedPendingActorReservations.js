@@ -1,5 +1,5 @@
 /**
- * Seed 10 "en attente" reservations for TODAY using US actor names.
+ * Seed 10 "pending" reservations for TODAY using US actor names.
  *
  * Usage:
  *   node backend/scripts/seedPendingActorReservations.js <restaurantId>
@@ -24,7 +24,7 @@ const ACTORS = [
 	"Jennifer Lawrence",
 ];
 
-const SOURCES = ["Sur place", "À distance"];
+const SOURCES = ["on_site", "online"];
 
 function pad(n) {
 	return String(n).padStart(2, "0");
@@ -77,7 +77,7 @@ async function main() {
 			reservationDate,
 			reservationTime: time,
 			reservationSource: SOURCES[i % SOURCES.length],
-			status: "en attente",
+			status: "pending",
 			isPresent: false,
 			dishStatus: "En attente",
 			notes: "Seed test (en attente)",
@@ -94,7 +94,7 @@ async function main() {
 		};
 	});
 
-	console.log(`📝 Insertion de ${docs.length} réservations "en attente" pour ${today.toISOString().slice(0, 10)}...`);
+	console.log(`📝 Insertion de ${docs.length} réservations "pending" pour ${today.toISOString().slice(0, 10)}...`);
 
 	const created = [];
 	for (const data of docs) {

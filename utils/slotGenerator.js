@@ -118,7 +118,7 @@ async function getAvailableSlotsForDay({
 	const activeReservations = await Reservation.find({
 		restaurantId,
 		reservationDate: { $gte: startOfDay, $lte: endOfDay },
-		status: { $in: ["en attente", "ouverte"] },
+		status: { $in: ["pending", "confirmed"] },
 		reservationTime: { $exists: true, $ne: "" },
 	})
 		.select("reservationTime reservationDate tableId")

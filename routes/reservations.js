@@ -7,13 +7,6 @@ const Restaurant = require("../models/Restaurant");
 const Server = require("../models/Server");
 const Admin = require("../models/Admin");
 const { body, validationResult } = require("express-validator");
-const {
-  RESERVATION_STATUS,
-  VALID_RESERVATION_STATUSES,
-  ACTIVE_STATUSES,
-  TERMINAL_STATUSES,
-  isTerminalStatus,
-} = require("../constants/reservationStatus");
 
 const auth = require("../middlewares/auth");
 const checkRoles = require("../middlewares/checkRoles");
@@ -169,103 +162,6 @@ async function dualWriteSession({ reservation, clientName, clientId, deviceId, i
 	}
 }
 
-// ✅ POST /online - Création réservation depuis le site web public (sans authentification)
-router.post(
-	"/online",
-	[
-		body("firstName").trim().notEmpty().withMessage("Prénom requis"),
-		body("lastName").trim().notEmpty().withMessage("Nom requis"),
-		body("phone").trim().notEmpty().withMessage("Téléphone requis"),
-		body("nbPersonnes").isInt({ min: 1, max: 50 }).withMessage("Nombre de personnes invalide"),
-		body("reservationDate").isISO8601().withMessage("Date invalide"),
-		body("reservationTime").matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage("Heure invalide (format HH:MM)"),
-		body("restaurantId").isMongoId().withMessage("Restaurant ID invalide"),
-		body("notes").optional().isString(),
-	],
-	async (req, res) => {
-		const errors = validationResult(req);
-		if (!errors.isEmpty()) {
-			const formattedErrors = errors.array().map((err) => ({
-				field: err.param,
-				message: err.msg,
-			}));
-			return res.status(400).json({ errors: formattedErrors });
-		}
-
-		try {
-			const { firstName, lastName, phone, nbPersonnes, reservationDate, reservationTime, restaurantId, notes } = req.body;
-
-			// Construire le nom complet
-			const clientName = `${firstName} ${lastName}`;
-
-			// Vérifier que le restaurant existe
-			const restaurant = await Restaurant.findById(restaurantId);
-			if (!restaurant) {
-				return res.status(404).json({ message: "Restaurant introuvable" });
-			}
-
-			// ⭐ Vérification anti-overbooking
-			const { allowed, occupiedCount, totalTables } = await checkOverbooking({
-				restaurantId,
-				reservationDate,
-				reservationTime,
-			});
-
-			if (!allowed) {
-				return res.status(409).json({
-					message: `Complet : toutes les tables sont occupées sur ce créneau (${occupiedCount}/${totalTables}).`,
-					occupiedCount,
-					totalTables,
-				});
-			}
-
-			// Créer la réservation
-			const reservation = new Reservation({
-				restaurantId,
-				clientName,
-				phone,
-				nbPersonnes,
-				reservationDate,
-				reservationTime,
-				notes: notes || "",
-				reservationSource: "online", // ✅ Marquer comme réservation web
-				status: "pending", // ✅ En attente de validation par le restaurant
-				totalAmount: 0,
-			});
-
-			await reservation.save();
-
-			// ⭐ Émettre l'événement WebSocket pour notifier le restaurant en temps réel
-			const io = req.app.locals.io;
-			if (io) {
-				emitReservationEvent(
-					io,
-					restaurantId,
-					"created",
-					reservation.toObject(),
-				);
-			}
-
-			// Retourner la confirmation
-			res.status(201).json({
-				success: true,
-				message: "Réservation créée avec succès",
-				reservation: {
-					_id: reservation._id,
-					clientName: reservation.clientName,
-					nbPersonnes: reservation.nbPersonnes,
-					reservationDate: reservation.reservationDate,
-					reservationTime: reservation.reservationTime,
-					status: reservation.status,
-				},
-			});
-		} catch (err) {
-			console.error("[POST /reservations/online] Erreur:", err);
-			res.status(500).json({ message: "Erreur serveur lors de la création de la réservation" });
-		}
-	},
-);
-
 // POST / - création réservation (admin / server)
 router.post(
 	"/",
@@ -312,8 +208,7 @@ router.post(
 						$gte: twoHoursBefore,
 						$lte: twoHoursAfter,
 					},
-					// ✅ Support dual-status FR/EN
-					status: { $in: [RESERVATION_STATUS.PENDING, RESERVATION_STATUS.CONFIRMED, "pending", "confirmed"] },
+					status: { $in: ["pending", "confirmed"] },
 				});
 
 				if (existingResa) {
@@ -445,7 +340,7 @@ router.post(
 				// Continue vers création de réservation (après les cas)
 			}
 			// CAS 2: Dernière résa terminée + table non dispo → recycler la table puis créer une nouvelle réservation
-			else if (lastReservation?.status === RESERVATION_STATUS.COMPLETED) {
+			else if (lastReservation?.status === "completed") {
 				if (table) {
 					table.guests = [];
 					table.status = "available";
@@ -458,7 +353,7 @@ router.post(
 			// ⭐ Pour les foodtrucks : chaque client a sa propre reservation
 			else if (
 				lastReservation &&
-				lastReservation.status !== RESERVATION_STATUS.COMPLETED &&
+				lastReservation.status !== "completed" &&
 				!isFoodtruck
 			) {
 				await lastReservation.populate("tableId");
@@ -563,7 +458,7 @@ router.post(
 			// ⭐ CAS 4 (Foodtruck avec reservation en cours): Créer nouvelle reservation individuelle
 			else if (
 				lastReservation &&
-				lastReservation.status !== RESERVATION_STATUS.COMPLETED &&
+				lastReservation.status !== "completed" &&
 				isFoodtruck
 			) {
 				// Continue vers création de réservation (après les cas)
@@ -573,13 +468,13 @@ router.post(
 			
 			// ⭐ Détecter si c'est une réservation web (planifiée) ou sur place (immédiate)
 			const isWebReservation = req.body.reservationDate && req.body.reservationTime && req.body.nbPersonnes;
-			const reservationSource = isWebReservation ? "À distance" : "Sur place";
+			const reservationSource = isWebReservation ? "online" : "on_site";
 			
 			const reservation = new Reservation({
 				...req.body,
 				restaurantId: tokenRestaurantId || req.body.restaurantId, // ⭐ Utiliser restaurantId du token
 				tableId: tableIdFinal,
-				status: RESERVATION_STATUS.PENDING,
+				status: "pending",
 				isPresent: isWebReservation ? false : true, // Web = pas encore présent
 				nbPersonnes: req.body.nbPersonnes || 1,
 				notes: notes.trim(),
@@ -664,7 +559,7 @@ router.post(
 				return res.status(200).json({ valid: false, reason: "not_found" });
 			}
 
-			if (reservation.status === RESERVATION_STATUS.COMPLETED || reservation.status === RESERVATION_STATUS.CANCELLED) {
+			if (reservation.status === "completed" || reservation.status === "cancelled") {
 				return res.status(200).json({ valid: false, reason: "session_closed" });
 			}
 
@@ -746,10 +641,9 @@ router.get(
 			const now = new Date();
 			const upcomingWindow = new Date(now.getTime() + 72 * 60 * 60 * 1000); // +72h (3 jours)
 
-			// ✅ Support dual-status FR/EN pendant la transition
 			const upcomingReservations = await Reservation.find({
 				restaurantId,
-				status: { $in: [RESERVATION_STATUS.PENDING, "pending"] }, // ✅ Accepte les deux formats
+				status: "pending",
 				reservationDate: { $gte: now, $lte: upcomingWindow },
 			})
 				.populate("serverId", "name serverId")
@@ -980,8 +874,8 @@ router.put(
 
 			// ⭐ RÈGLE MÉTIER: isPresent=true impossible si status terminée ou annulée
 			if (
-				(reservation.status === RESERVATION_STATUS.COMPLETED ||
-					reservation.status === RESERVATION_STATUS.CANCELLED) &&
+				(reservation.status === "completed" ||
+					reservation.status === "cancelled") &&
 				!reservation.isPresent
 			) {
 				return res.status(400).json({
@@ -992,8 +886,8 @@ router.put(
 
 			// ⭐ RÈGLE MÉTIER: Ne pas modifier si terminée/annulée
 			if (
-				reservation.status === RESERVATION_STATUS.COMPLETED ||
-				reservation.status === RESERVATION_STATUS.CANCELLED
+				reservation.status === "completed" ||
+				reservation.status === "cancelled"
 			) {
 				return res.status(400).json({
 					message: "Impossible de modifier une réservation terminée ou annulée",
@@ -1043,7 +937,7 @@ router.put(
 		try {
 			const { status } = req.body; // le nouveau statut envoyé par le front
 
-			const allowedStatuses = [RESERVATION_STATUS.PENDING, RESERVATION_STATUS.CONFIRMED, RESERVATION_STATUS.COMPLETED, RESERVATION_STATUS.CANCELLED];
+			const allowedStatuses = ["pending", "confirmed", "completed", "cancelled"];
 
 			// Vérification que le statut demandé est valide
 			if (!allowedStatuses.includes(status)) {
@@ -1058,8 +952,8 @@ router.put(
 
 			// ⭐ RÈGLE MÉTIER: Réservation terminée/annulée ne peut plus être modifiée
 			if (
-				(reservation.status === RESERVATION_STATUS.COMPLETED ||
-					reservation.status === RESERVATION_STATUS.CANCELLED) &&
+				(reservation.status === "completed" ||
+					reservation.status === "cancelled") &&
 				status !== reservation.status
 			) {
 				return res.status(400).json({
@@ -1068,30 +962,30 @@ router.put(
 			}
 
 			// ⭐ RÈGLE MÉTIER: Ouvrir une réservation SEULEMENT si isPresent=true
-			if (status === RESERVATION_STATUS.CONFIRMED && !reservation.isPresent) {
+			if (status === "confirmed" && !reservation.isPresent) {
 				return res.status(400).json({
 					message:
 						"Impossible d'ouvrir une réservation si le client n'est pas présent",
 				});
 			}
 
-			// ⭐ RÈGLE MÉTIER: Seules les réservations RESERVATION_STATUS.PENDING peuvent être ouvertes
-			if (status === RESERVATION_STATUS.CONFIRMED && reservation.status !== RESERVATION_STATUS.PENDING) {
+			// ⭐ RÈGLE MÉTIER: Seules les réservations "pending" peuvent être ouvertes
+			if (status === "confirmed" && reservation.status !== "pending") {
 				return res.status(400).json({
 					message: "Seules les réservations en attente peuvent être ouvertes",
 				});
 			}
 
-			// ⭐ RÈGLE MÉTIER: Une réservation RESERVATION_STATUS.CONFIRMED peut revenir à RESERVATION_STATUS.PENDING (garder isPresent=true)
+			// ⭐ RÈGLE MÉTIER: Une réservation "confirmed" peut revenir à "pending" (garder isPresent=true)
 			// (pas de validation supplémentaire nécessaire)
 
 			// ⭐ RÈGLE MÉTIER: Si passage à terminée/annulée, isPresent passe à false
-			if (status === RESERVATION_STATUS.COMPLETED || status === RESERVATION_STATUS.CANCELLED) {
+			if (status === "completed" || status === "cancelled") {
 				reservation.isPresent = false;
 			}
 
 			// ⭐ AUTO-ASSIGN : Enregistrer le serveur/admin qui ouvre la réservation
-			if (status === RESERVATION_STATUS.CONFIRMED && req.user?.id) {
+			if (status === "confirmed" && req.user?.id) {
 				try {
 					let opener = await Server.findById(req.user.id).select("name");
 					if (!opener) {
@@ -1183,10 +1077,10 @@ router.put(
 			// Mettre à jour les champs de paiement
 			if (paymentMethod) reservation.paymentMethod = paymentMethod;
 
-			// Forcer le statut à RESERVATION_STATUS.COMPLETED après paiement
+			// Forcer le statut à "completed" après paiement
 			// (le hook pre("save") va recalculer paidAmount/remainingAmount correctement)
 			const oldPayStatus = reservation.status;
-			reservation.status = RESERVATION_STATUS.COMPLETED;
+			reservation.status = "completed";
 			reservation.isPresent = false; // ⭐ RÈGLE MÉTIER
 			reservation.updatedAt = new Date();
 
@@ -1196,10 +1090,10 @@ router.put(
 				amount: reservation.totalAmount,
 				paymentMethod: paymentMethod || reservation.paymentMethod,
 			});
-			if (oldPayStatus !== RESERVATION_STATUS.COMPLETED) {
+			if (oldPayStatus !== "completed") {
 				await addAudit(reservation, "status_changed", user, {
 					oldValue: oldPayStatus,
-					newValue: RESERVATION_STATUS.COMPLETED,
+					newValue: "completed",
 				});
 			}
 			await reservation.save();
@@ -1623,13 +1517,13 @@ router.put("/client/:id/close", async (req, res) => {
 		}
 
 		// 2. Vérifier que la réservation peut être terminée
-		if (reservation.status === RESERVATION_STATUS.COMPLETED) {
+		if (reservation.status === "completed") {
 			return res.status(400).json({ message: "Réservation déjà terminée" });
 		}
 
 		// 3. Mise à jour
 		const oldClientStatus = reservation.status;
-		reservation.status = RESERVATION_STATUS.COMPLETED;
+		reservation.status = "completed";
 		reservation.isPresent = false;
 
 		// ⭐ Audit : fermeture client
@@ -1637,7 +1531,7 @@ router.put("/client/:id/close", async (req, res) => {
 			reservation,
 			"closed_client",
 			{ id: null, type: "system", name: "Client" },
-			{ oldValue: oldClientStatus, newValue: RESERVATION_STATUS.COMPLETED },
+			{ oldValue: oldClientStatus, newValue: "completed" },
 		);
 
 		// Si la réservation a des orderIds, on force toutes les commandes à paid (tous champs cohérents)
@@ -1922,14 +1816,14 @@ router.post(
 
 			// Link première session à la résa (ou toutes si multi)
 			reservation.tableSessionId = sessions[0]._id;
-			reservation.status = RESERVATION_STATUS.CONFIRMED;
+			reservation.status = "confirmed";
 			reservation.arrivalTime = actualArrivalTime || new Date();
 
 			// Audit
 			const user = await getAuditUser(req);
 			await addAudit(reservation, "status_changed", user, {
 				from: reservation.status,
-				to: RESERVATION_STATUS.CONFIRMED,
+				to: "confirmed",
 				note: "Client arrivé",
 			});
 
@@ -1994,7 +1888,7 @@ router.patch(
 				});
 			}
 
-			reservation.status = RESERVATION_STATUS.CANCELLED;
+			reservation.status = "cancelled";
 			reservation.canceledAt = new Date();
 
 			// Libérer table(s)
@@ -2014,7 +1908,7 @@ router.patch(
 			const user = await getAuditUser(req);
 			await addAudit(reservation, "status_changed", user, {
 				from: reservation.status,
-				to: RESERVATION_STATUS.CANCELLED,
+				to: "cancelled",
 				note: "No-show",
 			});
 
@@ -2093,208 +1987,5 @@ router.get("/public/availability/:restaurantId", async (req, res) => {
 		res.status(500).json({ message: "Erreur serveur" });
 	}
 });
-
-// ============================================================================
-// 🆕 ACTIVITY MODE — New endpoints for enhanced reservation workflow
-// ============================================================================
-
-const reservationService = require("../services/reservationService");
-
-/**
- * PATCH /reservations/:id/mark-present
- * Marquer un client comme présent (arrivé au restaurant)
- * Activity Mode: Étape 1 du workflow
- */
-router.patch(
-	"/:id/mark-present",
-	auth,
-	checkRoles(["server", "admin"]),
-	async (req, res) => {
-		try {
-			const { id } = req.params;
-
-			if (!mongoose.Types.ObjectId.isValid(id)) {
-				return res.status(400).json({ message: "ID invalide" });
-			}
-
-			const io = getIO(req);
-			const reservation = await reservationService.markPresent(id, io);
-
-			res.status(200).json(reservation);
-		} catch (err) {
-			console.error("❌ [ACTIVITY] Error marking present:", err);
-			
-			if (err.message === "Reservation not found") {
-				return res.status(404).json({ message: "Réservation non trouvée" });
-			}
-			
-			if (err.message === "Only pending reservations can be marked as present") {
-				return res.status(400).json({ 
-					message: "Seules les réservations en attente peuvent être marquées présentes" 
-				});
-			}
-			
-			res.status(500).json({ message: err.message });
-		}
-	}
-);
-
-/**
- * POST /reservations/:id/open
- * Ouvrir le service (créer TableSession + passer à "confirmed")
- * Activity Mode: Étape 2 du workflow
- */
-router.post(
-	"/:id/open",
-	auth,
-	checkRoles(["server", "admin"]),
-	async (req, res) => {
-		try {
-			const { id } = req.params;
-
-			if (!mongoose.Types.ObjectId.isValid(id)) {
-				return res.status(400).json({ message: "ID invalide" });
-			}
-
-			const io = getIO(req);
-			const result = await reservationService.openService(id, io);
-
-			res.status(200).json({
-				reservation: result.reservation,
-				session: result.session,
-				waitTime: result.waitTime, // minutes
-			});
-		} catch (err) {
-			console.error("❌ [ACTIVITY] Error opening service:", err);
-			
-			if (err.message === "Reservation not found") {
-				return res.status(404).json({ message: "Réservation non trouvée" });
-			}
-			
-			if (err.message === "Reservation already opened or completed") {
-				return res.status(400).json({ 
-					message: "Réservation déjà ouverte ou terminée" 
-				});
-			}
-			
-			if (err.message === "No table assigned to this reservation") {
-				return res.status(400).json({ 
-					message: "Aucune table assignée à cette réservation" 
-				});
-			}
-			
-			if (err.message === "Table is already occupied") {
-				return res.status(409).json({ 
-					message: "Table déjà occupée" 
-				});
-			}
-			
-			res.status(500).json({ message: err.message });
-		}
-	}
-);
-
-/**
- * PATCH /reservations/:id/close
- * Fermer le service et encaisser
- * Activity Mode: Étape finale du workflow
- */
-router.patch(
-	"/:id/close",
-	auth,
-	checkRoles(["server", "admin"]),
-	async (req, res) => {
-		try {
-			const { id } = req.params;
-			const { paymentMethod, amountPaid, tip } = req.body;
-
-			if (!mongoose.Types.ObjectId.isValid(id)) {
-				return res.status(400).json({ message: "ID invalide" });
-			}
-
-			// Validation
-			if (!paymentMethod) {
-				return res.status(400).json({ message: "paymentMethod requis" });
-			}
-
-			if (typeof amountPaid !== "number" || amountPaid < 0) {
-				return res.status(400).json({ message: "amountPaid invalide" });
-			}
-
-			const io = getIO(req);
-			const result = await reservationService.closeService(
-				id, 
-				{ paymentMethod, amountPaid, tip },
-				io
-			);
-
-			res.status(200).json({
-				reservation: result.reservation,
-				session: result.session,
-				payment: result.payment,
-				serviceTime: result.serviceTime, // minutes
-			});
-		} catch (err) {
-			console.error("❌ [ACTIVITY] Error closing service:", err);
-			
-			if (err.message === "Reservation not found") {
-				return res.status(404).json({ message: "Réservation non trouvée" });
-			}
-			
-			if (err.message === "Reservation is not in service") {
-				return res.status(400).json({ 
-					message: "Réservation n'est pas en cours de service" 
-				});
-			}
-			
-			if (err.message.includes("Insufficient payment")) {
-				return res.status(400).json({ 
-					message: err.message 
-				});
-			}
-			
-			res.status(500).json({ message: err.message });
-		}
-	}
-);
-
-/**
- * PATCH /reservations/:id/no-show
- * Marquer une réservation comme no-show (client pas venu)
- * Activity Mode: Alternative flow
- */
-router.patch(
-	"/:id/no-show",
-	auth,
-	checkRoles(["server", "admin"]),
-	async (req, res) => {
-		try {
-			const { id } = req.params;
-
-			if (!mongoose.Types.ObjectId.isValid(id)) {
-				return res.status(400).json({ message: "ID invalide" });
-			}
-
-			const io = getIO(req);
-			const reservation = await reservationService.markNoShow(id, io);
-
-			res.status(200).json(reservation);
-		} catch (err) {
-			console.error("❌ [ACTIVITY] Error marking no-show:", err);
-			
-			if (err.message === "Reservation not found") {
-				return res.status(404).json({ message: "Réservation non trouvée" });
-			}
-			
-			if (err.message === "Only pending reservations can be marked as no-show") {
-				return res.status(400).json({ 
-					message: "Seules les réservations en attente peuvent être marquées no-show" 
-				});
-			}
-			
-			res.status(500).json({ message: err.message });
-		}
-	}
-);
 
 module.exports = router;

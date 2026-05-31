@@ -5,7 +5,6 @@
  */
 
 const Reservation = require("../models/Reservation");
-const { RESERVATION_STATUS } = require("../constants/reservationStatus");
 
 /**
  * Parse une heure au format "HH:MM" et retourne un objet Date avec cette heure
@@ -113,7 +112,7 @@ async function checkOverbooking({
 	const activeReservations = await Reservation.find({
 		restaurantId,
 		reservationDate: { $gte: startOfDay, $lte: endOfDay },
-		status: { $in: [RESERVATION_STATUS.PENDING, RESERVATION_STATUS.CONFIRMED] },
+		status: { $in: ["pending", "confirmed"] },
 		reservationTime: { $exists: true, $ne: "" },
 		...(excludeReservationId && { _id: { $ne: excludeReservationId } }),
 	}).select("reservationTime reservationDate");
@@ -184,7 +183,7 @@ async function getAvailableTableIds({
 				$gte: startOfDay,
 				$lte: endOfDay,
 			},
-			status: { $in: [RESERVATION_STATUS.PENDING, RESERVATION_STATUS.CONFIRMED] },
+			status: { $in: ["pending", "confirmed"] }, // Réservations actives uniquement
 			...(excludeReservationId && { _id: { $ne: excludeReservationId } }),
 		}).select("tableId reservationDate reservationTime");
 

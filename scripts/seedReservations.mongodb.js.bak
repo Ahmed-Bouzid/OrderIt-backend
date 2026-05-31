@@ -1,0 +1,112 @@
+// seedReservations.mongodb.js — Script mongosh pour créer des réservations de test
+// Usage: mongosh "MONGO_URI" < scripts/seedReservations.mongodb.js
+
+use("easyqr-db");
+
+// 1. Lister les restaurants (commenté pour l'exécution auto)
+// const restaurants = db.restaurants.find({}, { name: 1 }).toArray();
+// print("\n📋 Restaurants disponibles:\n");
+// restaurants.forEach(r => print(`  ${r._id}  |  ${r.name || "(sans nom)"}`));
+
+// 2. Récupérer le premier restaurant (ou spécifier l'ID)
+const restaurant = db.restaurants.findOne();
+if (!restaurant) {
+  print("❌ Aucun restaurant trouvé");
+  quit(1);
+}
+
+const restaurantId = restaurant._id;
+print(`\n🏪 Restaurant: ${restaurant.name || restaurantId}\n`);
+
+// Noms et téléphones fictifs
+const fakeNames = [
+  "Sophie Martin",
+  "Lucas Dubois",
+  "Emma Petit",
+  "Thomas Bernard",
+  "Léa Durand",
+  "Hugo Moreau",
+  "Chloé Laurent",
+  "Alexandre Simon",
+];
+
+const fakePhones = [
+  "06 12 34 56 78",
+  "06 23 45 67 89",
+  "06 34 56 78 90",
+  "06 45 67 89 01",
+  "06 56 78 90 12",
+  "06 67 89 01 23",
+  "06 78 90 12 34",
+  "06 89 01 23 45",
+];
+
+const now = new Date();
+const today = new Date(now);
+today.setMinutes(0, 0, 0);
+
+const reservations = [];
+
+// Jour J (aujourd'hui) — 2 réservations : dans 1h et 2h
+for (let i = 0; i < 2; i++) {
+  const resDate = new Date(today);
+  resDate.setHours(resDate.getHours() + (i + 1));
+  const hour = String(resDate.getHours()).padStart(2, "0");
+  const min = String(resDate.getMinutes()).padStart(2, "0");
+
+  reservations.push({
+    restaurantId: restaurantId,
+    clientName: fakeNames[i],
+    phone: fakePhones[i],
+    nbPersonnes: Math.floor(Math.random() * 4) + 2,
+    reservationDate: resDate,
+    reservationTime: `${hour}:${min}`,
+    status: "pending",
+    reservationSource: "À distance",
+    notes: `Réservation test — Jour J+${i + 1}h`,
+    orderIds: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+}
+
+// Jours J+1, J+2, J+3 — 2 réservations par jour
+for (let day = 1; day <= 3; day++) {
+  for (let slot = 0; slot < 2; slot++) {
+    const resDate = new Date(today);
+    resDate.setDate(resDate.getDate() + day);
+    resDate.setHours(12 + slot * 7, 0, 0, 0); // 12h et 19h
+
+    const hour = String(resDate.getHours()).padStart(2, "0");
+    const min = String(resDate.getMinutes()).padStart(2, "0");
+
+    const idx = day * 2 + slot;
+
+    reservations.push({
+      restaurantId: restaurantId,
+      clientName: fakeNames[idx % fakeNames.length],
+      phone: fakePhones[idx % fakePhones.length],
+      nbPersonnes: Math.floor(Math.random() * 4) + 2,
+      reservationDate: resDate,
+      reservationTime: `${hour}:${min}`,
+      status: "pending",
+      reservationSource: "À distance",
+      notes: `Réservation test — Jour J+${day}`,
+      orderIds: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+}
+
+// Insérer toutes les réservations
+const result = db.reservations.insertMany(reservations);
+
+print(`✅ ${result.insertedIds.length} réservations créées:\n`);
+reservations.forEach((r, i) => {
+  const date = r.reservationDate.toLocaleDateString("fr-FR");
+  const time = r.reservationTime;
+  print(`  📅 ${date} ${time} | ${r.clientName} (${r.nbPersonnes} pers.)`);
+});
+
+print("\n✅ Terminé\n");

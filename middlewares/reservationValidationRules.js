@@ -1,5 +1,4 @@
 const { body } = require("express-validator");
-const { VALID_RESERVATION_STATUSES } = require("../constants/reservationStatus");
 
 const reservationValidationRules = [
 	body("tableId").optional().isMongoId().withMessage("TableId invalide"),
@@ -80,7 +79,7 @@ const reservationValidationRules = [
 		.withMessage("Montant total invalide"),
 	body("status")
 		.optional()
-		.isIn(VALID_RESERVATION_STATUSES)
+		.isIn(["confirmed", "completed", "cancelled", "pending"])
 		.withMessage("Statut invalide"),
 ];
 
@@ -164,7 +163,7 @@ const reservationUpdateRules = [
 
 	body("status")
 		.optional()
-		.isIn(VALID_RESERVATION_STATUSES)
+		.isIn(["confirmed", "completed", "cancelled", "pending"])
 		.withMessage("Statut invalide"),
 
 	body("phone")

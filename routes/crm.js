@@ -6,7 +6,6 @@ const checkRoles = require("../middlewares/checkRoles");
 const checkUserRestaurant = require("../middlewares/checkUserRestaurant");
 const Order = require("../models/Order");
 const Reservation = require("../models/Reservation");
-const { RESERVATION_STATUS, ACTIVE_STATUSES } = require("../constants/reservationStatus");
 const Server = require("../models/Server");
 const ClientMessage = require("../models/ClientMessage");
 const Table = require("../models/Table");
@@ -1136,16 +1135,16 @@ router.get(
 				createdAt: { $gte: start, $lte: end },
 			}).lean();
 			const avgSessionDuration =
-				sessions.filter((s) => s.updatedAt && s.status === RESERVATION_STATUS.COMPLETED).length >
+				sessions.filter((s) => s.updatedAt && s.status === "completed").length >
 				0
 					? sessions
-							.filter((s) => s.updatedAt && s.status === RESERVATION_STATUS.COMPLETED)
+							.filter((s) => s.updatedAt && s.status === "completed")
 							.reduce(
 								(sum, s) =>
 									sum + (new Date(s.updatedAt) - new Date(s.createdAt)),
 								0,
 							) /
-						sessions.filter((s) => s.status === RESERVATION_STATUS.COMPLETED).length /
+						sessions.filter((s) => s.status === "completed").length /
 						(1000 * 60)
 					: 0;
 

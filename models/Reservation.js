@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-const { RESERVATION_STATUS } = require("../constants/reservationStatus");
 
 const reservationSchema = new mongoose.Schema(
 	{
@@ -65,14 +64,8 @@ const reservationSchema = new mongoose.Schema(
 
 		status: {
 			type: String,
-			enum: [
-				RESERVATION_STATUS.PENDING,
-				RESERVATION_STATUS.CONFIRMED,
-				RESERVATION_STATUS.COMPLETED,
-				RESERVATION_STATUS.CANCELLED,
-				RESERVATION_STATUS.NO_SHOW,
-			],
-			default: RESERVATION_STATUS.PENDING,
+			enum: ["pending", "confirmed", "completed", "cancelled", "no_show"],
+			default: "pending",
 			index: true,
 		},
 		clientName: { type: String, required: true, trim: true },
@@ -80,8 +73,7 @@ const reservationSchema = new mongoose.Schema(
 		nbPersonnes: { type: Number, default: 1 },
 		reservationDate: { type: Date, required: true },
 		reservationTime: { type: String, default: "" },
-		arrivalTime: { type: Date }, // DEPRECATED: use arrivedAt instead
-		arrivedAt: { type: Date }, // 🆕 Timestamp when client actually arrives (Activity mode)
+		arrivalTime: { type: Date },
 		reservationSource: {
 			type: String,
 			enum: ["on_site", "online", "walk_in"],
@@ -99,14 +91,14 @@ const reservationSchema = new mongoose.Schema(
 		orderSummary: { type: String, default: "" },
 		dishStatus: {
 			type: String,
-			enum: ["pending", "in_progress", "cancelled", "completed"],
-			default: "pending",
+			enum: ["En attente", "En cours", "Annulé", "Terminé"],
+			default: "En attente",
 		},
 
 		paymentMethod: {
 			type: String,
-			enum: ["card", "cash", "other"],
-			default: "other",
+			enum: ["Carte", "Espèces", "Autre"],
+			default: "Autre",
 		},
 
 		// ⭐⭐ MIS À JOUR : Calculé dynamiquement depuis les commandes
@@ -126,7 +118,8 @@ const reservationSchema = new mongoose.Schema(
 
 		isPresent: { type: Boolean, default: false },
 		canceled: { type: Boolean, default: false },
-		canceledAt: { type: Date },	completedAt: { type: Date }, // 🆕 Activity mode: timestamp when service completed
+		canceledAt: { type: Date },
+
 		// ⭐⭐ NOUVEAU : Historique d'audit des modifications
 		auditLog: [
 			{
@@ -224,13 +217,10 @@ reservationSchema.pre("save", async function (next) {
 
 			// Mettre à jour le statut automatiquement
 			if (this.remainingAmount <= 0 && this.totalAmount > 0) {
-				this.status = RESERVATION_STATUS.COMPLETED; // ✅ Tout payé = completed
-				this.isPresent = false; // ⭐ RÈGLE MÉTIER: isPresent=false si completed
-			} else if (
-				this.status === RESERVATION_STATUS.COMPLETED &&
-				this.remainingAmount > 0
-			) {
-				this.status = RESERVATION_STATUS.CONFIRMED; // ✅ Ré-ouvrir si encore des impayés
+			this.status = "completed"; // Tout payé = completed
+			this.isPresent = false; // ⭐ RÈGLE MÉTIER: isPresent=false si completed
+		} else if (this.status === "completed" && this.remainingAmount > 0) {
+			this.status = "confirmed"; // Ré-ouvrir si encore des impayés
 			}
 		} catch (error) {
 			console.error("Erreur calcul montants réservation:", error);
