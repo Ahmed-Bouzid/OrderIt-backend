@@ -4,13 +4,13 @@
 	"engines": {
 		"node": "22.x"
 	},
-	"main": "server.js",
+	"main": "src/server.js",
 	"scripts": {
-		"start": "node start.js",
-		"dev": "nodemon start.js",
+		"start": "node src/start.js",
+		"dev": "nodemon src/start.js",
 		"test": "jest",
-		"payments:backfill:dry": "node scripts/backfillStripePaymentStatuses.js --only-test",
-		"payments:backfill:apply": "node scripts/backfillStripePaymentStatuses.js --apply --only-test"
+		"payments:backfill:dry": "node src/scripts/backfillStripePaymentStatuses.js --only-test",
+		"payments:backfill:apply": "node src/scripts/backfillStripePaymentStatuses.js --apply --only-test"
 	},
 	"keywords": [],
 	"author": "",
