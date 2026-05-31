@@ -166,12 +166,8 @@ async function requestBill(sessionId) {
   tableSession.billStatus = "bill_requested";
   await tableSession.save({ validateModifiedOnly: true });
   
-  // Mettre à jour le statut de la table
-  const table = await Table.findById(tableSession.tableId);
-  if (table) {
-    table.status = "bill_requested";
-    await table.save();
-  }
+  // ✅ Table reste "occupied" (pas de changement de status)
+  // Seule la TableSession.billStatus change à "bill_requested"
   
   return await TableSession.findById(sessionId)
     .populate("tableId")
