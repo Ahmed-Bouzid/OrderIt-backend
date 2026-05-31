@@ -1,77 +1,61 @@
-const brevo = require("@getbrevo/brevo");
 const logger = require("../utils/logger");
 
-// Init client (lazy loading pour éviter crash si pas config)
-let client = null;
-
-function getClient() {
-	if (client) return client;
-
-	const { BREVO_API_KEY } = process.env;
-
-	if (!BREVO_API_KEY) {
-		logger.warn("Email service non configuré (BREVO_API_KEY manquante)");
-		return null;
-	}
-
-	const defaultClient = brevo.ApiClient.instance;
-	const apiKey = defaultClient.authentications["api-key"];
-	apiKey.apiKey = BREVO_API_KEY;
-
-	client = new brevo.TransactionalEmailsApi();
-	return client;
-}
-
 /**
- * Envoie un email transactionnel via Brevo (300/jour gratuits)
- * @param {Object} options
- * @param {string} options.to - Email destinataire
- * @param {string} options.subject - Sujet de l'email
- * @param {string} options.htmlContent - Contenu HTML de l'email
- * @param {string} [options.textContent] - Contenu texte brut (fallback)
- * @returns {Promise<{success: boolean, messageId?: string, error?: string}>}
+ * Envoie un email transactionnel via Brevo API REST (300/jour gratuits)
  */
 async function sendEmail({ to, subject, htmlContent, textContent }) {
-	const brevoClient = getClient();
-	if (!brevoClient) {
-		logger.error("sendEmail appelé sans config Brevo");
+	const { BREVO_API_KEY, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME } = process.env;
+
+	if (!BREVO_API_KEY) {
+		logger.error("sendEmail appelé sans BREVO_API_KEY");
 		return { success: false, error: "Email non configuré" };
 	}
 
-	// Validation basique
 	if (!to || !to.includes("@")) {
 		return { success: false, error: "Email invalide" };
 	}
 
 	try {
-		const sendSmtpEmail = new brevo.SendSmtpEmail();
-		sendSmtpEmail.sender = {
-			email: process.env.BREVO_SENDER_EMAIL || "noreply@sunnygo.fr",
-			name: process.env.BREVO_SENDER_NAME || "SunnyGo",
-		};
-		sendSmtpEmail.to = [{ email: to }];
-		sendSmtpEmail.subject = subject;
-		sendSmtpEmail.htmlContent = htmlContent;
-		if (textContent) {
-			sendSmtpEmail.textContent = textContent;
+		// Appel direct à l'API REST Brevo
+		const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+			method: "POST",
+			headers: {
+				"api-key": BREVO_API_KEY,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				sender: {
+					email: BREVO_SENDER_EMAIL || "noreply@sunnygo.fr",
+					name: BREVO_SENDER_NAME || "SunnyGo",
+				},
+				to: [{ email: to }],
+				subject,
+				htmlContent,
+				textContent,
+			}),
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			logger.error(`Erreur Brevo API:`, error);
+			return {
+				success: false,
+				error: error.message || `HTTP ${response.status}`,
+			};
 		}
 
-		const response = await brevoClient.sendTransacEmail(sendSmtpEmail);
-
-		logger.info(`Email envoyé : ${response.messageId} → ${to}`);
-		return { success: true, messageId: response.messageId };
+		const result = await response.json();
+		logger.info(`Email envoyé : ${result.messageId} → ${to}`);
+		return { success: true, messageId: result.messageId };
 	} catch (error) {
-		logger.error(`Erreur envoi email vers ${to} :`, error);
+		logger.error(`Erreur envoi email vers ${to} :`, error.message);
 		return {
 			success: false,
-			error: error.response?.body?.message || error.message,
+			error: error.message,
 		};
 	}
 }
 
-/**
- * Template HTML pour email de confirmation
- */
 function confirmationTemplate(reservation) {
 	const {
 		nom,
@@ -121,26 +105,18 @@ function confirmationTemplate(reservation) {
 					<span class="detail-label">👥 Nombre de personnes</span>
 					<span>${nombrePersonnes} personne(s)</span>
 				</div>
-				${
-					restaurantAddress
-						? `
+				${restaurantAddress ? `
 				<div class="detail-row">
 					<span class="detail-label">📍 Adresse</span>
 					<span>${restaurantAddress}</span>
 				</div>
-				`
-						: ""
-				}
-				${
-					restaurantPhone
-						? `
+				` : ""}
+				${restaurantPhone ? `
 				<div class="detail-row">
 					<span class="detail-label">📞 Contact</span>
 					<span>${restaurantPhone}</span>
 				</div>
-				`
-						: ""
-				}
+				` : ""}
 			</div>
 			
 			<p>Nous avons hâte de vous accueillir !</p>
@@ -155,9 +131,6 @@ function confirmationTemplate(reservation) {
 	`;
 }
 
-/**
- * Envoie un email de confirmation de réservation
- */
 async function sendReservationConfirmation(reservation) {
 	const { email, nom, date, heure, nombrePersonnes, restaurantName } =
 		reservation;
@@ -173,9 +146,6 @@ async function sendReservationConfirmation(reservation) {
 	});
 }
 
-/**
- * Envoie un email de rappel (24h avant)
- */
 async function sendReservationReminder(reservation) {
 	const { email, nom, date, heure, nombrePersonnes, restaurantName } =
 		reservation;
@@ -217,9 +187,6 @@ async function sendReservationReminder(reservation) {
 	});
 }
 
-/**
- * Envoie un email d'annulation
- */
 async function sendReservationCancellation(reservation) {
 	const { email, nom, date, heure, restaurantName } = reservation;
 
