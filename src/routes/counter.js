@@ -114,10 +114,33 @@ router.post(
 						tableId,
 						source: "counter",
 						billStatus: { $ne: "closed" },
-					});
+					})
+						.populate("tableId")
+						.populate("reservationId");
 					
 					if (retrySession) {
-						console.log(`[COUNTER] Session trouvée après 409 (race condition)`);
+						console.log(`[COUNTER] Session trouvée après 409 (race condition) - sessionId=${retrySession._id}`);
+						
+						// ✅ Recalculer le total depuis les orders existantes
+						const orders = await Order.find({
+							tableSessionId: retrySession._id,
+							source: "counter",
+						});
+						
+						const totalAmount = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+						retrySession.totalAmount = totalAmount;
+						
+						// ✅ Émettre l'événement WebSocket (la session existait déjà mais peut ne pas être synchro côté client)
+						const io = req.app.locals.io;
+						if (io && restaurantId) {
+							emitTableSessionEvent(
+								io,
+								restaurantId.toString(),
+								"opened",
+								retrySession.toObject(),
+							);
+						}
+						
 						return res.status(200).json(retrySession);
 					}
 				}
