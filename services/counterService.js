@@ -45,7 +45,23 @@ async function createSession({
     }
     
     if (table.status === "occupied") {
-      throw new Error("Table already occupied");
+      // ✅ Vérifier s'il y a vraiment une session active pour cette table
+      const existingSession = await TableSession.findOne({
+        tableId,
+        billStatus: { $ne: "closed" },
+      }).session(session);
+      
+      if (!existingSession) {
+        // ⚠️ Incohérence BDD : table marquée occupée mais pas de session active
+        // → Auto-correction : libérer la table
+        console.warn(`[counterService] Incohérence détectée: table ${tableId} occupée sans session active → libération automatique`);
+        table.status = "available";
+        table.currentSessionId = null;
+        await table.save({ session });
+      } else {
+        // ✅ Session active trouvée → vraie erreur 409
+        throw new Error("Table already occupied");
+      }
     }
 
     // 2. Si réservation fournie → vérifier et mettre à jour
