@@ -4,6 +4,7 @@ const Reservation = require("../models/Reservation");
 const Table = require("../models/Table");
 const Order = require("../models/Order");
 const Payment = require("../models/Payment");
+const { RESERVATION_STATUS, ACTIVE_STATUSES } = require("../constants/reservationStatus");
 
 /**
  * COUNTER SERVICE — Gestion des sessions comptoir
@@ -252,7 +253,7 @@ async function closeSession({
     // 6. Terminer la réservation (si existe)
     if (tableSession.reservationId) {
       const reservation = tableSession.reservationId;
-      reservation.status = "completed";
+      reservation.status = RESERVATION_STATUS.COMPLETED;
       reservation.totalAmount = calculatedTotal;
       reservation.completedAt = new Date(); // ✅ Utiliser completedAt
       
@@ -329,7 +330,7 @@ async function cancelSession(sessionId, reason = "Cancelled by staff") {
     // 4. Annuler la réservation (si existe)
     if (tableSession.reservationId) {
       const reservation = tableSession.reservationId;
-      reservation.status = "cancelled";
+      reservation.status = RESERVATION_STATUS.CANCELLED;
       reservation.canceled = true;
       reservation.canceledAt = new Date();
       await reservation.save({ session: mongoSession, validateModifiedOnly: true });

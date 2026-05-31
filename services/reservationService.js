@@ -5,6 +5,7 @@ const Table = require("../models/Table");
 const Order = require("../models/Order");
 const Payment = require("../models/Payment");
 const { emitEvent } = require("../utils/socketEmitter");
+const { RESERVATION_STATUS, ACTIVE_STATUSES } = require("../constants/reservationStatus");
 
 /**
  * RESERVATION SERVICE — Gestion cycle de vie Activity Mode
@@ -34,7 +35,7 @@ async function markPresent(reservationId, io = null) {
   
   // Vérifier que la réservation est en attente
   // Note: accepter les statuts FR et EN pour compatibilité
-  const isPending = reservation.status === "pending" || reservation.status === "en attente";
+  const isPending = reservation.status === "pending" || reservation.status === RESERVATION_STATUS.PENDING;
   
   if (!isPending) {
     throw new Error("Only pending reservations can be marked as present");
@@ -98,7 +99,7 @@ async function openService(reservationId, io = null) {
     }
     
     // Vérifier que la réservation est en attente (FR ou EN)
-    const isPending = reservation.status === "pending" || reservation.status === "en attente";
+    const isPending = reservation.status === "pending" || reservation.status === RESERVATION_STATUS.PENDING;
     
     if (!isPending) {
       throw new Error("Reservation already opened or completed");
@@ -232,7 +233,7 @@ async function closeService(reservationId, paymentData, io = null) {
     }
     
     // Vérifier que la réservation est confirmée (FR ou EN)
-    const isConfirmed = reservation.status === "confirmed" || reservation.status === "ouverte";
+    const isConfirmed = reservation.status === "confirmed" || reservation.status === RESERVATION_STATUS.CONFIRMED;
     
     if (!isConfirmed) {
       throw new Error("Reservation is not in service");
@@ -288,7 +289,7 @@ async function closeService(reservationId, paymentData, io = null) {
     });
     
     // 6. Terminer la Reservation
-    reservation.status = "completed"; // EN (ou "terminée" pour compat FR)
+    reservation.status = RESERVATION_STATUS.COMPLETED; // EN (ou "terminée" pour compat FR)
     reservation.totalAmount = calculatedTotal;
     reservation.completedAt = new Date(); // ✅ Utiliser completedAt
     await reservation.save({ 
@@ -377,14 +378,14 @@ async function cancelReservation(reservationId, reason = "Cancelled by client or
   }
   
   // Vérifier qu'elle n'est pas déjà terminée
-  const isCompleted = reservation.status === "completed" || reservation.status === "terminée";
+  const isCompleted = reservation.status === "completed" || reservation.status === RESERVATION_STATUS.COMPLETED;
   
   if (isCompleted) {
     throw new Error("Cannot cancel a completed reservation");
   }
   
   // Annuler
-  reservation.status = "cancelled"; // EN
+  reservation.status = RESERVATION_STATUS.CANCELLED; // EN
   reservation.canceled = true;
   reservation.canceledAt = new Date();
   
@@ -436,14 +437,14 @@ async function markNoShow(reservationId, io = null) {
   }
   
   // Vérifier qu'elle était en attente
-  const isPending = reservation.status === "pending" || reservation.status === "en attente";
+  const isPending = reservation.status === "pending" || reservation.status === RESERVATION_STATUS.PENDING;
   
   if (!isPending) {
     throw new Error("Only pending reservations can be marked as no-show");
   }
   
   // Marquer no-show
-  reservation.status = "no_show";
+  reservation.status = RESERVATION_STATUS.NO_SHOW;
   reservation.canceled = true;
   reservation.canceledAt = new Date();
   

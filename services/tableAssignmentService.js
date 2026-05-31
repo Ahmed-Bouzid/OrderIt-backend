@@ -1,6 +1,7 @@
 const Reservation = require("../models/Reservation");
 const Table = require("../models/Table");
 const Restaurant = require("../models/Restaurant");
+const { RESERVATION_STATUS, ACTIVE_STATUSES } = require("../constants/reservationStatus");
 
 /**
  * Analyse si une table est disponible pour un créneau horaire donné
@@ -35,7 +36,7 @@ async function isTableAvailable(
 	const query = {
 		tableId: tableId,
 		reservationDate: { $gte: dateStart, $lte: dateEnd },
-		status: { $in: ["pending", "confirmed", "en attente", "ouverte"] },
+		status: { $in: ACTIVE_STATUSES },
 	};
 
 	if (excludeReservationId) {
@@ -77,7 +78,7 @@ async function getTableUsageCount(tableId, date) {
 	const count = await Reservation.countDocuments({
 		tableId: tableId,
 		reservationDate: { $gte: dateStart, $lte: dateEnd },
-		status: { $in: ["pending", "confirmed", "en attente", "ouverte"] },
+		status: { $in: ACTIVE_STATUSES },
 	});
 
 	return count;
@@ -104,7 +105,7 @@ async function autoAssignTables(restaurantId, date) {
 		const allReservations = await Reservation.find({
 			restaurantId: restaurantId,
 			reservationDate: { $gte: dateStart, $lte: dateEnd },
-			status: { $in: ["pending", "confirmed", "en attente", "ouverte"] },
+			status: { $in: ACTIVE_STATUSES },
 		});
 
 		const unassignedCount = allReservations.filter((r) => !r.tableId).length;

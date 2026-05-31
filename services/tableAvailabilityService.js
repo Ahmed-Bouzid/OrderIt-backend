@@ -6,6 +6,7 @@
 const Reservation = require("../models/Reservation");
 const Table = require("../models/Table");
 const Restaurant = require("../models/Restaurant");
+const { RESERVATION_STATUS, ACTIVE_STATUSES } = require("../constants/reservationStatus");
 
 /**
  * Vérifie la disponibilité table par table pour un créneau donné
@@ -54,7 +55,7 @@ async function checkTableAvailability({ restaurantId, date, time, people }) {
 		const reservations = await Reservation.find({
 			restaurantId,
 			reservationDate: { $gte: startOfDay, $lte: endOfDay },
-			status: { $in: ["en attente", "ouverte"] },
+			status: { $in: ACTIVE_STATUSES },
 			tableId: { $ne: null },
 		}).lean();
 
