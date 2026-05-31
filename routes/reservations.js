@@ -208,7 +208,8 @@ router.post(
 						$gte: twoHoursBefore,
 						$lte: twoHoursAfter,
 					},
-					status: { $in: ["en attente", "ouverte"] },
+					// ✅ Support dual-status FR/EN
+					status: { $in: ["en attente", "ouverte", "pending", "confirmed"] },
 				});
 
 				if (existingResa) {
@@ -641,9 +642,10 @@ router.get(
 			const now = new Date();
 			const upcomingWindow = new Date(now.getTime() + 72 * 60 * 60 * 1000); // +72h (3 jours)
 
+			// ✅ Support dual-status FR/EN pendant la transition
 			const upcomingReservations = await Reservation.find({
 				restaurantId,
-				status: "en attente",
+				status: { $in: ["en attente", "pending"] }, // ✅ Accepte les deux formats
 				reservationDate: { $gte: now, $lte: upcomingWindow },
 			})
 				.populate("serverId", "name serverId")
