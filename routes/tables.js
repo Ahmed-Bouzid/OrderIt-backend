@@ -163,11 +163,34 @@ router.get(
 		try {
 			const restaurantId = req.params.restaurantId;
 
-
 			// Mongoose convertit automatiquement les strings en ObjectId
 			const tables = await Table.find({ restaurantId }).maxTimeMS(10000);
 
-			res.json(tables);
+			// ✅ Nettoyage automatique : libérer les tables "occupied" sans session active
+			const TableSession = require("../models/TableSession");
+			const cleanupPromises = tables
+				.filter((t) => t.status === TABLE_STATUS.OCCUPIED)
+				.map(async (table) => {
+					const activeSession = await TableSession.findOne({
+						tableId: table._id,
+						billStatus: { $ne: "closed" },
+					});
+
+					if (!activeSession) {
+						// ⚠️ Table orpheline : occupée sans session active → libérer
+						console.warn(`[GET /tables] Auto-correction: table ${table._id} (${table.number}) occupée sans session → libération`);
+						table.status = TABLE_STATUS.AVAILABLE;
+						table.currentSessionId = null;
+						await table.save({ validateModifiedOnly: true });
+					}
+				});
+
+			await Promise.all(cleanupPromises);
+
+			// Recharger les tables après le nettoyage pour retourner l'état à jour
+			const cleanedTables = await Table.find({ restaurantId }).maxTimeMS(10000);
+
+			res.json(cleanedTables);
 		} catch (err) {
 			console.error("🚨 Erreur fetch tables:", err);
 			res
