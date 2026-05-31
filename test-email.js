@@ -4,7 +4,8 @@ const emailService = require("./services/emailService");
 async function testEmail() {
 	console.log("🧪 Test d'envoi d'email avec Brevo...\n");
 
-	const TEST_EMAIL = "waraibeatbox@gmail.com";
+	// Change cet email par un email différent de l'expéditeur
+	const TEST_EMAIL = "waraibeatbox+test@gmail.com"; // Gmail alias (même boîte, email différent)
 
 	console.log(`📧 Destinataire : ${TEST_EMAIL}\n`);
 

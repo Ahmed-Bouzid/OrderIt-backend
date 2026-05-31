@@ -65,6 +65,7 @@ function confirmationTemplate(reservation) {
 		restaurantName,
 		restaurantAddress,
 		restaurantPhone,
+		logoUrl, // URL du logo (optionnel)
 	} = reservation;
 
 	return `
@@ -72,56 +73,95 @@ function confirmationTemplate(reservation) {
 <html>
 <head>
 	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<style>
-		body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-		.container { max-width: 600px; margin: 0 auto; padding: 20px; }
-		.header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-		.content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
-		.details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
-		.detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
-		.detail-label { font-weight: bold; color: #667eea; }
-		.footer { text-align: center; padding: 20px; color: #999; font-size: 12px; }
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+			line-height: 1.6;
+			color: #333;
+			margin: 0;
+			padding: 0;
+			background-color: #f5f5f5;
+		}
+		.container {
+			max-width: 600px;
+			margin: 40px auto;
+			background: white;
+			border-radius: 8px;
+			overflow: hidden;
+			box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+		}
+		.logo {
+			text-align: center;
+			padding: 30px 20px 20px;
+			background: #fff;
+		}
+		.logo img {
+			max-width: 180px;
+			height: auto;
+		}
+		.content {
+			padding: 20px 40px 40px;
+		}
+		.content p {
+			margin: 10px 0;
+		}
+		.divider {
+			border-top: 1px solid #ddd;
+			margin: 20px 0;
+		}
+		.info-block {
+			background: #fafafa;
+			padding: 20px;
+			border-radius: 6px;
+			margin: 20px 0;
+		}
+		.info-line {
+			margin: 8px 0;
+			font-size: 15px;
+		}
+		.footer {
+			text-align: center;
+			padding: 20px;
+			background: #f9f9f9;
+			color: #999;
+			font-size: 13px;
+			border-top: 1px solid #eee;
+		}
 	</style>
 </head>
 <body>
 	<div class="container">
-		<div class="header">
-			<h1>✅ Réservation confirmée</h1>
+		${logoUrl ? `
+		<div class="logo">
+			<img src="${logoUrl}" alt="${restaurantName}" />
 		</div>
+		` : ""}
+		
 		<div class="content">
-			<p>Bonjour <strong>${nom}</strong>,</p>
-			<p>Votre réservation chez <strong>${restaurantName}</strong> est confirmée !</p>
+			<p>Bonjour ${nom},</p>
+			<p>C'est officiel : votre table chez <strong>${restaurantName}</strong> vous attend ✨</p>
 			
-			<div class="details">
-				<div class="detail-row">
-					<span class="detail-label">📅 Date</span>
-					<span>${date}</span>
-				</div>
-				<div class="detail-row">
-					<span class="detail-label">🕐 Heure</span>
-					<span>${heure}</span>
-				</div>
-				<div class="detail-row">
-					<span class="detail-label">👥 Nombre de personnes</span>
-					<span>${nombrePersonnes} personne(s)</span>
-				</div>
-				${restaurantAddress ? `
-				<div class="detail-row">
-					<span class="detail-label">📍 Adresse</span>
-					<span>${restaurantAddress}</span>
-				</div>
-				` : ""}
-				${restaurantPhone ? `
-				<div class="detail-row">
-					<span class="detail-label">📞 Contact</span>
-					<span>${restaurantPhone}</span>
-				</div>
-				` : ""}
+			<div class="divider"></div>
+			
+			<div class="info-block">
+				<div class="info-line">📅 <strong>${date}</strong></div>
+				<div class="info-line">🕐 <strong>${heure}</strong></div>
+				<div class="info-line">👥 <strong>${nombrePersonnes} personne${nombrePersonnes > 1 ? "s" : ""}</strong></div>
+				${restaurantAddress ? `<div class="info-line" style="margin-top: 15px;">📍 ${restaurantAddress}</div>` : ""}
+				${restaurantPhone ? `<div class="info-line">📞 ${restaurantPhone}</div>` : ""}
 			</div>
 			
-			<p>Nous avons hâte de vous accueillir !</p>
-			<p style="color: #999; font-size: 14px;">En cas d'empêchement, merci de nous prévenir au plus tôt.</p>
+			<div class="divider"></div>
+			
+			<p>Bonne ambiance, bonne cuisine, bonne soirée.<br>
+			Il ne manque plus que vous 🍷</p>
+			
+			<p style="color: #999; font-size: 14px; margin-top: 20px;">
+				En cas d'empêchement, merci de nous prévenir au plus tôt.
+			</p>
 		</div>
+		
 		<div class="footer">
 			<p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
 		</div>
@@ -136,7 +176,7 @@ async function sendReservationConfirmation(reservation) {
 		reservation;
 
 	const htmlContent = confirmationTemplate(reservation);
-	const textContent = `Bonjour ${nom}, votre réservation chez ${restaurantName} le ${date} à ${heure} pour ${nombrePersonnes} personne(s) est confirmée. À bientôt !`;
+	const textContent = `Bonjour ${nom},\n\nC'est officiel : votre table chez ${restaurantName} vous attend ✨\n\n📅 ${date}\n🕐 ${heure}\n👥 ${nombrePersonnes} personne${nombrePersonnes > 1 ? "s" : ""}\n\nBonne ambiance, bonne cuisine, bonne soirée. Il ne manque plus que vous 🍷\n\nEn cas d'empêchement, merci de nous prévenir au plus tôt.\n\n—\nCet email a été envoyé automatiquement, merci de ne pas y répondre.`;
 
 	return sendEmail({
 		to: email,

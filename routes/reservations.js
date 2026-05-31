@@ -25,6 +25,7 @@ const { emitReservationEvent } = require("../utils/socketEmitter");
 const { addAudit, getAuditUser } = require("../utils/auditHelper");
 const { checkOverbooking } = require("../utils/tableAvailabilityChecker");
 const { getAvailableSlotsForDay } = require("../utils/slotGenerator");
+const emailService = require("../services/emailService");
 
 // ⭐ Helper pour accéder à io via req.app
 const getIO = (req) => req.app.locals.io;
@@ -230,6 +231,47 @@ router.post(
 				clientName: req.body.clientName,
 			});
 			await reservation.save();
+
+			// ⭐ Envoi email de confirmation (non-bloquant)
+			if (reservation.email) {
+				// Récupérer les infos du restaurant
+				Restaurant.findById(req.body.restaurantId)
+					.select("name address phone")
+					.then((restaurant) => {
+						if (restaurant) {
+							// Formater la date pour l'email
+							const date = new Date(reservation.reservationDate);
+							const options = { 
+								weekday: 'long', 
+								year: 'numeric', 
+								month: 'long', 
+								day: 'numeric' 
+							};
+							const formattedDate = date.toLocaleDateString('fr-FR', options);
+
+							return emailService.sendReservationConfirmation({
+								email: reservation.email,
+								nom: reservation.clientName,
+								date: formattedDate,
+								heure: reservation.reservationTime,
+								nombrePersonnes: reservation.nbPersonnes,
+								restaurantName: restaurant.name || "Restaurant",
+								restaurantAddress: restaurant.address || "",
+								restaurantPhone: restaurant.phone || "",
+							});
+						}
+					})
+					.then((result) => {
+						if (result?.success) {
+							console.log(`✅ Email confirmation envoyé : ${result.messageId}`);
+						} else if (result?.error) {
+							console.warn(`⚠️ Échec envoi email : ${result.error}`);
+						}
+					})
+					.catch((err) => {
+						console.error("❌ Erreur envoi email confirmation :", err.message);
+					});
+			}
 
 			// ⭐ Émettre l'événement WebSocket
 			const io = getIO(req);
@@ -1017,6 +1059,42 @@ router.put(
 				newValue: status,
 			});
 			await reservation.save();
+
+			// ⭐ Envoi email d'annulation (non-bloquant)
+			if (status === "cancelled" && reservation.email) {
+				Restaurant.findById(reservation.restaurantId)
+					.select("name address phone")
+					.then((restaurant) => {
+						if (restaurant) {
+							const date = new Date(reservation.reservationDate);
+							const options = { 
+								weekday: 'long', 
+								year: 'numeric', 
+								month: 'long', 
+								day: 'numeric' 
+							};
+							const formattedDate = date.toLocaleDateString('fr-FR', options);
+
+							return emailService.sendReservationCancellation({
+								email: reservation.email,
+								nom: reservation.clientName,
+								date: formattedDate,
+								heure: reservation.reservationTime,
+								restaurantName: restaurant.name || "Restaurant",
+							});
+						}
+					})
+					.then((result) => {
+						if (result?.success) {
+							console.log(`✅ Email annulation envoyé : ${result.messageId}`);
+						} else if (result?.error) {
+							console.warn(`⚠️ Échec envoi email annulation : ${result.error}`);
+						}
+					})
+					.catch((err) => {
+						console.error("❌ Erreur envoi email annulation :", err.message);
+					});
+			}
 
 			// ⭐ Émettre l'événement WebSocket
 			const io = getIO(req);

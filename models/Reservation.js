@@ -70,6 +70,7 @@ const reservationSchema = new mongoose.Schema(
 		},
 		clientName: { type: String, required: true, trim: true },
 		phone: { type: String, default: "" },
+		email: { type: String, default: "", trim: true, lowercase: true },
 		nbPersonnes: { type: Number, default: 1 },
 		reservationDate: { type: Date, required: true },
 		reservationTime: { type: String, default: "" },
