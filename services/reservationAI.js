@@ -215,7 +215,7 @@ async function autoAssignTable(restaurantId, reservationId) {
 		restaurantId,
 		_id: { $ne: reservationId },
 		reservationDate: { $gte: dayStart, $lte: dayEnd },
-		status: { $in: ["en attente", "ouverte"] },
+		status: { $in: ["pending", "confirmed", "en attente", "ouverte"] },
 		tableId: { $exists: true, $ne: null },
 	})
 		.select("tableId reservationTime reservationDate")
@@ -521,15 +521,19 @@ async function getSmartDuration(restaurantId, nbPersonnes) {
  * Retourne les réservations "en attente" sans table, triées par score de priorité.
  *
  * Score de priorité :
- *  ancienneté (min depuis création) × 0.5 + nbPersonnes × 10
+ *  ancienneté (min depuis arrivée) × 0.5 + nbPersonnes × 10
  *  → favorise les clients qui attendent depuis longtemps ET les grands groupes
+ *
+ * IMPORTANT : Ne retourne QUE les clients DÉJÀ ARRIVÉS (isPresent: true)
+ * qui attendent une table (tableId: null).
+ * Les réservations futures ne doivent PAS apparaître ici.
  *
  * Exemple d'usage : widget "File d'attente" dans l'AgendaScreen.
  *   → Le serveur sait immédiatement qui appeler en premier quand une table se libère.
  *
  * @param {string} restaurantId
  * @param {Date|string} date
- * @returns {Array<{ reservation, priority, reason }>}
+ * @returns {Array<{ reservation, priority, reason, waitingMinutes }>}
  */
 async function getWaitingList(restaurantId, date) {
 	const { start, end } = dayBounds(date);
@@ -537,19 +541,23 @@ async function getWaitingList(restaurantId, date) {
 	const waitingResas = await Reservation.find({
 		restaurantId,
 		reservationDate: { $gte: start, $lte: end },
-		status: "en attente",
+		status: { $in: ["pending", "confirmed", "en attente"] },
+		isPresent: true, // ⭐ OBLIGATOIRE : uniquement clients déjà arrivés
 		$or: [{ tableId: null }, { tableId: { $exists: false } }],
 	}).lean();
 
 	const now = Date.now();
 	const scored = waitingResas.map((r) => {
-		const ageMins =
-			(now - new Date(r.createdAt || r.reservationDate).getTime()) / 60000;
+		// ⭐ Calculer depuis arrivedAt (quand le client est arrivé)
+		// Si arrivedAt n'existe pas, fallback sur createdAt (pour compatibilité)
+		const arrivalTime = r.arrivedAt || r.createdAt || r.reservationDate;
+		const ageMins = (now - new Date(arrivalTime).getTime()) / 60000;
 		const priority = ageMins * 0.5 + (r.nbPersonnes || 1) * 10;
 		return {
 			reservation: r,
 			priority,
-			reason: `Attente ${Math.round(ageMins)}min — ${r.nbPersonnes || 1} pers.`,
+			waitingMinutes: Math.max(0, Math.round(ageMins)), // ⭐ Temps réel d'attente
+			reason: `Attente ${Math.max(0, Math.round(ageMins))}min — ${r.nbPersonnes || 1} pers.`,
 		};
 	});
 

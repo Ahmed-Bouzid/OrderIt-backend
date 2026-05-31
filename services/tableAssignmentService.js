@@ -35,7 +35,7 @@ async function isTableAvailable(
 	const query = {
 		tableId: tableId,
 		reservationDate: { $gte: dateStart, $lte: dateEnd },
-		status: { $in: ["en attente", "ouverte"] },
+		status: { $in: ["pending", "confirmed", "en attente", "ouverte"] },
 	};
 
 	if (excludeReservationId) {
@@ -77,7 +77,7 @@ async function getTableUsageCount(tableId, date) {
 	const count = await Reservation.countDocuments({
 		tableId: tableId,
 		reservationDate: { $gte: dateStart, $lte: dateEnd },
-		status: { $in: ["en attente", "ouverte"] },
+		status: { $in: ["pending", "confirmed", "en attente", "ouverte"] },
 	});
 
 	return count;
@@ -104,7 +104,7 @@ async function autoAssignTables(restaurantId, date) {
 		const allReservations = await Reservation.find({
 			restaurantId: restaurantId,
 			reservationDate: { $gte: dateStart, $lte: dateEnd },
-			status: { $in: ["en attente", "ouverte"] },
+			status: { $in: ["pending", "confirmed", "en attente", "ouverte"] },
 		});
 
 		const unassignedCount = allReservations.filter((r) => !r.tableId).length;
