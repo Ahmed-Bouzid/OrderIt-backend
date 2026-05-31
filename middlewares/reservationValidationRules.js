@@ -79,8 +79,8 @@ const reservationValidationRules = [
 		.isFloat({ min: 0 })
 		.withMessage("Montant total invalide"),
 	body("status")
-		.optioVALID_RESERVATION_STATUSES
-		.isIn(["ouverte", "terminée", "annulée", "en attente"])
+		.optional()
+		.isIn(VALID_RESERVATION_STATUSES)
 		.withMessage("Statut invalide"),
 ];
 
@@ -163,8 +163,8 @@ const reservationUpdateRules = [
 		.withMessage("Montant total invalide"),
 
 	body("status")
-		.optioVALID_RESERVATION_STATUSES
-		.isIn(["ouverte", "terminée", "annulée", "en attente"])
+		.optional()
+		.isIn(VALID_RESERVATION_STATUSES)
 		.withMessage("Statut invalide"),
 
 	body("phone")
