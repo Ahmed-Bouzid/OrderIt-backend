@@ -163,34 +163,11 @@ router.get(
 		try {
 			const restaurantId = req.params.restaurantId;
 
+
 			// Mongoose convertit automatiquement les strings en ObjectId
 			const tables = await Table.find({ restaurantId }).maxTimeMS(10000);
 
-			// ✅ Nettoyage automatique : libérer les tables "occupied" sans session active
-			const TableSession = require("../models/TableSession");
-			const cleanupPromises = tables
-				.filter((t) => t.status === TABLE_STATUS.OCCUPIED)
-				.map(async (table) => {
-					const activeSession = await TableSession.findOne({
-						tableId: table._id,
-						billStatus: { $ne: "closed" },
-					});
-
-					if (!activeSession) {
-						// ⚠️ Table orpheline : occupée sans session active → libérer
-						console.warn(`[GET /tables] Auto-correction: table ${table._id} (${table.number}) occupée sans session → libération`);
-						table.status = TABLE_STATUS.AVAILABLE;
-						table.currentSessionId = null;
-						await table.save({ validateModifiedOnly: true });
-					}
-				});
-
-			await Promise.all(cleanupPromises);
-
-			// Recharger les tables après le nettoyage pour retourner l'état à jour
-			const cleanedTables = await Table.find({ restaurantId }).maxTimeMS(10000);
-
-			res.json(cleanedTables);
+			res.json(tables);
 		} catch (err) {
 			console.error("🚨 Erreur fetch tables:", err);
 			res
@@ -260,7 +237,7 @@ router.post(
 			startOfToday.setHours(0, 0, 0, 0);
 			const futureFilter = {
 				reservationDate: { $gte: startOfToday },
-				status: { $in: ["en attente", "ouverte"] },
+				status: { $in: ["pending", "confirmed"] },
 			};
 
 			// Collecter les _id des documents à mettre à jour AVANT de modifier (évite conflit A→B puis B→A)
@@ -622,11 +599,11 @@ router.post(
 			const closedReservations = await Reservation.updateMany(
 				{
 					tableId: table._id,
-					status: { $nin: ["terminée", "annulée"] },
+					status: { $nin: ["completed", "cancelled"] },
 				},
 				{
 					$set: {
-						status: "terminée",
+						status: "completed",
 						isPresent: false,
 						updatedAt: closedAt,
 					},

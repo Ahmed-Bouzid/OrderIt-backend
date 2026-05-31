@@ -7,6 +7,13 @@ const Restaurant = require("../models/Restaurant");
 const Server = require("../models/Server");
 const Admin = require("../models/Admin");
 const { body, validationResult } = require("express-validator");
+const {
+  RESERVATION_STATUS,
+  VALID_RESERVATION_STATUSES,
+  ACTIVE_STATUSES,
+  TERMINAL_STATUSES,
+  isTerminalStatus,
+} = require("../constants/reservationStatus");
 
 const auth = require("../middlewares/auth");
 const checkRoles = require("../middlewares/checkRoles");
@@ -306,7 +313,7 @@ router.post(
 						$lte: twoHoursAfter,
 					},
 					// ✅ Support dual-status FR/EN
-					status: { $in: ["en attente", "ouverte", "pending", "confirmed"] },
+					status: { $in: [RESERVATION_STATUS.PENDING, RESERVATION_STATUS.CONFIRMED, "pending", "confirmed"] },
 				});
 
 				if (existingResa) {
@@ -438,7 +445,7 @@ router.post(
 				// Continue vers création de réservation (après les cas)
 			}
 			// CAS 2: Dernière résa terminée + table non dispo → recycler la table puis créer une nouvelle réservation
-			else if (lastReservation?.status === "terminée") {
+			else if (lastReservation?.status === RESERVATION_STATUS.COMPLETED) {
 				if (table) {
 					table.guests = [];
 					table.status = "available";
@@ -451,7 +458,7 @@ router.post(
 			// ⭐ Pour les foodtrucks : chaque client a sa propre reservation
 			else if (
 				lastReservation &&
-				lastReservation.status !== "terminée" &&
+				lastReservation.status !== RESERVATION_STATUS.COMPLETED &&
 				!isFoodtruck
 			) {
 				await lastReservation.populate("tableId");
@@ -556,7 +563,7 @@ router.post(
 			// ⭐ CAS 4 (Foodtruck avec reservation en cours): Créer nouvelle reservation individuelle
 			else if (
 				lastReservation &&
-				lastReservation.status !== "terminée" &&
+				lastReservation.status !== RESERVATION_STATUS.COMPLETED &&
 				isFoodtruck
 			) {
 				// Continue vers création de réservation (après les cas)
@@ -572,7 +579,7 @@ router.post(
 				...req.body,
 				restaurantId: tokenRestaurantId || req.body.restaurantId, // ⭐ Utiliser restaurantId du token
 				tableId: tableIdFinal,
-				status: "en attente",
+				status: RESERVATION_STATUS.PENDING,
 				isPresent: isWebReservation ? false : true, // Web = pas encore présent
 				nbPersonnes: req.body.nbPersonnes || 1,
 				notes: notes.trim(),
@@ -657,7 +664,7 @@ router.post(
 				return res.status(200).json({ valid: false, reason: "not_found" });
 			}
 
-			if (reservation.status === "terminée" || reservation.status === "annulée") {
+			if (reservation.status === RESERVATION_STATUS.COMPLETED || reservation.status === RESERVATION_STATUS.CANCELLED) {
 				return res.status(200).json({ valid: false, reason: "session_closed" });
 			}
 
@@ -742,7 +749,7 @@ router.get(
 			// ✅ Support dual-status FR/EN pendant la transition
 			const upcomingReservations = await Reservation.find({
 				restaurantId,
-				status: { $in: ["en attente", "pending"] }, // ✅ Accepte les deux formats
+				status: { $in: [RESERVATION_STATUS.PENDING, "pending"] }, // ✅ Accepte les deux formats
 				reservationDate: { $gte: now, $lte: upcomingWindow },
 			})
 				.populate("serverId", "name serverId")
@@ -973,8 +980,8 @@ router.put(
 
 			// ⭐ RÈGLE MÉTIER: isPresent=true impossible si status terminée ou annulée
 			if (
-				(reservation.status === "terminée" ||
-					reservation.status === "annulée") &&
+				(reservation.status === RESERVATION_STATUS.COMPLETED ||
+					reservation.status === RESERVATION_STATUS.CANCELLED) &&
 				!reservation.isPresent
 			) {
 				return res.status(400).json({
@@ -985,8 +992,8 @@ router.put(
 
 			// ⭐ RÈGLE MÉTIER: Ne pas modifier si terminée/annulée
 			if (
-				reservation.status === "terminée" ||
-				reservation.status === "annulée"
+				reservation.status === RESERVATION_STATUS.COMPLETED ||
+				reservation.status === RESERVATION_STATUS.CANCELLED
 			) {
 				return res.status(400).json({
 					message: "Impossible de modifier une réservation terminée ou annulée",
@@ -1036,7 +1043,7 @@ router.put(
 		try {
 			const { status } = req.body; // le nouveau statut envoyé par le front
 
-			const allowedStatuses = ["en attente", "ouverte", "terminée", "annulée"];
+			const allowedStatuses = [RESERVATION_STATUS.PENDING, RESERVATION_STATUS.CONFIRMED, RESERVATION_STATUS.COMPLETED, RESERVATION_STATUS.CANCELLED];
 
 			// Vérification que le statut demandé est valide
 			if (!allowedStatuses.includes(status)) {
@@ -1051,8 +1058,8 @@ router.put(
 
 			// ⭐ RÈGLE MÉTIER: Réservation terminée/annulée ne peut plus être modifiée
 			if (
-				(reservation.status === "terminée" ||
-					reservation.status === "annulée") &&
+				(reservation.status === RESERVATION_STATUS.COMPLETED ||
+					reservation.status === RESERVATION_STATUS.CANCELLED) &&
 				status !== reservation.status
 			) {
 				return res.status(400).json({
@@ -1061,30 +1068,30 @@ router.put(
 			}
 
 			// ⭐ RÈGLE MÉTIER: Ouvrir une réservation SEULEMENT si isPresent=true
-			if (status === "ouverte" && !reservation.isPresent) {
+			if (status === RESERVATION_STATUS.CONFIRMED && !reservation.isPresent) {
 				return res.status(400).json({
 					message:
 						"Impossible d'ouvrir une réservation si le client n'est pas présent",
 				});
 			}
 
-			// ⭐ RÈGLE MÉTIER: Seules les réservations "en attente" peuvent être ouvertes
-			if (status === "ouverte" && reservation.status !== "en attente") {
+			// ⭐ RÈGLE MÉTIER: Seules les réservations RESERVATION_STATUS.PENDING peuvent être ouvertes
+			if (status === RESERVATION_STATUS.CONFIRMED && reservation.status !== RESERVATION_STATUS.PENDING) {
 				return res.status(400).json({
 					message: "Seules les réservations en attente peuvent être ouvertes",
 				});
 			}
 
-			// ⭐ RÈGLE MÉTIER: Une réservation "ouverte" peut revenir à "en attente" (garder isPresent=true)
+			// ⭐ RÈGLE MÉTIER: Une réservation RESERVATION_STATUS.CONFIRMED peut revenir à RESERVATION_STATUS.PENDING (garder isPresent=true)
 			// (pas de validation supplémentaire nécessaire)
 
 			// ⭐ RÈGLE MÉTIER: Si passage à terminée/annulée, isPresent passe à false
-			if (status === "terminée" || status === "annulée") {
+			if (status === RESERVATION_STATUS.COMPLETED || status === RESERVATION_STATUS.CANCELLED) {
 				reservation.isPresent = false;
 			}
 
 			// ⭐ AUTO-ASSIGN : Enregistrer le serveur/admin qui ouvre la réservation
-			if (status === "ouverte" && req.user?.id) {
+			if (status === RESERVATION_STATUS.CONFIRMED && req.user?.id) {
 				try {
 					let opener = await Server.findById(req.user.id).select("name");
 					if (!opener) {
@@ -1176,10 +1183,10 @@ router.put(
 			// Mettre à jour les champs de paiement
 			if (paymentMethod) reservation.paymentMethod = paymentMethod;
 
-			// Forcer le statut à "terminée" après paiement
+			// Forcer le statut à RESERVATION_STATUS.COMPLETED après paiement
 			// (le hook pre("save") va recalculer paidAmount/remainingAmount correctement)
 			const oldPayStatus = reservation.status;
-			reservation.status = "terminée";
+			reservation.status = RESERVATION_STATUS.COMPLETED;
 			reservation.isPresent = false; // ⭐ RÈGLE MÉTIER
 			reservation.updatedAt = new Date();
 
@@ -1189,10 +1196,10 @@ router.put(
 				amount: reservation.totalAmount,
 				paymentMethod: paymentMethod || reservation.paymentMethod,
 			});
-			if (oldPayStatus !== "terminée") {
+			if (oldPayStatus !== RESERVATION_STATUS.COMPLETED) {
 				await addAudit(reservation, "status_changed", user, {
 					oldValue: oldPayStatus,
-					newValue: "terminée",
+					newValue: RESERVATION_STATUS.COMPLETED,
 				});
 			}
 			await reservation.save();
@@ -1616,13 +1623,13 @@ router.put("/client/:id/close", async (req, res) => {
 		}
 
 		// 2. Vérifier que la réservation peut être terminée
-		if (reservation.status === "terminée") {
+		if (reservation.status === RESERVATION_STATUS.COMPLETED) {
 			return res.status(400).json({ message: "Réservation déjà terminée" });
 		}
 
 		// 3. Mise à jour
 		const oldClientStatus = reservation.status;
-		reservation.status = "terminée";
+		reservation.status = RESERVATION_STATUS.COMPLETED;
 		reservation.isPresent = false;
 
 		// ⭐ Audit : fermeture client
@@ -1630,7 +1637,7 @@ router.put("/client/:id/close", async (req, res) => {
 			reservation,
 			"closed_client",
 			{ id: null, type: "system", name: "Client" },
-			{ oldValue: oldClientStatus, newValue: "terminée" },
+			{ oldValue: oldClientStatus, newValue: RESERVATION_STATUS.COMPLETED },
 		);
 
 		// Si la réservation a des orderIds, on force toutes les commandes à paid (tous champs cohérents)
@@ -1915,14 +1922,14 @@ router.post(
 
 			// Link première session à la résa (ou toutes si multi)
 			reservation.tableSessionId = sessions[0]._id;
-			reservation.status = "ouverte";
+			reservation.status = RESERVATION_STATUS.CONFIRMED;
 			reservation.arrivalTime = actualArrivalTime || new Date();
 
 			// Audit
 			const user = await getAuditUser(req);
 			await addAudit(reservation, "status_changed", user, {
 				from: reservation.status,
-				to: "ouverte",
+				to: RESERVATION_STATUS.CONFIRMED,
 				note: "Client arrivé",
 			});
 
@@ -1987,7 +1994,7 @@ router.patch(
 				});
 			}
 
-			reservation.status = "annulée";
+			reservation.status = RESERVATION_STATUS.CANCELLED;
 			reservation.canceledAt = new Date();
 
 			// Libérer table(s)
@@ -2007,7 +2014,7 @@ router.patch(
 			const user = await getAuditUser(req);
 			await addAudit(reservation, "status_changed", user, {
 				from: reservation.status,
-				to: "annulée",
+				to: RESERVATION_STATUS.CANCELLED,
 				note: "No-show",
 			});
 
