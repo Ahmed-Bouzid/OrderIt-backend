@@ -114,33 +114,10 @@ router.post(
 						tableId,
 						source: "counter",
 						billStatus: { $ne: "closed" },
-					})
-						.populate("tableId")
-						.populate("reservationId");
+					});
 					
 					if (retrySession) {
-						console.log(`[COUNTER] Session trouvée après 409 (race condition) - sessionId=${retrySession._id}`);
-						
-						// ✅ Recalculer le total depuis les orders existantes
-						const orders = await Order.find({
-							tableSessionId: retrySession._id,
-							source: "counter",
-						});
-						
-						const totalAmount = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-						retrySession.totalAmount = totalAmount;
-						
-						// ✅ Émettre l'événement WebSocket (la session existait déjà mais peut ne pas être synchro côté client)
-						const io = req.app.locals.io;
-						if (io && restaurantId) {
-							emitTableSessionEvent(
-								io,
-								restaurantId.toString(),
-								"opened",
-								retrySession.toObject(),
-							);
-						}
-						
+						console.log(`[COUNTER] Session trouvée après 409 (race condition)`);
 						return res.status(200).json(retrySession);
 					}
 				}
@@ -449,6 +426,19 @@ router.get(
 				billStatus: { $ne: "closed" },
 			});
 
+			// 📊 Récupérer les sessions fermées aujourd'hui (pour stats caisse)
+			const todayStart = new Date();
+			todayStart.setHours(0, 0, 0, 0);
+			const todayEnd = new Date();
+			todayEnd.setHours(23, 59, 59, 999);
+
+			const closedSessionsToday = await TableSession.find({
+				restaurantId,
+				source: "counter",
+				billStatus: "closed",
+				closedAt: { $gte: todayStart, $lte: todayEnd },
+			}).select("totalAmount closedAt paymentMethod");
+
 			// Mapper état pour chaque table
 			const tablesWithState = await Promise.all(
 				tables.map(async (table) => {
@@ -499,96 +489,14 @@ router.get(
 			res.status(200).json({
 				tables: tablesWithState,
 				activeSessions: activeSessions.length,
+				closedSessionsToday: closedSessionsToday.map(s => ({
+					totalAmount: s.totalAmount,
+					closedAt: s.closedAt,
+					paymentMethod: s.paymentMethod,
+				})),
 			});
 		} catch (err) {
 			console.error("Erreur récupération état tables :", err);
-			res.status(500).json({ message: err.message });
-		}
-	},
-);
-
-/**
- * GET /counter/stats/:restaurantId
- * Récupérer les stats caisse du jour (en cours + payées)
- */
-router.get(
-	"/stats/:restaurantId",
-	auth,
-	checkRoles(["server", "admin"]),
-	async (req, res) => {
-		try {
-			const { restaurantId } = req.params;
-
-			if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
-				return res.status(400).json({
-					message: "restaurantId invalide",
-				});
-			}
-
-			// Début de la journée (00h00)
-			const today = new Date();
-			today.setHours(0, 0, 0, 0);
-
-			// Sessions en cours (non fermées)
-			const enCoursSessionsRaw = await TableSession.find({
-				restaurantId,
-				source: "counter",
-				billStatus: { $ne: "closed" },
-			}).populate("tableId", "number");
-
-			// Sessions fermées aujourd'hui
-			const payeesSessionsRaw = await TableSession.find({
-				restaurantId,
-				source: "counter",
-				billStatus: "closed",
-				closedAt: { $gte: today },
-			}).populate("tableId", "number");
-
-			// Enrichir avec les orders pour recalculer les montants
-			const enrichSession = async (session) => {
-				const orders = await Order.find({
-					tableSessionId: session._id,
-					source: "counter",
-					orderStatus: { $ne: "cancelled" },
-				});
-
-				const totalAmount = orders.reduce(
-					(sum, order) => sum + (order.totalAmount || 0),
-					0,
-				);
-
-				return {
-					_id: session._id,
-					tableNumber: session.tableId?.number || "?",
-					totalAmount,
-					openedAt: session.openedAt,
-					closedAt: session.closedAt,
-					billStatus: session.billStatus,
-				};
-			};
-
-			const enCoursSessions = await Promise.all(
-				enCoursSessionsRaw.map(enrichSession),
-			);
-
-			const payeesSessions = await Promise.all(
-				payeesSessionsRaw.map(enrichSession),
-			);
-
-			res.status(200).json({
-				enCours: {
-					count: enCoursSessions.length,
-					montant: enCoursSessions.reduce((sum, s) => sum + s.totalAmount, 0),
-					sessions: enCoursSessions,
-				},
-				payees: {
-					count: payeesSessions.length,
-					montant: payeesSessions.reduce((sum, s) => sum + s.totalAmount, 0),
-					sessions: payeesSessions,
-				},
-			});
-		} catch (err) {
-			console.error("Erreur récupération stats caisse :", err);
 			res.status(500).json({ message: err.message });
 		}
 	},

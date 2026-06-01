@@ -4,7 +4,7 @@
 
 **Date** : 31 mai 2026  
 **Status** : Documentation de référence  
-**Migration** : Plan disponible dans [../MIGRATION_AGENDA.md](../MIGRATION_AGENDA.md)
+**Migration** : Plan disponible dans [../../docs/migrations/MIGRATION_AGENDA.md](../../docs/migrations/MIGRATION_AGENDA.md)
 
 ---
 
@@ -586,14 +586,14 @@ render.yaml:
 
 ### Documents disponibles
 
-📄 **Plan complet** : [../MIGRATION_AGENDA.md](../MIGRATION_AGENDA.md)
+📄 **Plan complet** : [../../docs/migrations/MIGRATION_AGENDA.md](../../docs/migrations/MIGRATION_AGENDA.md)
 - 7 étapes détaillées
 - Code prêt à copier/coller
 - Checklist complète
 - Tests validation
 - Troubleshooting
 
-⚡ **Quick Start** : [../MIGRATION_AGENDA_QUICKSTART.md](../MIGRATION_AGENDA_QUICKSTART.md)
+⚡ **Quick Start** : [../../docs/migrations/MIGRATION_AGENDA_QUICKSTART.md](../../docs/migrations/MIGRATION_AGENDA_QUICKSTART.md)
 - Version express 1h
 - Commandes exactes
 - Rollback rapide
@@ -602,7 +602,7 @@ render.yaml:
 
 ```bash
 # Ouvrir le plan complet
-cat backend/MIGRATION_AGENDA.md
+cat docs/migrations/MIGRATION_AGENDA.md
 
 # Suivre les 7 étapes une par une
 # Ou demander à Copilot:
@@ -761,7 +761,7 @@ agenda.every('1 week', 'cleanup-old-jobs');
 ### Plan d'action
 
 **Si GO migration** :
-1. Lire [MIGRATION_AGENDA.md](../MIGRATION_AGENDA.md)
+1. Lire [MIGRATION_AGENDA.md](../../docs/migrations/MIGRATION_AGENDA.md)
 2. Bloquer 1-2h dans agenda
 3. Suivre étapes une par une
 4. Rollback facile si problème
