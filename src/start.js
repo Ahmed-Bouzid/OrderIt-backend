@@ -423,7 +423,6 @@ app.locals.onlineStaff = onlineStaff; // ⭐ Exposer pour les routes
 module.exports.io = io;
 
 const os = require("os");
-const { initEmailService } = require("./services/emailService");
 
 function getLocalIp() {
 	const interfaces = os.networkInterfaces();
@@ -453,9 +452,6 @@ mongoose
 	})
 	.then(async () => {
 		console.log("✅ MongoDB connecté");
-
-		// 📧 Initialiser le service email (optionnel, ne bloque pas le démarrage)
-		await initEmailService();
 
 		// 🎨 Seed themes initiaux (une seule fois au démarrage)
 		try {
