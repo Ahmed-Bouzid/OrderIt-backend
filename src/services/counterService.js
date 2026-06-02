@@ -47,20 +47,24 @@ async function createSession({
     
     if (table.status === "occupied") {
       // ✅ Vérifier s'il y a vraiment une session active pour cette table
+      // ⚠️ FIX CRITIQUE : Filtrer par restaurantId ET source pour éviter conflits inter-restaurants
       const existingSession = await TableSession.findOne({
         tableId,
+        restaurantId,
+        source: "counter",
         billStatus: { $ne: "closed" },
       }).session(session);
       
       if (!existingSession) {
-        // ⚠️ Incohérence BDD : table marquée occupée mais pas de session active
+        // ⚠️ Incohérence BDD : table marquée occupée mais pas de session active pour CE restaurant en mode counter
         // → Auto-correction : libérer la table
-        console.warn(`[counterService] Incohérence détectée: table ${tableId} occupée sans session active → libération automatique`);
+        console.warn(`[counterService] Incohérence détectée: table ${tableId} occupée sans session counter active pour restaurant ${restaurantId} → libération automatique`);
         table.status = "available";
         table.currentSessionId = null;
         await table.save({ session });
       } else {
-        // ✅ Session active trouvée → vraie erreur 409
+        // ✅ Session active trouvée pour CE restaurant en mode counter → vraie erreur 409
+        console.log(`[counterService] Table ${tableId} déjà occupée par session ${existingSession._id} (restaurant=${restaurantId} source=counter)`);
         throw new Error("Table already occupied");
       }
     }
