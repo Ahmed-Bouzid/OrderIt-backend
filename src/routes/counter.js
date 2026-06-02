@@ -98,9 +98,10 @@ router.post(
 			reservationId: reservationId || null,
 			guestCount: guestCount || 1,
 			serverId: serverId || null,
+		});
 
-			const elapsed = Date.now() - startTime;
-			console.log(`[COUNTER] Session créée (${elapsed}ms): sessionId=${session._id}`);
+		const elapsed = Date.now() - startTime;
+		console.log(`[COUNTER] Session créée (${elapsed}ms): sessionId=${session._id}`);
 
 			// ✅ WebSocket sync temps réel
 			const io = req.app.locals.io;
