@@ -54,7 +54,7 @@ router.post(
 	async (req, res) => {
 		const startTime = Date.now();
 		try {
-			const { restaurantId, tableId, reservationId, guestCount } = req.body;
+			const { restaurantId, tableId, reservationId, guestCount, serverId } = req.body;
 
 			// ✅ Validation stricte
 			if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) {
@@ -90,15 +90,14 @@ router.post(
 			}
 
 			// ✅ Créer nouvelle session via service (transaction atomique)
-			const serverId = req.body.serverId || req.user.id;
-			console.log(`[COUNTER] 🎯 serverId final utilisé: ${serverId}`);
-			const session = await counterService.createSession({
-				restaurantId,
-				tableId,
-				reservationId: reservationId || null,
-				guestCount: guestCount || 1,
-				serverId,
-			});
+		// ⚠️ serverId = ID du serveur sélectionné dans la modale (PAS req.user.id qui est l'admin)
+		console.log(`[COUNTER] 🎯 serverId sélectionné dans modale: ${serverId || 'NULL'}`);
+		const session = await counterService.createSession({
+			restaurantId,
+			tableId,
+			reservationId: reservationId || null,
+			guestCount: guestCount || 1,
+			serverId: serverId || null,
 
 			const elapsed = Date.now() - startTime;
 			console.log(`[COUNTER] Session créée (${elapsed}ms): sessionId=${session._id}`);
