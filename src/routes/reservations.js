@@ -163,6 +163,103 @@ async function dualWriteSession({ reservation, clientName, clientId, deviceId, i
 	}
 }
 
+// ✅ POST /online - Création réservation depuis le site web public (sans authentification)
+router.post(
+	"/online",
+	[
+		body("firstName").trim().notEmpty().withMessage("Prénom requis"),
+		body("lastName").trim().notEmpty().withMessage("Nom requis"),
+		body("phone").trim().notEmpty().withMessage("Téléphone requis"),
+		body("nbPersonnes").isInt({ min: 1, max: 50 }).withMessage("Nombre de personnes invalide"),
+		body("reservationDate").isISO8601().withMessage("Date invalide"),
+		body("reservationTime").matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage("Heure invalide (format HH:MM)"),
+		body("restaurantId").isMongoId().withMessage("Restaurant ID invalide"),
+		body("notes").optional().isString(),
+	],
+	async (req, res) => {
+		const errors = validationResult(req);
+		if (!errors.isEmpty()) {
+			const formattedErrors = errors.array().map((err) => ({
+				field: err.param,
+				message: err.msg,
+			}));
+			return res.status(400).json({ errors: formattedErrors });
+		}
+
+		try {
+			const { firstName, lastName, phone, nbPersonnes, reservationDate, reservationTime, restaurantId, notes } = req.body;
+
+			// Construire le nom complet
+			const clientName = `${firstName} ${lastName}`;
+
+			// Vérifier que le restaurant existe
+			const restaurant = await Restaurant.findById(restaurantId);
+			if (!restaurant) {
+				return res.status(404).json({ message: "Restaurant introuvable" });
+			}
+
+			// ⭐ Vérification anti-overbooking
+			const { allowed, occupiedCount, totalTables } = await checkOverbooking({
+				restaurantId,
+				reservationDate,
+				reservationTime,
+			});
+
+			if (!allowed) {
+				return res.status(409).json({
+					message: `Complet : toutes les tables sont occupées sur ce créneau (${occupiedCount}/${totalTables}).`,
+					occupiedCount,
+					totalTables,
+				});
+			}
+
+			// Créer la réservation
+			const reservation = new Reservation({
+				restaurantId,
+				clientName,
+				phone,
+				nbPersonnes,
+				reservationDate,
+				reservationTime,
+				notes: notes || "",
+				reservationSource: "online", // ✅ Marquer comme réservation web
+				status: "pending", // ✅ En attente de validation par le restaurant
+				totalAmount: 0,
+			});
+
+			await reservation.save();
+
+			// ⭐ Émettre l'événement WebSocket pour notifier le restaurant en temps réel
+			const io = getIO(req);
+			if (io) {
+				emitReservationEvent(
+					io,
+					restaurantId,
+					"created",
+					reservation.toObject(),
+				);
+			}
+
+			// Retourner la confirmation
+			res.status(201).json({
+				success: true,
+				message: "Réservation créée avec succès",
+				reservation: {
+					_id: reservation._id,
+					clientName: reservation.clientName,
+					nbPersonnes: reservation.nbPersonnes,
+					reservationDate: reservation.reservationDate,
+					reservationTime: reservation.reservationTime,
+					status: reservation.status,
+				},
+			});
+		} catch (err) {
+			console.error("[POST /reservations/online] Erreur:", err);
+			res.status(500).json({ message: "Erreur serveur lors de la création de la réservation" });
+		}
+	},
+);
+
 // POST / - création réservation (admin / server)
 router.post(
 	"/",
