@@ -30,6 +30,20 @@ const { applyDiscounts } = require("../utils/discountCalculator");
 const counterService = require("../services/counterService");
 
 /**
+ * GET /counter/debug-version
+ * Debug: vérifier commit déployé
+ */
+router.get("/debug-version", (req, res) => {
+	const TableSession = require("../models/TableSession");
+	const schema = TableSession.schema.obj;
+	res.json({
+		commit: "0122b96-serverId-fix",
+		hasServerId: "serverId" in schema,
+		serverIdDef: schema.serverId || "MISSING",
+	});
+});
+
+/**
  * POST /counter/sessions
  * Ouvrir une session table counter (ou retourner l'existante)
  */
@@ -51,6 +65,7 @@ router.post(
 			}
 
 			console.log(`[COUNTER] POST /sessions: restaurantId=${restaurantId} tableId=${tableId}`);
+			console.log(`[COUNTER] 🔍 req.body.serverId=${req.body.serverId} req.user.id=${req.user.id}`);
 
 			// ✅ Vérifier mode comptoir
 			const restaurant = await Restaurant.findById(restaurantId);
@@ -75,12 +90,14 @@ router.post(
 			}
 
 			// ✅ Créer nouvelle session via service (transaction atomique)
+			const serverId = req.body.serverId || req.user.id;
+			console.log(`[COUNTER] 🎯 serverId final utilisé: ${serverId}`);
 			const session = await counterService.createSession({
 				restaurantId,
 				tableId,
 				reservationId: reservationId || null,
 				guestCount: guestCount || 1,
-				serverId: req.user.id,
+				serverId,
 			});
 
 			const elapsed = Date.now() - startTime;

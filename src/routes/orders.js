@@ -44,6 +44,9 @@ router.post(
 				tableSessionId, // 🏪 Session table counter (optionnel)
 			} = req.body;
 
+			// 🔍 LOG DIAGNOSTIC serverId
+			console.log(`[Orders POST] 🔍 req.body.serverId=${serverId} source=${source}`);
+
 			// 🌟 Si c'est un client, on lui impose les champs du token (source de vérité)
 			if (role === "client") {
 				tableId = clientTableId;
