@@ -124,6 +124,7 @@ async function createSession({
         restaurantId,
         tableId,
         reservationId: reservationId || null,
+        serverId: serverId || null,
         status: "active",
         billStatus: "open",
         source: "counter",

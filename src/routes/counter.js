@@ -139,7 +139,7 @@ router.get(
 				tableId,
 				source: "counter",
 				billStatus: { $ne: "closed" },
-			}).populate("tableId restaurantId");
+		}).populate("tableId restaurantId serverId");
 
 			if (!session) {
 				const elapsed = Date.now() - startTime;
@@ -463,7 +463,8 @@ router.get(
 				billStatus: { $ne: "closed" },
 			})
 				.populate("tableId", "number")
-				.populate("restaurantId", "name");
+				.populate("restaurantId", "name")
+				.populate("serverId", "name serverId");
 
 			// ✅ Sessions fermées aujourd'hui
 			const payeesSessionsRaw = await TableSession.find({
@@ -473,7 +474,8 @@ router.get(
 				closedAt: { $gte: today },
 			})
 				.populate("tableId", "number")
-				.populate("restaurantId", "name");
+				.populate("restaurantId", "name")
+				.populate("serverId", "name serverId");
 
 			// ✅ OPTIMISATION : 1 seule aggregation Order au lieu de N queries
 			const allSessionIds = [

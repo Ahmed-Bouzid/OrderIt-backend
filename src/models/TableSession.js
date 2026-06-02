@@ -69,6 +69,13 @@ const tableSessionSchema = new mongoose.Schema(
 			enum: ["cash", "card_offline", null],
 			default: null,
 		},
+		// Serveur assigné à la session comptoir (qui a ouvert la table)
+		serverId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "Server",
+			required: false,
+			index: true,
+		},
 		// ⭐ Réductions/Promotions appliquées à l'encaissement
 		discounts: [{
 			type: {
