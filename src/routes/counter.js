@@ -64,9 +64,6 @@ router.post(
 				return res.status(400).json({ message: "tableId invalide" });
 			}
 
-			console.log(`[COUNTER] POST /sessions: restaurantId=${restaurantId} tableId=${tableId}`);
-			console.log(`[COUNTER] 🔍 req.body.serverId=${req.body.serverId} req.user.id=${req.user.id}`);
-
 			// ✅ Vérifier mode comptoir
 			const restaurant = await Restaurant.findById(restaurantId);
 			if (!restaurant) {
@@ -89,10 +86,8 @@ router.post(
 				return res.status(200).json(existingSession);
 			}
 
-			// ✅ Créer nouvelle session via service (transaction atomique)
-		// ⚠️ serverId = ID du serveur sélectionné dans la modale (PAS req.user.id qui est l'admin)
-		console.log(`[COUNTER] 🎯 serverId sélectionné dans modale: ${serverId || 'NULL'}`);
-		const session = await counterService.createSession({
+				// ✅ Créer nouvelle session via service (transaction atomique)
+			const session = await counterService.createSession({
 			restaurantId,
 			tableId,
 			reservationId: reservationId || null,

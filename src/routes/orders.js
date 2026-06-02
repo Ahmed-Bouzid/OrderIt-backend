@@ -44,9 +44,6 @@ router.post(
 				tableSessionId, // 🏪 Session table counter (optionnel)
 			} = req.body;
 
-			// 🔍 LOG DIAGNOSTIC serverId
-			console.log(`[Orders POST] 🔍 req.body.serverId=${serverId} source=${source}`);
-
 			// 🌟 Si c'est un client, on lui impose les champs du token (source de vérité)
 			if (role === "client") {
 				tableId = clientTableId;
@@ -161,11 +158,6 @@ router.post(
 
 			await order.save();
 
-			// 🔍 Log de diagnostic pour le mode comptoir
-			if (source === "counter") {
-				console.log(`[Orders POST] Counter order created: orderId=${order._id} tableSessionId=${tableSessionId || 'MISSING'} table=${tableId} total=${total.toFixed(2)}€ serverId=${serverId || 'MISSING'}`);
-			}
-
 			const cancelResult = await cancelOpenStripePaymentsForOrder(
 				order._id,
 				"order_mark_as_paid",
@@ -231,22 +223,6 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			query.tableId = tableId;
 		}
 
-		console.log("[GET /orders] query:", JSON.stringify(query));
-
-		// 🔍 Log spécial pour debugging comptoir
-		if (tableSessionId) {
-			console.log(`[GET /orders] 🔍 DEBUG COMPTOIR: Recherche orders pour session=${tableSessionId}`);
-			// Compter tous les orders de cette table (sans filtre sessionId) pour comparer
-			const allTableOrders = await Order.find({ 
-				tableId: query.tableId,
-				source: "counter"
-			}).select('_id tableSessionId totalAmount orderStatus createdAt').lean();
-			console.log(`[GET /orders] 🔍 TOTAL orders table ${query.tableId} source=counter: ${allTableOrders.length}`);
-			allTableOrders.forEach((o, i) => {
-				console.log(`  ${i+1}. ${o._id} session=${o.tableSessionId || 'MISSING'} total=${o.totalAmount}€ status=${o.orderStatus} created=${new Date(o.createdAt).toLocaleString('fr-FR')}`);
-			});
-		}
-
 		if (source) {
 			query.source = source;
 		}
@@ -282,16 +258,6 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			.populate("restaurantId", "name")
 			.populate("reservationId", "status") // ⭐ Populate pour info supplémentaire
 			.sort({ createdAt: -1 }); // Du plus récent au plus ancien (pour Express Orders)
-
-		// Log des détails de chaque commande
-		orders.forEach((order, index) => {
-			const resaStatus = order.reservationId?.status || "AUCUNE RESA";
-			const orderStatus = order.orderStatus;
-			// 🔍 Log serverId pour mode counter
-			if (order.source === "counter") {
-				console.log(`[GET /orders] Counter order: id=${order._id} serverId=${order.serverId?._id || 'NULL'} serverName=${order.serverId?.name || 'NULL'}`);
-			}
-		});
 
 		res.json({ orders });
 	} catch (err) {
