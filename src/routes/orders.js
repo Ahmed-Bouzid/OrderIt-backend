@@ -160,9 +160,7 @@ router.post(
 
 			// 🔍 Log de diagnostic pour le mode comptoir
 			if (source === "counter") {
-				console.log(`[Orders POST] Counter order created: orderId=${order._id} tableSessionId=${tableSessionId || 'MISSING'} table=${tableId} total=${total.toFixed(2)}€`);
-			}
-
+			console.log(`[Orders POST] Counter order created: orderId=${order._id} tableSessionId=${tableSessionId || 'MISSING'} table=${tableId} total=${total.toFixed(2)}€ serverId=${serverId || 'MISSING'}`);
 			const cancelResult = await cancelOpenStripePaymentsForOrder(
 				order._id,
 				"order_mark_as_paid",
@@ -284,6 +282,10 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 		orders.forEach((order, index) => {
 			const resaStatus = order.reservationId?.status || "AUCUNE RESA";
 			const orderStatus = order.orderStatus;
+			// 🔍 Log serverId pour mode counter
+			if (order.source === "counter") {
+				console.log(`[GET /orders] Counter order: id=${order._id} serverId=${order.serverId?._id || 'NULL'} serverName=${order.serverId?.name || 'NULL'}`);
+			}
 		});
 
 		res.json({ orders });
