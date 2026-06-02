@@ -372,4 +372,190 @@ router.get(
 	}
 );
 
+// ⭐ POST /:id/options - Ajouter une option/supplément à un produit
+router.post(
+	"/:id/options",
+	auth,
+	checkRoles(["admin"]),
+	validateObjectIds(["id"]),
+	[
+		body("name").notEmpty().withMessage("Nom de l'option requis"),
+		body("price").isFloat({ min: 0 }).withMessage("Prix invalide"),
+	],
+	async (req, res) => {
+		const errors = validationResult(req);
+		if (!errors.isEmpty())
+			return res.status(400).json({ errors: errors.array() });
+
+		try {
+			const { id } = req.params;
+			const { name, price } = req.body;
+
+			const product = await Product.findById(id);
+			if (!product) {
+				return res.status(404).json({ message: "Produit non trouvé" });
+			}
+
+			// Vérifier l'appartenance au restaurant de l'utilisateur
+			if (product.restaurantId.toString() !== req.user.restaurantId.toString()) {
+				return res.status(403).json({ message: "Accès refusé" });
+			}
+
+			// Trouver ou créer le groupe "Suppléments"
+			let supplementsGroup = product.options.find(
+				(opt) => opt.id === "supplements"
+			);
+
+			const newChoice = {
+				id: `choice_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+				name: name.trim(),
+				priceAdjustment: parseFloat(price),
+				available: true,
+			};
+
+			if (!supplementsGroup) {
+				// Créer le groupe Suppléments
+				supplementsGroup = {
+					id: "supplements",
+					name: "Suppléments",
+					description: "Options supplémentaires",
+					required: false,
+					multiSelect: true,
+					available: true,
+					choices: [newChoice],
+				};
+				product.options.push(supplementsGroup);
+			} else {
+				// Ajouter au groupe existant
+				supplementsGroup.choices.push(newChoice);
+			}
+
+			await product.save();
+
+			// Émettre l'événement WebSocket
+			const io = getIO(req);
+			if (io && product.restaurantId) {
+				emitProductEvent(io, product.restaurantId, "updated", product.toObject());
+			}
+
+			// Retourner l'option ajoutée dans un format simple pour le frontend
+			res.status(201).json({
+				_id: newChoice.id,
+				name: newChoice.name,
+				price: newChoice.priceAdjustment,
+			});
+		} catch (err) {
+			console.error("❌ Erreur ajout option:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	}
+);
+
+// ⭐ GET /:id/options - Lister les options d'un produit
+router.get(
+	"/:id/options",
+	auth,
+	validateObjectIds(["id"]),
+	checkRoles(["admin", "server"]),
+	async (req, res) => {
+		try {
+			const { id } = req.params;
+
+			const product = await Product.findById(id);
+			if (!product) {
+				return res.status(404).json({ message: "Produit non trouvé" });
+			}
+
+			// Vérifier l'appartenance au restaurant de l'utilisateur
+			if (product.restaurantId.toString() !== req.user.restaurantId.toString()) {
+				return res.status(403).json({ message: "Accès refusé" });
+			}
+
+			// Extraire les choices du groupe Suppléments
+			const supplementsGroup = product.options.find(
+				(opt) => opt.id === "supplements"
+			);
+
+			if (!supplementsGroup || !supplementsGroup.choices) {
+				return res.json([]);
+			}
+
+			// Formatter pour le frontend
+			const formattedOptions = supplementsGroup.choices.map((choice) => ({
+				_id: choice.id,
+				name: choice.name,
+				price: choice.priceAdjustment,
+				available: choice.available,
+			}));
+
+			res.json(formattedOptions);
+		} catch (err) {
+			console.error("❌ Erreur récupération options:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	}
+);
+
+// ⭐ DELETE /:id/options/:optionId - Supprimer une option
+router.delete(
+	"/:id/options/:optionId",
+	auth,
+	checkRoles(["admin"]),
+	validateObjectIds(["id"]),
+	async (req, res) => {
+		try {
+			const { id, optionId } = req.params;
+
+			const product = await Product.findById(id);
+			if (!product) {
+				return res.status(404).json({ message: "Produit non trouvé" });
+			}
+
+			// Vérifier l'appartenance au restaurant de l'utilisateur
+			if (product.restaurantId.toString() !== req.user.restaurantId.toString()) {
+				return res.status(403).json({ message: "Accès refusé" });
+			}
+
+			// Trouver le groupe Suppléments
+			const supplementsGroup = product.options.find(
+				(opt) => opt.id === "supplements"
+			);
+
+			if (!supplementsGroup) {
+				return res.status(404).json({ message: "Option non trouvée" });
+			}
+
+			// Supprimer le choice
+			const initialLength = supplementsGroup.choices.length;
+			supplementsGroup.choices = supplementsGroup.choices.filter(
+				(choice) => choice.id !== optionId
+			);
+
+			if (supplementsGroup.choices.length === initialLength) {
+				return res.status(404).json({ message: "Option non trouvée" });
+			}
+
+			// Si plus de choices, supprimer le groupe entier
+			if (supplementsGroup.choices.length === 0) {
+				product.options = product.options.filter(
+					(opt) => opt.id !== "supplements"
+				);
+			}
+
+			await product.save();
+
+			// Émettre l'événement WebSocket
+			const io = getIO(req);
+			if (io && product.restaurantId) {
+				emitProductEvent(io, product.restaurantId, "updated", product.toObject());
+			}
+
+			res.json({ message: "Option supprimée avec succès" });
+		} catch (err) {
+			console.error("❌ Erreur suppression option:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	}
+);
+
 module.exports = router;
