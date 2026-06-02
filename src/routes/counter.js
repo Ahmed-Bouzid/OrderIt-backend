@@ -461,7 +461,9 @@ router.get(
 				restaurantId: restaurantObjectId,
 				source: "counter",
 				billStatus: { $ne: "closed" },
-			}).populate("tableId", "number");
+			})
+				.populate("tableId", "number")
+				.populate("restaurantId", "name");
 
 			// ✅ Sessions fermées aujourd'hui
 			const payeesSessionsRaw = await TableSession.find({
@@ -469,7 +471,9 @@ router.get(
 				source: "counter",
 				billStatus: "closed",
 				closedAt: { $gte: today },
-			}).populate("tableId", "number");
+			})
+				.populate("tableId", "number")
+				.populate("restaurantId", "name");
 
 			// ✅ OPTIMISATION : 1 seule aggregation Order au lieu de N queries
 			const allSessionIds = [
@@ -502,7 +506,10 @@ router.get(
 			// ✅ Enrichir sessions avec montants
 			const enCoursSessions = enCoursSessionsRaw.map((session) => ({
 				_id: session._id,
+				source: "counter", // ✅ Identification mode Comptoir
 				tableNumber: session.tableId?.number || "?",
+				tableId: session.tableId?._id, // ✅ ID table pour référence
+				restaurantId: session.restaurantId, // ✅ Populate avec nom du resto
 				totalAmount: ordersMap[session._id.toString()] || 0,
 				openedAt: session.openedAt,
 				billStatus: session.billStatus,
@@ -510,9 +517,13 @@ router.get(
 
 			const payeesSessions = payeesSessionsRaw.map((session) => ({
 				_id: session._id,
+				source: "counter", // ✅ Identification mode Comptoir
 				tableNumber: session.tableId?.number || "?",
+				tableId: session.tableId?._id, // ✅ ID table pour référence
+				restaurantId: session.restaurantId, // ✅ Populate avec nom du resto
 				totalAmount: ordersMap[session._id.toString()] || 0,
 				closedAt: session.closedAt,
+				paymentMethod: session.paymentMethod === "cash" ? "Espèces" : session.paymentMethod === "card_offline" ? "Carte" : "Espèces", // ✅ Traduction lisible
 			}));
 
 			const enCoursMontant = enCoursSessions.reduce((sum, s) => sum + s.totalAmount, 0);
