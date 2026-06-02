@@ -160,9 +160,13 @@ router.post(
 
 			// 🔍 Log de diagnostic pour le mode comptoir
 			if (source === "counter") {
-			console.log(`[Orders POST] Counter order created: orderId=${order._id} tableSessionId=${tableSessionId || 'MISSING'} table=${tableId} total=${total.toFixed(2)}€ serverId=${serverId || 'MISSING'}`);
-		}
+				console.log(`[Orders POST] Counter order created: orderId=${order._id} tableSessionId=${tableSessionId || 'MISSING'} table=${tableId} total=${total.toFixed(2)}€ serverId=${serverId || 'MISSING'}`);
+			}
 
+			const cancelResult = await cancelOpenStripePaymentsForOrder(
+				order._id,
+				"order_mark_as_paid",
+			);
 			if (cancelResult.errors.length > 0) {
 				console.warn("⚠️ [MARK_AS_PAID] Annulation intents incomplète", {
 					orderId: order._id.toString(),
