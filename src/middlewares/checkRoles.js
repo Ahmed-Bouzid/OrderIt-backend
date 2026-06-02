@@ -1,3 +1,6 @@
+// Rôles super-utilisateurs : accès complet à toutes les routes, quelle que soit la liste allowedRoles
+const SUPER_ROLES = ["admin", "developer"];
+
 module.exports = function checkRoles(allowedRoles) {
 	return (req, res, next) => {
 		try {
@@ -10,6 +13,11 @@ module.exports = function checkRoles(allowedRoles) {
 			}
 
 			const userRole = req.user.role;
+
+			// admin et developer bypasse tous les checks de rôle (rôles les plus élevés)
+			if (SUPER_ROLES.includes(userRole)) {
+				return next();
+			}
 
 			if (!allowedRoles.includes(userRole)) {
 				return res.status(403).json({
