@@ -366,7 +366,7 @@ router.get(
 				restaurantId: new mongoose.Types.ObjectId(restaurantId),
 				source: "counter",
 				billStatus: { $ne: "closed" },
-			});
+			}).populate("serverId", "name");
 
 			console.log(`[COUNTER] Tables trouvées: ${tables.length} | Sessions actives: ${activeSessions.length}`);
 
@@ -423,6 +423,7 @@ router.get(
 					totalAmount: orderData.totalAmount,
 					itemsCount: orderData.itemsCount,
 					openedAt: session.openedAt,
+					serverId: session.serverId ?? null,
 				};
 			});
 

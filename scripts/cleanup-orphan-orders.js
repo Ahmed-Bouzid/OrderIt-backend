@@ -1,21 +1,26 @@
 /**
  * cleanup-orphan-orders.js
  *
- * Supprime les commandes historiques sans serveur assigné (serverId null/undefined)
- * dont tous les items sont terminés (served/cancelled) OU dont le statut est completed/cancelled.
+ * Ferme les orders "pending"/"confirmed" dont la TableSession associée
+ * est fermée (status: "closed") ou inexistante.
+ *
+ * Ces orders continuent à s'afficher dans le floor même après fermeture de session
+ * parce que leur orderStatus n'a jamais été mis à "completed" (bug counterService corrigé
+ * le 2026-06-03 : mauvais champ "status" au lieu de "orderStatus" dans updateMany).
  *
  * Usage :
- *   DRY_RUN=true node scripts/cleanup-orphan-orders.js    ← compte uniquement, ne supprime rien
- *   node scripts/cleanup-orphan-orders.js                 ← supprime réellement
+ *   node scripts/cleanup-orphan-orders.js             ← dry-run par défaut (sûr)
+ *   node scripts/cleanup-orphan-orders.js --apply     ← applique réellement
  *
- * ⚠️  Toujours faire un DRY_RUN d'abord pour vérifier le nombre de documents concernés.
+ * ⚠️  Toujours lancer sans --apply d'abord pour vérifier le nombre de documents.
  */
 
 require("dotenv").config();
 const mongoose = require("mongoose");
 const Order = require("../src/models/Order");
+const TableSession = require("../src/models/TableSession");
 
-const DRY_RUN = process.env.DRY_RUN !== "false";
+const APPLY = process.argv.includes("--apply");
 
 async function main() {
 	const uri = process.env.MONGO_URI;
@@ -24,83 +29,65 @@ async function main() {
 		process.exit(1);
 	}
 
-	console.log(`🔌 Connexion à MongoDB...`);
+	console.log("🔌 Connexion à MongoDB...");
 	await mongoose.connect(uri);
-	console.log(`✅ Connecté\n`);
+	console.log("✅ Connecté\n");
 
-	// Critères : serverId absent/null + commande terminée ou annulée
-	const query = {
-		$or: [{ serverId: null }, { serverId: { $exists: false } }],
-		orderStatus: { $in: ["completed", "cancelled"] },
-	};
-
-	const count = await Order.countDocuments(query);
-
-	console.log(`📊 Commandes orphelines terminées/annulées trouvées : ${count}`);
-
-	if (count === 0) {
-		console.log("✅ Rien à supprimer (bloc 1).");
-	}
-
-	// Aperçu des 5 premiers
-	const sample = await Order.find(query)
-		.select("_id orderStatus paymentStatus createdAt origin")
-		.limit(5)
+	// 1. Récupérer tous les orders actifs (pending ou confirmed)
+	const activeOrders = await Order.find({
+		orderStatus: { $in: ["pending", "confirmed"] },
+	})
+		.select("_id orderStatus tableSessionId tableId createdAt")
 		.lean();
 
-	console.log("\n📋 Aperçu (5 premiers) :");
-	sample.forEach((o) => {
-		console.log(
-			`  - ${o._id} | status: ${o.orderStatus} | payment: ${o.paymentStatus} | origin: ${o.origin} | créé: ${o.createdAt?.toISOString().slice(0, 10)}`,
-		);
-	});
+	console.log(`📦 Orders actifs (pending/confirmed) : ${activeOrders.length}`);
 
-	if (DRY_RUN) {
-		console.log(
-			`\n🔒 DRY_RUN activé → aucune suppression. Relancer avec DRY_RUN=false pour supprimer.`,
-		);
-	} else {
-		console.log(`\n🗑️  Suppression de ${count} documents...`);
-		const result = await Order.deleteMany(query);
-		console.log(`✅ ${result.deletedCount} documents supprimés.`);
-	}
+	const toClose = [];
 
-	// --- Bloc 2 : orders pending orphelins (serverId null, antérieurs à aujourd'hui) ---
-	const today = new Date();
-	today.setHours(0, 0, 0, 0);
-
-	const queryPending = {
-		$or: [{ serverId: null }, { serverId: { $exists: false } }],
-		orderStatus: "pending",
-		createdAt: { $lt: today },
-	};
-
-	const countPending = await Order.countDocuments(queryPending);
-	console.log(`\n📊 Commandes orphelines pending (antérieures à aujourd'hui) : ${countPending}`);
-
-	if (countPending > 0) {
-		const samplePending = await Order.find(queryPending)
-			.select("_id orderStatus createdAt tableId tableSessionId origin")
-			.limit(5)
+	for (const order of activeOrders) {
+		if (!order.tableSessionId) {
+			toClose.push({ order, reason: "no_session" });
+			continue;
+		}
+		const session = await TableSession.findById(order.tableSessionId)
+			.select("status")
 			.lean();
-		console.log("\n📋 Aperçu pending (5 premiers) :");
-		samplePending.forEach((o) => {
-			console.log(
-				`  - ${o._id} | créé: ${o.createdAt?.toISOString().slice(0, 10)} | table: ${o.tableId} | session: ${o.tableSessionId} | origin: ${o.origin}`,
-			);
-		});
-
-		if (DRY_RUN) {
-			console.log(`\n🔒 DRY_RUN activé → aucune suppression des pending.`);
-		} else {
-			console.log(`\n🗑️  Suppression de ${countPending} orders pending orphelins...`);
-			const resultPending = await Order.deleteMany(queryPending);
-			console.log(`✅ ${resultPending.deletedCount} documents supprimés.`);
+		if (!session || session.status === "closed") {
+			toClose.push({ order, reason: !session ? "session_deleted" : "session_closed" });
 		}
 	}
 
+	console.log(`\n🗑️  Orders orphelins détectés : ${toClose.length}`);
+	toClose.forEach(({ order, reason }) => {
+		const date = order.createdAt?.toISOString().slice(0, 10) || "?";
+		console.log(
+			`  - ${order._id} | table=${order.tableId} | status=${order.orderStatus} | créé=${date} | reason=${reason}`,
+		);
+	});
+
+	if (toClose.length === 0) {
+		console.log("\n✅ Aucun orphan à nettoyer.");
+		await mongoose.disconnect();
+		return;
+	}
+
+	if (!APPLY) {
+		console.log(
+			"\n⚠️  DRY RUN — aucune modification. Relancer avec --apply pour fermer ces orders.",
+		);
+		await mongoose.disconnect();
+		return;
+	}
+
+	const ids = toClose.map(({ order }) => order._id);
+	const result = await Order.updateMany(
+		{ _id: { $in: ids } },
+		{ $set: { orderStatus: "completed" } },
+	);
+
+	console.log(`\n✅ ${result.modifiedCount} orders fermés (orderStatus → "completed")`);
 	await mongoose.disconnect();
-	console.log("🔌 Déconnecté.");
+	console.log("🔌 Déconnecté. Terminé.");
 }
 
 main().catch((err) => {
