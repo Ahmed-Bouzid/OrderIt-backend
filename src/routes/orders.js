@@ -256,12 +256,45 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			}
 		}
 
-		let orders = await Order.find(query)
+		let rawOrders = await Order.find(query)
 			.populate("tableId", "number")
-			.populate("serverId", "name serverId")
 			.populate("restaurantId", "name")
 			.populate("reservationId", "status") // ⭐ Populate pour info supplémentaire
-			.sort({ createdAt: -1 }); // Du plus récent au plus ancien (pour Express Orders)
+			.sort({ createdAt: -1 })
+			.lean();
+
+		// Populate serverId avec fallback Admin (si l'ID n'existe pas dans Server)
+		const rawServerIds = [
+			...new Set(
+				rawOrders
+					.filter((o) => o.serverId)
+					.map((o) => o.serverId.toString()),
+			),
+		];
+		const serverMap = {};
+		if (rawServerIds.length > 0) {
+			const Server = require("../models/Server");
+			const Admin = require("../models/Admin");
+			const servers = await Server.find({ _id: { $in: rawServerIds } })
+				.select("name")
+				.lean();
+			servers.forEach((s) => {
+				serverMap[s._id.toString()] = { _id: s._id, name: s.name };
+			});
+			const missingIds = rawServerIds.filter((id) => !serverMap[id]);
+			if (missingIds.length > 0) {
+				const admins = await Admin.find({ _id: { $in: missingIds } })
+					.select("name")
+					.lean();
+				admins.forEach((a) => {
+					serverMap[a._id.toString()] = { _id: a._id, name: a.name };
+				});
+			}
+		}
+		const orders = rawOrders.map((o) => ({
+			...o,
+			serverId: o.serverId ? serverMap[o.serverId.toString()] || null : null,
+		}));
 
 		res.json({ orders });
 	} catch (err) {
