@@ -287,7 +287,7 @@ async function closeSession({
       { tableSessionId: sessionId },
       { 
         $set: { 
-          status: "completed",
+          orderStatus: "completed",
           completedAt: new Date()
         }
       },
@@ -363,7 +363,7 @@ async function cancelSession(sessionId, reason = "Cancelled by staff") {
       { tableSessionId: sessionId },
       { 
         $set: { 
-          status: "cancelled",
+          orderStatus: "cancelled",
           cancelledAt: new Date()
         }
       },

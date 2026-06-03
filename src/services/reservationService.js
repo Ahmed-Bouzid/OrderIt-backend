@@ -312,7 +312,7 @@ async function closeService(reservationId, paymentData, io = null) {
       { tableSessionId: session._id },
       { 
         $set: { 
-          status: "completed",
+          orderStatus: "completed",
           completedAt: new Date()
         }
       },

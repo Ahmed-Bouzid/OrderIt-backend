@@ -472,7 +472,7 @@ router.get(
 				date: order.createdAt,
 				total: order.totalAmount,
 				items: order.items,
-				status: order.status,
+				status: order.orderStatus,
 				tableId: order.tableId,
 				serverId: order.serverId,
 			}));

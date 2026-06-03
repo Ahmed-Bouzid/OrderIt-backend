@@ -273,7 +273,7 @@ reservationSchema.methods.calculateRemainingAmount = async function () {
 
 		let remaining = 0;
 		orders.forEach((order) => {
-			if (order.status !== "paid") {
+			if (order.paymentStatus !== "paid") {
 				remaining += order.totalAmount || 0;
 			}
 		});

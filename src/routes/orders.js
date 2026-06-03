@@ -574,8 +574,8 @@ router.put(
 			const orderId = req.params.id;
 			const updateFields = req.body;
 
-			// Si on veut valider uniquement certains champs (ex: status, paid)
-			const allowedUpdates = ["status", "paid", "tip"];
+			// Si on veut valider uniquement certains champs (ex: orderStatus, paid)
+			const allowedUpdates = ["orderStatus", "paid", "tip"];
 			const isValidUpdate = Object.keys(updateFields).every((field) =>
 				allowedUpdates.includes(field),
 			);
