@@ -17,6 +17,7 @@ const mongoose = require("mongoose");
 const auth       = require("../middlewares/auth");
 const checkRoles = require("../middlewares/checkRoles");
 const TableSession = require("../models/TableSession");
+const Order        = require("../models/Order");
 const ZReport      = require("../models/ZReport");
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -236,6 +237,76 @@ router.get(
 			return res.json({ data: report });
 		} catch (err) {
 			console.error("[Z-REPORT] getById error:", err);
+			return res.status(500).json({ message: "Erreur serveur." });
+		}
+	},
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /z-reports/sessions — sessions fermées détaillées avec leurs orders
+// Utilisé pour l'export Z détaillé côté frontend
+// ─────────────────────────────────────────────────────────────────────────────
+router.get(
+	"/sessions",
+	auth,
+	checkRoles(["admin"]),
+	async (req, res) => {
+		try {
+			const { restaurantId, from, to } = req.query;
+
+			if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) {
+				return res.status(400).json({ message: "restaurantId invalide." });
+			}
+			if (!from || !to) {
+				return res.status(400).json({ message: "Paramètres from et to requis." });
+			}
+
+			const fromDate = new Date(from);
+			const toDate   = new Date(to);
+			if (isNaN(fromDate) || isNaN(toDate)) {
+				return res.status(400).json({ message: "Dates invalides." });
+			}
+
+			// Sessions fermées de la période
+			const sessions = await TableSession.find({
+				restaurantId,
+				billStatus: "closed",
+				closedAt: { $gte: fromDate, $lte: toDate },
+			})
+				.populate("tableId", "number")
+				.populate("serverId", "name")
+				.lean();
+
+			// Orders associés à ces sessions
+			const sessionIds = sessions.map((s) => s._id);
+			const orders = await Order.find({
+				tableSessionId: { $in: sessionIds },
+				orderStatus: { $ne: "cancelled" },
+			})
+				.populate("serverId", "name")
+				.lean();
+
+			// Indexer les orders par sessionId
+			const ordersBySession = {};
+			for (const o of orders) {
+				const key = o.tableSessionId?.toString();
+				if (!key) continue;
+				if (!ordersBySession[key]) ordersBySession[key] = [];
+				ordersBySession[key].push(o);
+			}
+
+			// Assembler
+			const result = sessions.map((s) => ({
+				...s,
+				orders: ordersBySession[s._id.toString()] || [],
+			}));
+
+			// Trier par closedAt croissant
+			result.sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
+
+			return res.json({ data: result });
+		} catch (err) {
+			console.error("[Z-REPORT] sessions error:", err);
 			return res.status(500).json({ message: "Erreur serveur." });
 		}
 	},
