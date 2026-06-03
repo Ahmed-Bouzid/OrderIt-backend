@@ -803,8 +803,12 @@ router.put(
 			const io = req.app.locals.io;
 			if (io && order.restaurantId) {
 				const { emitOrderEvent } = require("../utils/socketEmitter");
+				const populatedOrder = await Order.findById(order._id)
+					.populate("tableId", "number")
+					.populate("serverId", "name")
+					.lean();
 				emitOrderEvent(io, order.restaurantId.toString(), "updated", {
-					...order.toObject(),
+					...populatedOrder,
 					updatedItem: {
 						_id: item._id,
 						itemStatus: item.itemStatus,
