@@ -139,6 +139,7 @@ const reservationSchema = new mongoose.Schema(
 						"order_sent",
 						"present_changed",
 						"cancelled",
+						"auto_cancelled",
 						"closed_client",
 						"deleted",
 						"dish_status_changed",

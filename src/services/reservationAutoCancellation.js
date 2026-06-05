@@ -37,10 +37,16 @@ async function cancelOverdueReservations(io = null) {
     
     // ⭐ Trouver toutes les réservations "pending" avec une date/heure de réservation dépassée
     // On combine reservationDate (Date) + reservationTime (String "HH:MM") pour calculer l'heure exacte
+    // ⚠️ Exclure les réservations on_site (walk-in clients présents) : ce ne sont pas des no-shows
     const overdueReservations = await Reservation.find({
       status: "pending",
       reservationDate: { $exists: true },
       reservationTime: { $exists: true },
+      $or: [
+        { reservationSource: "online" },
+        { reservationSource: { $exists: false } },
+        { isPresent: { $ne: true } },
+      ],
     }).lean();
     
     // ⭐ Filtrer celles qui sont vraiment en retard (>10 min)
