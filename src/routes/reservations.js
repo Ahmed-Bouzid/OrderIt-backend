@@ -174,6 +174,7 @@ router.post(
 		body("reservationDate").isISO8601().withMessage("Date invalide"),
 		body("reservationTime").matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage("Heure invalide (format HH:MM)"),
 		body("restaurantId").isMongoId().withMessage("Restaurant ID invalide"),
+		body("email").trim().isEmail().withMessage("Email invalide"),
 		body("notes").optional().isString(),
 	],
 	async (req, res) => {
@@ -187,7 +188,7 @@ router.post(
 		}
 
 		try {
-			const { firstName, lastName, phone, nbPersonnes, reservationDate, reservationTime, restaurantId, notes } = req.body;
+			const { firstName, lastName, phone, email, nbPersonnes, reservationDate, reservationTime, restaurantId, notes } = req.body;
 
 			// Construire le nom complet
 			const clientName = `${firstName} ${lastName}`;
@@ -218,12 +219,13 @@ router.post(
 				restaurantId,
 				clientName,
 				phone,
+				email: email || "",
 				nbPersonnes,
 				reservationDate,
 				reservationTime,
 				notes: notes || "",
-				reservationSource: "online", // ✅ Marquer comme réservation web
-				status: "pending", // ✅ En attente de validation par le restaurant
+				reservationSource: "online",
+				status: "pending",
 				totalAmount: 0,
 			});
 
@@ -238,6 +240,24 @@ router.post(
 					"created",
 					reservation.toObject(),
 				);
+			}
+
+			// ⭐ Envoyer l'email de confirmation au client
+			if (email) {
+				const dateObj = new Date(reservationDate);
+				const dateFormatted = dateObj.toLocaleDateString("fr-FR", {
+					weekday: "long", day: "numeric", month: "long", year: "numeric",
+				});
+				emailService.sendReservationConfirmation({
+					email,
+					nom: firstName,
+					date: dateFormatted,
+					heure: reservationTime,
+					nombrePersonnes: nbPersonnes,
+					restaurantName: restaurant.name || "le restaurant",
+					restaurantAddress: restaurant.address || "",
+					restaurantPhone: restaurant.phone || "",
+				}).catch((err) => console.error("[/reservations/online] Email error:", err.message));
 			}
 
 			// Retourner la confirmation
