@@ -364,7 +364,6 @@ router.get(
 			// ✅ FIX CRITIQUE : Convertir restaurantId en ObjectId pour query MongoDB
 			const activeSessions = await TableSession.find({
 				restaurantId: new mongoose.Types.ObjectId(restaurantId),
-				source: "counter",
 				billStatus: { $ne: "closed" },
 			}).populate("serverId", "name");
 
@@ -376,7 +375,6 @@ router.get(
 				{
 					$match: {
 						tableSessionId: { $in: sessionIds },
-						source: "counter",
 						orderStatus: { $ne: "cancelled" },
 					},
 				},
