@@ -1015,7 +1015,22 @@ router.delete(
 	checkRoles(["admin"]),
 	async (req, res) => {
 		try {
+			// ✅ Récupérer restaurantId AVANT suppression pour emit WebSocket
+			const order = await Order.findById(req.params.orderId).select("restaurantId");
+			if (!order) {
+				return res.status(404).json({ message: "Commande introuvable" });
+			}
+
+			const restaurantId = order.restaurantId;
 			await Order.findByIdAndDelete(req.params.orderId);
+
+			// ✅ Émettre événement WebSocket pour notifier la suppression
+			const io = req.app.locals.io;
+			if (io && restaurantId) {
+				const { emitOrderEvent } = require("../utils/socketEmitter");
+				emitOrderEvent(io, restaurantId.toString(), "deleted", { _id: req.params.orderId });
+			}
+
 			res.json({ message: "Commande supprimée." });
 		} catch (err) {
 			console.error(err);
