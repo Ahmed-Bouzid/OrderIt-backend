@@ -374,31 +374,57 @@ router.get(
 
 			console.log(`[COUNTER] Tables trouvées: ${tables.length} | Sessions actives: ${activeSessions.length}`);
 
-			// ✅ OPTIMISATION : 1 seule aggregation Order au lieu de N queries
+			// ✅ Récupérer les commandes liées aux sessions (tableSessionId)
+			// ET les commandes CLIENT-end liées par tableId (reservationId, sans tableSessionId)
 			const sessionIds = activeSessions.map((s) => s._id);
+			const tableIds = activeSessions.map((s) => s.tableId);
+
 			const ordersGrouped = await Order.aggregate([
 				{
 					$match: {
-						tableSessionId: { $in: sessionIds },
+						$or: [
+							{ tableSessionId: { $in: sessionIds } },
+							{
+								tableId: { $in: tableIds },
+								tableSessionId: { $exists: false },
+								paid: { $ne: true },
+								orderStatus: { $nin: ["cancelled", "completed"] },
+							},
+							{
+								tableId: { $in: tableIds },
+								tableSessionId: null,
+								paid: { $ne: true },
+								orderStatus: { $nin: ["cancelled", "completed"] },
+							},
+						],
 						orderStatus: { $ne: "cancelled" },
 					},
 				},
 				{
 					$group: {
-						_id: "$tableSessionId",
+						// Grouper par tableSessionId si dispo, sinon par tableId
+						_id: {
+							$cond: [
+								{ $and: [{ $gt: ["$tableSessionId", null] }] },
+								"$tableSessionId",
+								{ $concat: ["tableId:", { $toString: "$tableId" }] },
+							],
+						},
 						totalAmount: { $sum: "$totalAmount" },
 						itemsCount: { $sum: { $size: "$items" } },
 					},
 				},
 			]);
 
-			// ✅ Map orders par sessionId pour lookup O(1)
+			// ✅ Map orders par sessionId ET par "tableId:xxx" pour lookup O(1)
 			const ordersMap = {};
 			ordersGrouped.forEach((group) => {
-				ordersMap[group._id.toString()] = {
-					totalAmount: group.totalAmount,
-					itemsCount: group.itemsCount,
-				};
+				if (group._id) {
+					ordersMap[group._id.toString()] = {
+						totalAmount: group.totalAmount,
+						itemsCount: group.itemsCount,
+					};
+				}
 			});
 
 			// ✅ Mapper état pour chaque table
@@ -416,8 +442,10 @@ router.get(
 					};
 				}
 
-				// Table occupée : récupérer orders depuis map
-				const orderData = ordersMap[session._id.toString()] || { totalAmount: 0, itemsCount: 0 };
+				// Table occupée : récupérer orders depuis map (session ou tableId fallback)
+				const sessionKey = session._id.toString();
+				const tableKey = `tableId:${table._id.toString()}`;
+				const orderData = ordersMap[sessionKey] || ordersMap[tableKey] || { totalAmount: 0, itemsCount: 0 };
 
 				return {
 					...table.toObject(),
