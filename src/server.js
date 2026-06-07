@@ -1,4 +1,8 @@
 // ✅ Démarrage sécurisé du serveur
+
+// 🔍 Sentry — doit être EN PREMIER, avant tout autre require
+require("./instrument");
+
 const express = require("express");
 const path = require("path");
 const cors = require("cors");
@@ -252,6 +256,10 @@ app.use("/api/app", require("./routes/appVersion")); // 📱 Version APK + tél�
 app.use("/api/themes", require("./routes/themes")); // 🎨 Routes thèmes & personnalisation
 
 // ✅ SÉCURITÉ: Middlewares de gestion d'erreurs (TOUJOURS EN DERNIER)
+// 🔍 Sentry error handler — doit être AVANT notFoundHandler et secureErrorHandler
+if (process.env.SENTRY_DSN) {
+	Sentry.setupExpressErrorHandler(app);
+}
 app.use(notFoundHandler); // 404 pour routes non trouvées
 app.use(secureErrorHandler); // Gestionnaire d'erreurs sécurisé
 

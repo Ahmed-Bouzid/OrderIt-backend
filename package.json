@@ -18,6 +18,7 @@
 	"description": "",
 	"dependencies": {
 		"@getbrevo/brevo": "^5.0.4",
+		"@sentry/node": "^10.56.0",
 		"bcrypt": "^6.0.0",
 		"cors": "^2.8.5",
 		"dotenv": "^17.0.0",
@@ -42,6 +43,7 @@
 		"xss-clean": "^0.1.4"
 	},
 	"devDependencies": {
+		"artillery": "^2.0.32",
 		"jest": "^30.0.4",
 		"nodemon": "^3.1.10",
 		"supertest": "^7.1.1"

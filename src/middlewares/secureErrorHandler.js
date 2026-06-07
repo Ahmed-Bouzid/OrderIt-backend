@@ -10,6 +10,9 @@
 
 const logger = require("../utils/secureLogger");
 
+// 🔍 Sentry — capture les erreurs 500
+const Sentry = require("@sentry/node");
+
 // ✅ Messages d'erreur génériques sécurisés pour la production
 const SAFE_ERROR_MESSAGES = {
 	// Erreurs de validation
@@ -50,6 +53,19 @@ const secureErrorHandler = (err, req, res, next) => {
 		ip: req.ip,
 		userAgent: req.get("User-Agent"),
 	});
+
+	// 🔍 Sentry — envoyer les erreurs 500 uniquement (pas les 4xx intentionnelles)
+	const statusCode500 = err.statusCode || err.status || 500;
+	if (statusCode500 >= 500) {
+		Sentry.captureException(err, {
+			extra: {
+				url: req.originalUrl,
+				method: req.method,
+				userId: req.user?.userId || req.user?.clientId || null,
+				restaurantId: req.user?.restaurantId || null,
+			},
+		});
+	}
 
 	// ✅ Déterminer le code de statut
 	let statusCode = err.statusCode || err.status || 500;
