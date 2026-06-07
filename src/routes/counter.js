@@ -233,6 +233,65 @@ router.patch(
 );
 
 /**
+ * POST /counter/sessions/close-by-table
+ * Fermer la session active d'une table après paiement côté CLIENT-end (stripe)
+ * Appelé quand le client n'a pas de reservationId mais a payé toutes ses commandes
+ * Body: { tableId, restaurantId }
+ * Auth: token client (role: "client") ou serveur
+ */
+router.post(
+	"/sessions/close-by-table",
+	auth,
+	async (req, res) => {
+		try {
+			const { tableId, restaurantId } = req.body;
+
+			if (!tableId || !mongoose.Types.ObjectId.isValid(tableId)) {
+				return res.status(400).json({ message: "tableId invalide" });
+			}
+			if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) {
+				return res.status(400).json({ message: "restaurantId invalide" });
+			}
+
+			// Sécurité : le token client doit appartenir au même restaurant
+			if (req.user.restaurantId && req.user.restaurantId.toString() !== restaurantId.toString()) {
+				return res.status(403).json({ message: "Accès non autorisé" });
+			}
+
+			const session = await TableSession.findOne({
+				tableId,
+				restaurantId,
+				status: { $ne: "closed" },
+			});
+
+			if (!session) {
+				// Idempotent : pas de session ouverte, on libère quand même la table
+				await Table.findByIdAndUpdate(tableId, { status: "available", isAvailable: true, guests: [] });
+				return res.status(200).json({ success: true, message: "Aucune session active, table libérée" });
+			}
+
+			session.status = "closed";
+			session.billStatus = "closed";
+			session.closedAt = new Date();
+			await session.save({ validateModifiedOnly: true });
+
+			await Table.findByIdAndUpdate(tableId, { status: "available", isAvailable: true, guests: [] });
+
+			const io = req.app.locals.io;
+			if (io && session.restaurantId) {
+				emitTableSessionEvent(io, session.restaurantId.toString(), "closed", session.toObject());
+			}
+
+			console.log(`[COUNTER] close-by-table: session ${session._id} fermée (table ${tableId})`);
+			res.status(200).json({ success: true, session });
+		} catch (err) {
+			console.error("[COUNTER] close-by-table ERROR:", err.message);
+			res.status(500).json({ message: err.message });
+		}
+	},
+);
+
+/**
  * PATCH /counter/sessions/:id/close
  * Encaisser : calculer réductions, fermer session, libérer table
  * Body: { paymentMethod: "cash"|"card_offline", discounts?: [...] }
