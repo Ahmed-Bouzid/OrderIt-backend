@@ -154,7 +154,7 @@ function confirmationTemplate(reservation) {
 			
 			<div class="divider"></div>
 			
-			<p>Bonne ambiance, bonne cuisine, bonne soirée.<br>
+			<p>Bonne ambiance, bonne cuisine, bon appétit.<br>
 			Il ne manque plus que vous 🍷</p>
 			
 			<p style="color: #999; font-size: 14px; margin-top: 20px;">
@@ -176,7 +176,7 @@ async function sendReservationConfirmation(reservation) {
 		reservation;
 
 	const htmlContent = confirmationTemplate(reservation);
-	const textContent = `Bonjour ${nom},\n\nC'est officiel : votre table chez ${restaurantName} vous attend ✨\n\n📅 ${date}\n🕐 ${heure}\n👥 ${nombrePersonnes} personne${nombrePersonnes > 1 ? "s" : ""}\n\nBonne ambiance, bonne cuisine, bonne soirée. Il ne manque plus que vous 🍷\n\nEn cas d'empêchement, merci de nous prévenir au plus tôt.\n\n—\nCet email a été envoyé automatiquement, merci de ne pas y répondre.`;
+	const textContent = `Bonjour ${nom},\n\nC'est officiel : votre table chez ${restaurantName} vous attend ✨\n\n📅 ${date}\n🕐 ${heure}\n👥 ${nombrePersonnes} personne${nombrePersonnes > 1 ? "s" : ""}\n\nBonne ambiance, bonne cuisine, bon appétit. Il ne manque plus que vous 🍽️\n\nEn cas d'empêchement, merci de nous prévenir au plus tôt.\n\n—\nCet email a été envoyé automatiquement, merci de ne pas y répondre.`;
 
 	return sendEmail({
 		to: email,
