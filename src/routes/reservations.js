@@ -21,7 +21,7 @@ const {
 } = require("../middlewares/reservationValidationRules");
 
 // ⭐ Import socket emitter
-const { emitReservationEvent } = require("../utils/socketEmitter");
+const { emitReservationEvent, emitTableSessionEvent } = require("../utils/socketEmitter");
 const { addAudit, getAuditUser } = require("../utils/auditHelper");
 const { checkOverbooking } = require("../utils/tableAvailabilityChecker");
 const { getAvailableSlotsForDay } = require("../utils/slotGenerator");
@@ -577,7 +577,17 @@ router.post(
 					clientId: effectiveClientId,
 					deviceId: joinDeviceId,
 					isCreator,
-				});
+				}).then((joinedSession) => {
+					const io = getIO(req);
+					if (io && lastReservation.restaurantId && joinedSession) {
+						emitTableSessionEvent(
+							io,
+							lastReservation.restaurantId.toString(),
+							"opened",
+							joinedSession.toObject(),
+						);
+					}
+				}).catch((e) => console.error("[DUAL-WRITE] emit join échoué:", e.message));
 
 				// 🔑 Si on a résolu un autre clientId que celui du token → réémettre un JWT
 				let reissuedToken = null;
@@ -651,7 +661,7 @@ router.post(
 
 			// ⭐ Phase B — Dual-write TableSession + Participant
 			const deviceId = req.headers["x-device-id"] || null;
-			dualWriteSession({
+			const tableSession = await dualWriteSession({
 				reservation,
 				clientName,
 				clientId: req.user?.clientId || null,
@@ -677,6 +687,15 @@ router.post(
 					"created",
 					reservation.toObject(),
 				);
+				// ⭐ Notifier le frontend (Floor) de l'ouverture de la session
+				if (tableSession) {
+					emitTableSessionEvent(
+						io,
+						reservation.restaurantId.toString(),
+						"opened",
+						tableSession.toObject(),
+					);
+				}
 			}
 
 			// Préparer la réponse
