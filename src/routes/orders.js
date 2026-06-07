@@ -210,7 +210,17 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			if (!isValidObjectId(tableSessionId)) {
 				return res.status(400).json({ message: "tableSessionId invalide" });
 			}
-			query.tableSessionId = tableSessionId;
+			// ⭐ Si tableId aussi fourni : inclure les orders CLIENT-end qui n'ont
+			// pas de tableSessionId (elles matchent par tableId uniquement)
+			if (tableId && isValidObjectId(tableId)) {
+				query.$or = [
+					{ tableSessionId },
+					{ tableId, tableSessionId: { $exists: false } },
+					{ tableId, tableSessionId: null },
+				];
+			} else {
+				query.tableSessionId = tableSessionId;
+			}
 		}
 
 		if (restaurantId) {
@@ -220,7 +230,7 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			query.restaurantId = restaurantId;
 		}
 
-		if (tableId) {
+		if (tableId && !query.$or) {
 			if (!isValidObjectId(tableId)) {
 				return res.status(400).json({ message: "tableId invalide" });
 			}
