@@ -84,6 +84,17 @@ router.post(
 			if (!items || !Array.isArray(items) || items.length === 0) {
 				return res.status(400).json({ message: "Aucun produit sélectionné" });
 			}
+			for (const item of items) {
+				if (!item.quantity || typeof item.quantity !== "number" || item.quantity < 1 || !Number.isInteger(item.quantity)) {
+					return res.status(400).json({ message: "Quantité invalide : doit être un entier ≥ 1" });
+				}
+				if (item.name && typeof item.name === "string" && item.name.length > 200) {
+					return res.status(400).json({ message: "Nom de produit trop long (max 200 caractères)" });
+				}
+				if (typeof item.price !== "number" || item.price < 0) {
+					return res.status(400).json({ message: "Prix invalide" });
+				}
+			}
 
 			// 🔍 Enrichir les items avec les données produit (catégorie normalisée)
 			const enrichedItems = await Promise.all(
@@ -131,6 +142,9 @@ router.post(
 				(sum, i) => sum + i.price * i.quantity,
 				0,
 			);
+			if (calculatedTotal <= 0) {
+				return res.status(400).json({ message: "Le total de la commande doit être supérieur à 0" });
+			}
 			if (Math.abs((total ?? 0) - calculatedTotal) > 0.01) {
 				return res
 					.status(400)
