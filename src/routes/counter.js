@@ -362,8 +362,10 @@ router.get(
 			const tables = await Table.find(query).select("_id number capacity roomNumber position size status isAvailable");
 
 			// ✅ FIX CRITIQUE : Convertir restaurantId en ObjectId pour query MongoDB
+			// tableId: { $ne: null } pour exclure les réservations web sans table assignée
 			const activeSessions = await TableSession.find({
 				restaurantId: new mongoose.Types.ObjectId(restaurantId),
+				tableId: { $ne: null },
 				billStatus: { $ne: "closed" },
 			}).populate("serverId", "name");
 
