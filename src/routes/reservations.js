@@ -1846,6 +1846,7 @@ router.put("/client/:id/close", async (req, res) => {
 		if (reservation.tableId) {
 			await Table.findByIdAndUpdate(reservation.tableId, {
 				isAvailable: true,
+				status: "available",
 				guests: [],
 			});
 		}
