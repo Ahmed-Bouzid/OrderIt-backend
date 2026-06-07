@@ -293,11 +293,20 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			}
 		}
 
+		// 🛡️ Limite de sécurité : si aucun filtre temporel (since/tableSessionId),
+		// appliquer une fenêtre de 48h par défaut pour éviter de retourner toutes les commandes
+		const hasTemporalFilter = !!query.createdAt || !!tableSessionId;
+		if (!hasTemporalFilter && !query.$or) {
+			const defaultSince = new Date(Date.now() - 48 * 60 * 60 * 1000);
+			query.createdAt = { $gte: defaultSince };
+		}
+
 		let rawOrders = await Order.find(query)
 			.populate("tableId", "number")
 			.populate("restaurantId", "name")
 			.populate("reservationId", "status") // ⭐ Populate pour info supplémentaire
 			.sort({ createdAt: -1 })
+			.limit(500) // 🛡️ Sécurité absolue — jamais plus de 500 commandes en une seule réponse
 			.lean();
 
 		// Populate serverId avec fallback Admin (si l'ID n'existe pas dans Server)
