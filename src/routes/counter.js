@@ -233,71 +233,6 @@ router.patch(
 );
 
 /**
- * POST /counter/sessions/close-by-table
- * Fermer la session active d'une table après paiement côté CLIENT-end (stripe)
- * Appelé quand le client n'a pas de reservationId mais a payé toutes ses commandes
- * Body: { tableId, restaurantId }
- * Auth: token client (role: "client") ou serveur
- */
-router.post(
-	"/sessions/close-by-table",
-	auth,
-	async (req, res) => {
-		try {
-			const { tableId, restaurantId } = req.body;
-			console.log(`[COUNTER] close-by-table: reçu tableId=${tableId} restaurantId=${restaurantId} user.role=${req.user?.role} user.restaurantId=${req.user?.restaurantId}`);
-
-			if (!tableId || !mongoose.Types.ObjectId.isValid(tableId)) {
-				console.warn("[COUNTER] close-by-table: tableId invalide");
-				return res.status(400).json({ message: "tableId invalide" });
-			}
-			if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) {
-				console.warn("[COUNTER] close-by-table: restaurantId invalide");
-				return res.status(400).json({ message: "restaurantId invalide" });
-			}
-
-			// Sécurité : le token client doit appartenir au même restaurant
-			if (req.user.restaurantId && req.user.restaurantId.toString() !== restaurantId.toString()) {
-				console.warn(`[COUNTER] close-by-table: accès refusé (token.restaurantId=${req.user.restaurantId} ≠ body.restaurantId=${restaurantId})`);
-				return res.status(403).json({ message: "Accès non autorisé" });
-			}
-
-			const session = await TableSession.findOne({
-				tableId,
-				restaurantId,
-				status: { $ne: "closed" },
-			});
-			console.log(`[COUNTER] close-by-table: session trouvée =`, session ? session._id : "AUCUNE");
-
-			if (!session) {
-				// Idempotent : pas de session ouverte, on libère quand même la table
-				await Table.findByIdAndUpdate(tableId, { status: "available", isAvailable: true, guests: [] });
-				console.log("[COUNTER] close-by-table: pas de session, table libérée quand même");
-				return res.status(200).json({ success: true, message: "Aucune session active, table libérée" });
-			}
-
-			session.status = "closed";
-			session.billStatus = "closed";
-			session.closedAt = new Date();
-			await session.save({ validateModifiedOnly: true });
-
-			await Table.findByIdAndUpdate(tableId, { status: "available", isAvailable: true, guests: [] });
-
-			const io = req.app.locals.io;
-			if (io && session.restaurantId) {
-				emitTableSessionEvent(io, session.restaurantId.toString(), "closed", session.toObject());
-			}
-
-			console.log(`[COUNTER] close-by-table: ✅ session ${session._id} fermée (table ${tableId})`);
-			res.status(200).json({ success: true, session });
-		} catch (err) {
-			console.error("[COUNTER] close-by-table ERROR:", err.message);
-			res.status(500).json({ message: err.message });
-		}
-	},
-);
-
-/**
  * PATCH /counter/sessions/:id/close
  * Encaisser : calculer réductions, fermer session, libérer table
  * Body: { paymentMethod: "cash"|"card_offline", discounts?: [...] }
@@ -374,27 +309,6 @@ router.patch(
 
 			await session.save({ validateModifiedOnly: true });
 
-			// ✅ Marquer toutes les orders comme payées (session + CLIENT-end sans tableSessionId)
-			await Order.updateMany(
-				{ tableSessionId: session._id, paid: { $ne: true } },
-				{ $set: { paid: true, orderStatus: "completed" } }
-			);
-			if (session.tableId) {
-				await Order.updateMany(
-					{ tableId: session.tableId, tableSessionId: { $in: [null, undefined] }, paid: { $ne: true }, orderStatus: { $nin: ["cancelled", "completed"] } },
-					{ $set: { paid: true, orderStatus: "completed" } }
-				);
-			}
-
-			// ✅ Libérer la table (status + isAvailable)
-			if (session.tableId) {
-				await Table.findByIdAndUpdate(session.tableId, {
-					status: "available",
-					isAvailable: true,
-					guests: [],
-				});
-			}
-
 			const elapsed = Date.now() - startTime;
 			console.log(`[COUNTER] Session fermée (${elapsed}ms): sessionId=${session._id} | subtotal=${pricing.subtotal.toFixed(2)}€ réductions=-${pricing.totalDiscounts.toFixed(2)}€ FINAL=${pricing.finalAmount.toFixed(2)}€`);
 
@@ -451,57 +365,31 @@ router.get(
 
 			console.log(`[COUNTER] Tables trouvées: ${tables.length} | Sessions actives: ${activeSessions.length}`);
 
-			// ✅ Récupérer les commandes liées aux sessions (tableSessionId)
-			// ET les commandes CLIENT-end liées par tableId (reservationId, sans tableSessionId)
+			// ✅ OPTIMISATION : 1 seule aggregation Order au lieu de N queries
 			const sessionIds = activeSessions.map((s) => s._id);
-			const tableIds = activeSessions.map((s) => s.tableId);
-
 			const ordersGrouped = await Order.aggregate([
 				{
 					$match: {
-						$or: [
-							{ tableSessionId: { $in: sessionIds } },
-							{
-								tableId: { $in: tableIds },
-								tableSessionId: { $exists: false },
-								paid: { $ne: true },
-								orderStatus: { $nin: ["cancelled", "completed"] },
-							},
-							{
-								tableId: { $in: tableIds },
-								tableSessionId: null,
-								paid: { $ne: true },
-								orderStatus: { $nin: ["cancelled", "completed"] },
-							},
-						],
+						tableSessionId: { $in: sessionIds },
 						orderStatus: { $ne: "cancelled" },
 					},
 				},
 				{
 					$group: {
-						// Grouper par tableSessionId si dispo, sinon par tableId
-						_id: {
-							$cond: [
-								{ $and: [{ $gt: ["$tableSessionId", null] }] },
-								"$tableSessionId",
-								{ $concat: ["tableId:", { $toString: "$tableId" }] },
-							],
-						},
+						_id: "$tableSessionId",
 						totalAmount: { $sum: "$totalAmount" },
 						itemsCount: { $sum: { $size: "$items" } },
 					},
 				},
 			]);
 
-			// ✅ Map orders par sessionId ET par "tableId:xxx" pour lookup O(1)
+			// ✅ Map orders par sessionId pour lookup O(1)
 			const ordersMap = {};
 			ordersGrouped.forEach((group) => {
-				if (group._id) {
-					ordersMap[group._id.toString()] = {
-						totalAmount: group.totalAmount,
-						itemsCount: group.itemsCount,
-					};
-				}
+				ordersMap[group._id.toString()] = {
+					totalAmount: group.totalAmount,
+					itemsCount: group.itemsCount,
+				};
 			});
 
 			// ✅ Mapper état pour chaque table
@@ -519,10 +407,8 @@ router.get(
 					};
 				}
 
-				// Table occupée : récupérer orders depuis map (session ou tableId fallback)
-				const sessionKey = session._id.toString();
-				const tableKey = `tableId:${table._id.toString()}`;
-				const orderData = ordersMap[sessionKey] || ordersMap[tableKey] || { totalAmount: 0, itemsCount: 0 };
+				// Table occupée : récupérer orders depuis map
+				const orderData = ordersMap[session._id.toString()] || { totalAmount: 0, itemsCount: 0 };
 
 				return {
 					...table.toObject(),

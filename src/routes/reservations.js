@@ -1732,29 +1732,6 @@ router.put("/client/:id/close", async (req, res) => {
 
 		// 2. Vérifier que la réservation peut être terminée
 		if (reservation.status === "completed") {
-			// Idempotent : réservation déjà fermée, mais s'assurer que la table et la session le sont aussi
-			if (reservation.tableId) {
-				const TableSession = require("../models/TableSession");
-				const activeSession = await TableSession.findOne({
-					tableId: reservation.tableId,
-					restaurantId: reservation.restaurantId,
-					status: { $ne: "closed" },
-				});
-				if (activeSession) {
-					console.log(`[RESAS] client/:id/close idempotent: fermeture session ${activeSession._id} pour table ${reservation.tableId}`);
-					activeSession.status = "closed";
-					activeSession.billStatus = "closed";
-					activeSession.closedAt = new Date();
-					await activeSession.save({ validateModifiedOnly: true });
-					try {
-						const { emitTableSessionEvent } = require("../utils/socketEmitter");
-						const io = require("../start").io;
-						if (io) emitTableSessionEvent(io, reservation.restaurantId.toString(), "closed", activeSession.toObject());
-					} catch (_) {}
-				}
-				await Table.findByIdAndUpdate(reservation.tableId, { status: "available", isAvailable: true, guests: [] });
-				console.log(`[RESAS] client/:id/close idempotent: table ${reservation.tableId} libérée`);
-			}
 			return res.status(400).json({ message: "Réservation déjà terminée" });
 		}
 
@@ -1867,15 +1844,10 @@ router.put("/client/:id/close", async (req, res) => {
 
 		// 4. Libérer la table et vider les guests
 		if (reservation.tableId) {
-			console.log(`[RESAS] client/:id/close: libération table ${reservation.tableId} → status:available`);
 			await Table.findByIdAndUpdate(reservation.tableId, {
 				isAvailable: true,
-				status: "available",
 				guests: [],
 			});
-			console.log(`[RESAS] client/:id/close: table ${reservation.tableId} libérée ✅`);
-		} else {
-			console.warn("[RESAS] client/:id/close: reservation.tableId manquant, table non libérée");
 		}
 
 		res.json({
