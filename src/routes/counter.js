@@ -309,6 +309,15 @@ router.patch(
 
 			await session.save({ validateModifiedOnly: true });
 
+			// ✅ Libérer la table (status + isAvailable)
+			if (session.tableId) {
+				await Table.findByIdAndUpdate(session.tableId, {
+					status: "available",
+					isAvailable: true,
+					guests: [],
+				});
+			}
+
 			const elapsed = Date.now() - startTime;
 			console.log(`[COUNTER] Session fermée (${elapsed}ms): sessionId=${session._id} | subtotal=${pricing.subtotal.toFixed(2)}€ réductions=-${pricing.totalDiscounts.toFixed(2)}€ FINAL=${pricing.finalAmount.toFixed(2)}€`);
 
