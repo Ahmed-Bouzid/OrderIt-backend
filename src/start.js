@@ -482,7 +482,24 @@ mongoose
 			console.log("🔔 Cron job auto-annulation réservations démarré (toutes les minutes)");
 		} catch (error) {
 			console.warn("⚠️ Auto-cancellation cron setup error:", error.message);
-			// Don't block server startup if cron fails
+		}
+
+		// 🗄️ Backup MongoDB → Cloudflare R2 (chaque nuit à 3h00)
+		try {
+			const cron = require("node-cron");
+			const { runBackup } = require("./services/backupService");
+
+			cron.schedule("0 3 * * *", async () => {
+				try {
+					await runBackup();
+				} catch (err) {
+					console.error("❌ [BACKUP] Erreur cron backup:", err.message);
+				}
+			});
+
+			console.log("🗄️ Cron job backup MongoDB démarré (chaque nuit à 3h00)");
+		} catch (error) {
+			console.warn("⚠️ Backup cron setup error:", error.message);
 		}
 	})
 	.catch((err) => {
