@@ -80,6 +80,11 @@ router.post(
 				}
 			}
 
+			// Vérification reservationId obligatoire pour les clients
+			if (role === "client" && !reservationId) {
+				return res.status(400).json({ message: "reservationId requis" });
+			}
+
 			// Vérification items
 			if (!items || !Array.isArray(items) || items.length === 0) {
 				return res.status(400).json({ message: "Aucun produit sélectionné" });
