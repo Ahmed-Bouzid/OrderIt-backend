@@ -211,7 +211,19 @@ class StripeService {
 			commissionPlan: hasConnect ? commissionPlan : "none",
 		});
 
-		await payment.save();
+		try {
+			await payment.save();
+		} catch (saveErr) {
+			// E11000 : doublon sur stripePaymentIntentId (double-tap simultané)
+			// Stripe retourne le même intent (idempotent) — on renvoie le Payment existant
+			if (saveErr.code === 11000 && saveErr.keyPattern?.stripePaymentIntentId) {
+				const existing = await Payment.findOne({ stripePaymentIntentId: paymentIntent.id }).lean();
+				if (existing) {
+					return { paymentIntent, payment: existing, clientSecret: paymentIntent.client_secret };
+				}
+			}
+			throw saveErr;
+		}
 
 		return {
 			paymentIntent,
