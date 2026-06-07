@@ -1801,7 +1801,7 @@ router.put("/client/:id/close", async (req, res) => {
 
 		// Émettre explicitement l'événement WebSocket pour garantir la synchro front
 		try {
-			const { emitReservationEvent } = require("../utils/socketEmitter");
+			const { emitReservationEvent, emitTableSessionEvent } = require("../utils/socketEmitter");
 			const io = require("../start").io;
 			if (io && updatedReservation.restaurantId) {
 				emitReservationEvent(
@@ -1810,6 +1810,33 @@ router.put("/client/:id/close", async (req, res) => {
 					"updated",
 					updatedReservation,
 				);
+
+				// ⭐ Émettre fermeture de la TableSession pour ActivityFloor
+				// Permet de libérer visuellement la table sur le plan de salle
+				if (updatedReservation.tableId) {
+					const TableSession = require("../models/TableSession");
+					const activeSession = await TableSession.findOne({
+						tableId: updatedReservation.tableId,
+						restaurantId: updatedReservation.restaurantId,
+						billStatus: { $ne: "closed" },
+					});
+
+					if (activeSession) {
+						// Fermer la session backend
+						activeSession.billStatus = "closed";
+						activeSession.status = "closed";
+						activeSession.closedAt = new Date();
+						await activeSession.save();
+
+						// Émettre l'événement de fermeture
+						emitTableSessionEvent(
+							io,
+							updatedReservation.restaurantId.toString(),
+							"closed",
+							activeSession.toObject(),
+						);
+					}
+				}
 			}
 		} catch (e) {
 			console.error("[WebSocket] Erreur émission événement reservation: ", e);
