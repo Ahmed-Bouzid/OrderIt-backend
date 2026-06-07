@@ -47,11 +47,11 @@ async function createSession({
     
     if (table.status === "occupied") {
       // ✅ Vérifier s'il y a vraiment une session active pour cette table
-      // ⚠️ FIX CRITIQUE : Filtrer par restaurantId ET source pour éviter conflits inter-restaurants
+      // ⚠️ FIX : Vérifier toutes les sources (counter ET reservation) pour éviter les faux positifs
       const existingSession = await TableSession.findOne({
         tableId,
         restaurantId,
-        source: "counter",
+        status: "active",
         billStatus: { $ne: "closed" },
       }).session(session);
       
@@ -188,10 +188,14 @@ async function requestBill(sessionId) {
   // Mettre à jour le billStatus
   tableSession.billStatus = "bill_requested";
   await tableSession.save({ validateModifiedOnly: true });
-  
-  // ✅ Table reste "occupied" (pas de changement de status)
-  // Seule la TableSession.billStatus change à "bill_requested"
-  
+
+  // Mettre à jour le statut de la table → bill_requested
+  const table = await Table.findById(tableSession.tableId);
+  if (table) {
+    table.status = "bill_requested";
+    await table.save();
+  }
+
   return await TableSession.findById(sessionId)
     .populate("tableId")
     .populate("reservationId");
@@ -241,20 +245,17 @@ async function closeSession({
       throw new Error(`Insufficient payment: ${amountPaid}€ paid but ${calculatedTotal}€ required`);
     }
     
-    // 3. Créer le Payment
-    const [payment] = await Payment.create(
-      [{
-        restaurantId: tableSession.restaurantId,
-        tableSessionId: sessionId,
-        reservationId: tableSession.reservationId?._id || null,
-        amount: amountPaid,
-        tip: tip || 0,
-        method: paymentMethod,
-        status: "completed",
-        paidAt: new Date(),
-      }],
-      { session: mongoSession }
-    );
+    // 3. Enregistrer le paiement (directement dans la session — pas de Payment Stripe)
+    const paymentRecord = {
+      restaurantId: tableSession.restaurantId,
+      tableSessionId: sessionId,
+      reservationId: tableSession.reservationId?._id || null,
+      amount: amountPaid,
+      tip: tip || 0,
+      method: paymentMethod,
+      status: "completed",
+      paidAt: new Date(),
+    };
     
     // 4. Fermer la TableSession
     tableSession.status = "closed";
@@ -264,13 +265,12 @@ async function closeSession({
     tableSession.paymentMethod = paymentMethod;
     await tableSession.save({ session: mongoSession, validateModifiedOnly: true });
     
-    // 5. Libérer la table
-    const table = await Table.findById(tableSession.tableId).session(mongoSession);
-    if (table) {
-      table.status = "available";
-      table.currentSessionId = null;
-      await table.save({ session: mongoSession });
-    }
+    // 5. Libérer la table (findByIdAndUpdate pour garantir currentSessionId: null en DB)
+    await Table.findByIdAndUpdate(
+      tableSession.tableId,
+      { $set: { status: "available", currentSessionId: null } },
+      { session: mongoSession }
+    );
     
     // 6. Terminer la réservation (si existe)
     if (tableSession.reservationId) {
@@ -298,7 +298,7 @@ async function closeSession({
     
     return { 
       session: tableSession, 
-      payment 
+      payment: paymentRecord 
     };
     
   } catch (error) {
@@ -341,13 +341,12 @@ async function cancelSession(sessionId, reason = "Cancelled by staff") {
     tableSession.totalAmount = 0;
     await tableSession.save({ session: mongoSession, validateModifiedOnly: true });
     
-    // 3. Libérer la table
-    const table = await Table.findById(tableSession.tableId).session(mongoSession);
-    if (table) {
-      table.status = "available";
-      table.currentSessionId = null;
-      await table.save({ session: mongoSession });
-    }
+    // 3. Libérer la table (findByIdAndUpdate pour garantir currentSessionId: null en DB)
+    await Table.findByIdAndUpdate(
+      tableSession.tableId,
+      { $set: { status: "available", currentSessionId: null } },
+      { session: mongoSession }
+    );
     
     // 4. Annuler la réservation (si existe)
     if (tableSession.reservationId) {

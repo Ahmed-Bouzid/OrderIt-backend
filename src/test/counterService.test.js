@@ -35,7 +35,16 @@ afterAll(async () => {
 // Nettoyage après chaque test
 afterEach(async () => {
   // Nettoyer les données de test créées
+  const deletedSessions = await TableSession.find({ source: "counter", openedAt: { $gte: new Date(Date.now() - 60000) } }).select("tableId");
+  const tableIds = deletedSessions.map(s => s.tableId).filter(Boolean);
   await TableSession.deleteMany({ source: "counter", openedAt: { $gte: new Date(Date.now() - 60000) } });
+  // Remettre les tables à "available" pour éviter la pollution entre tests
+  if (tableIds.length > 0) {
+    await Table.updateMany(
+      { _id: { $in: tableIds } },
+      { $set: { status: "available", currentSessionId: null } }
+    );
+  }
   await Payment.deleteMany({ createdAt: { $gte: new Date(Date.now() - 60000) } });
 });
 
@@ -117,20 +126,32 @@ describe("counterService.createSession", () => {
   });
   
   it("❌ Devrait échouer si la table est déjà occupée", async () => {
-    const occupiedTable = await Table.findOne({ status: "occupied" });
-    
-    if (!occupiedTable) {
-      console.warn("⚠️  Pas de table occupée pour le test, skip");
+    // Créer une table et l'occuper via createSession pour contrôler l'état
+    const availableTable = await Table.findOne({ status: "available" });
+    if (!availableTable) {
+      console.warn("⚠️  Pas de table disponible pour le test, skip");
       return;
     }
-    
+
+    // Occuper la table avec une première session
+    const session1 = await counterService.createSession({
+      restaurantId: availableTable.restaurantId,
+      tableId: availableTable._id,
+      guestCount: 1,
+    });
+    expect(session1.status).toBe("active");
+
+    // Tenter d'ouvrir une deuxième session sur la même table → doit rejeter
     await expect(
       counterService.createSession({
-        restaurantId: occupiedTable.restaurantId,
-        tableId: occupiedTable._id,
+        restaurantId: availableTable.restaurantId,
+        tableId: availableTable._id,
         guestCount: 1,
       })
     ).rejects.toThrow("Table already occupied");
+
+    // Cleanup : fermer la session pour que afterEach puisse reset la table
+    await counterService.cancelSession(session1._id, "cleanup after test");
   });
   
   it("❌ Devrait rollback si erreur pendant la transaction", async () => {
@@ -138,7 +159,7 @@ describe("counterService.createSession", () => {
     const testTable = await Table.create({
       restaurantId: new mongoose.Types.ObjectId(),
       name: "TEST-TABLE-ROLLBACK",
-      number: 9999,
+      number: `ROLLBACK-${Date.now()}`,
       capacity: 4,
       status: "available",
     });
