@@ -616,7 +616,7 @@ async function getServerPerformance(
 		serverId,
 		restaurantId,
 		createdAt: { $gte: start, $lte: end },
-	});
+	}).limit(1000);
 
 	const messages = await ClientMessage.find({
 		serverId,
@@ -996,7 +996,7 @@ router.get(
 				serverId,
 				restaurantId,
 				createdAt: { $gte: start, $lte: end },
-			}).lean();
+			}).limit(1000).lean();
 
 			// ── Statistiques globales ──
 			const totalOrders = orders.length;
@@ -1095,7 +1095,7 @@ router.get(
 				restaurantId,
 				serverId: { $in: allServers.map((s) => s._id) },
 				createdAt: { $gte: start, $lte: end },
-			}).lean();
+			}).limit(2000).lean();
 			const activeServerCount =
 				new Set(teamOrders.map((o) => o.serverId?.toString())).size || 1;
 			const teamAvg = {
