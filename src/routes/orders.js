@@ -212,11 +212,24 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			}
 			// ⭐ Si tableId aussi fourni : inclure les orders CLIENT-end qui n'ont
 			// pas de tableSessionId (elles matchent par tableId uniquement)
+			// ⚠️ Filtrer uniquement les orders non-payées et non-terminées pour ne pas
+			// remonter les commandes des sessions précédentes
 			if (tableId && isValidObjectId(tableId)) {
+				const activeStatuses = ["pending", "confirmed", "in_progress", "ready", "sent"];
 				query.$or = [
 					{ tableSessionId },
-					{ tableId, tableSessionId: { $exists: false } },
-					{ tableId, tableSessionId: null },
+					{
+						tableId,
+						tableSessionId: { $exists: false },
+						paid: { $ne: true },
+						orderStatus: { $nin: ["cancelled", "completed"] },
+					},
+					{
+						tableId,
+						tableSessionId: null,
+						paid: { $ne: true },
+						orderStatus: { $nin: ["cancelled", "completed"] },
+					},
 				];
 			} else {
 				query.tableSessionId = tableSessionId;
