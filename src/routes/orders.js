@@ -589,7 +589,9 @@ router.get(
 
 			const orders = await Order.find(query)
 				.populate("tableId", "number")
-				.populate("serverId", "name");
+				.populate("serverId", "name")
+				.sort({ createdAt: -1 })
+				.limit(200);
 
 			res.json(orders);
 		} catch (err) {
@@ -615,7 +617,8 @@ router.get(
 			};
 			const orders = await Order.find(query)
 				.populate("tableId", "number")
-				.populate("serverId", "firstName lastName");
+				.populate("serverId", "firstName lastName")
+				.limit(100);
 
 			if (orders.length === 0) {
 			} else {
@@ -640,7 +643,9 @@ router.get(
 		try {
 			const orders = await Order.find({ serverId: req.params.serverId })
 				.populate("tableId", "number")
-				.populate("serverId", "name serverId");
+				.populate("serverId", "name serverId")
+				.sort({ createdAt: -1 })
+				.limit(200);
 			res.json(orders);
 		} catch (err) {
 			console.error(err);
