@@ -245,16 +245,20 @@ router.post(
 	async (req, res) => {
 		try {
 			const { tableId, restaurantId } = req.body;
+			console.log(`[COUNTER] close-by-table: reçu tableId=${tableId} restaurantId=${restaurantId} user.role=${req.user?.role} user.restaurantId=${req.user?.restaurantId}`);
 
 			if (!tableId || !mongoose.Types.ObjectId.isValid(tableId)) {
+				console.warn("[COUNTER] close-by-table: tableId invalide");
 				return res.status(400).json({ message: "tableId invalide" });
 			}
 			if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) {
+				console.warn("[COUNTER] close-by-table: restaurantId invalide");
 				return res.status(400).json({ message: "restaurantId invalide" });
 			}
 
 			// Sécurité : le token client doit appartenir au même restaurant
 			if (req.user.restaurantId && req.user.restaurantId.toString() !== restaurantId.toString()) {
+				console.warn(`[COUNTER] close-by-table: accès refusé (token.restaurantId=${req.user.restaurantId} ≠ body.restaurantId=${restaurantId})`);
 				return res.status(403).json({ message: "Accès non autorisé" });
 			}
 
@@ -263,10 +267,12 @@ router.post(
 				restaurantId,
 				status: { $ne: "closed" },
 			});
+			console.log(`[COUNTER] close-by-table: session trouvée =`, session ? session._id : "AUCUNE");
 
 			if (!session) {
 				// Idempotent : pas de session ouverte, on libère quand même la table
 				await Table.findByIdAndUpdate(tableId, { status: "available", isAvailable: true, guests: [] });
+				console.log("[COUNTER] close-by-table: pas de session, table libérée quand même");
 				return res.status(200).json({ success: true, message: "Aucune session active, table libérée" });
 			}
 
@@ -282,7 +288,7 @@ router.post(
 				emitTableSessionEvent(io, session.restaurantId.toString(), "closed", session.toObject());
 			}
 
-			console.log(`[COUNTER] close-by-table: session ${session._id} fermée (table ${tableId})`);
+			console.log(`[COUNTER] close-by-table: ✅ session ${session._id} fermée (table ${tableId})`);
 			res.status(200).json({ success: true, session });
 		} catch (err) {
 			console.error("[COUNTER] close-by-table ERROR:", err.message);

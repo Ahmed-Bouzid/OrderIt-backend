@@ -1844,11 +1844,15 @@ router.put("/client/:id/close", async (req, res) => {
 
 		// 4. Libérer la table et vider les guests
 		if (reservation.tableId) {
+			console.log(`[RESAS] client/:id/close: libération table ${reservation.tableId} → status:available`);
 			await Table.findByIdAndUpdate(reservation.tableId, {
 				isAvailable: true,
 				status: "available",
 				guests: [],
 			});
+			console.log(`[RESAS] client/:id/close: table ${reservation.tableId} libérée ✅`);
+		} else {
+			console.warn("[RESAS] client/:id/close: reservation.tableId manquant, table non libérée");
 		}
 
 		res.json({
