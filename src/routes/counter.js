@@ -374,6 +374,18 @@ router.patch(
 
 			await session.save({ validateModifiedOnly: true });
 
+			// ✅ Marquer toutes les orders comme payées (session + CLIENT-end sans tableSessionId)
+			await Order.updateMany(
+				{ tableSessionId: session._id, paid: { $ne: true } },
+				{ $set: { paid: true, orderStatus: "completed" } }
+			);
+			if (session.tableId) {
+				await Order.updateMany(
+					{ tableId: session.tableId, tableSessionId: { $in: [null, undefined] }, paid: { $ne: true }, orderStatus: { $nin: ["cancelled", "completed"] } },
+					{ $set: { paid: true, orderStatus: "completed" } }
+				);
+			}
+
 			// ✅ Libérer la table (status + isAvailable)
 			if (session.tableId) {
 				await Table.findByIdAndUpdate(session.tableId, {
