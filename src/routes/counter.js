@@ -76,7 +76,6 @@ router.post(
 			// ✅ Chercher session existante (si race condition, elle sera là)
 			const existingSession = await TableSession.findOne({
 				tableId,
-				source: "counter",
 				billStatus: { $ne: "closed" },
 			});
 
@@ -149,7 +148,6 @@ router.get(
 
 			const session = await TableSession.findOne({
 				tableId,
-				source: "counter",
 				billStatus: { $ne: "closed" },
 		}).populate("tableId restaurantId serverId");
 
@@ -162,7 +160,6 @@ router.get(
 			// ✅ Récupérer les orders associées (1 seule query)
 			const orders = await Order.find({
 				tableSessionId: session._id,
-				source: "counter",
 				orderStatus: { $ne: "cancelled" },
 			});
 
@@ -265,14 +262,11 @@ router.patch(
 			if (!session) {
 				return res.status(404).json({ message: "Session non trouvée" });
 			}
-			if (session.source !== "counter") {
-				return res.status(403).json({ message: "Session pas en mode Comptoir" });
-			}
+			// ✅ Session accessible quel que soit la source (counter ou reservation)
 
 			// ✅ Récupérer toutes les commandes (1 query)
 			const orders = await Order.find({
 				tableSessionId: session._id,
-				source: "counter",
 			});
 
 			// ✅ Appliquer les réductions si fournies
