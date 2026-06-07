@@ -330,14 +330,19 @@ router.patch(
 			order.isMade = isMade;
 			await order.save();
 
-			// ⚡ Émettre l'événement WebSocket
+			// ⚡ Émettre l'événement WebSocket standardisé
 			const io = req.app.get("io");
-			if (io) {
-				io.to(`restaurant:${order.restaurantId}`).emit("order:updated", {
-					orderId: order._id,
-					isMade: order.isMade,
-					orderStatus: order.orderStatus,
-				});
+			if (io && order.restaurantId) {
+				const { emitOrderEvent } = require("../utils/socketEmitter");
+				const populatedOrder = await Order.findById(order._id)
+					.populate("tableId", "number")
+					.lean();
+				emitOrderEvent(
+					io,
+					order.restaurantId.toString(),
+					"updated",
+					populatedOrder
+				);
 			}
 
 			res.json({
@@ -391,19 +396,21 @@ router.patch(
 				{ $set: { isMade } },
 			);
 
-			// ⚡ Émettre l'événement WebSocket pour chaque commande
-			const orders = await Order.find({ _id: { $in: orderIds } }).select(
-				"_id restaurantId isMade orderStatus",
-			);
+			// ⚡ Émettre l'événement WebSocket standardisé pour chaque commande
+			const orders = await Order.find({ _id: { $in: orderIds } })
+				.populate("tableId", "number")
+				.lean();
 			const io = req.app.get("io");
 			if (io && orders.length > 0) {
+				const { emitOrderEvent } = require("../utils/socketEmitter");
 				const restaurantId = orders[0].restaurantId;
 				orders.forEach((order) => {
-					io.to(`restaurant:${restaurantId}`).emit("order:updated", {
-						orderId: order._id,
-						isMade: order.isMade,
-						orderStatus: order.orderStatus,
-					});
+					emitOrderEvent(
+						io,
+						restaurantId.toString(),
+						"updated",
+						order
+					);
 				});
 			}
 
@@ -1038,13 +1045,19 @@ router.delete(
 
 			await order.save();
 
-			// WebSocket
+			// WebSocket standardisé
 			const io = req.app.get("io");
 			if (io && order.restaurantId) {
-				io.to(`restaurant_${order.restaurantId}`).emit("order", {
-					type: "item_cancelled",
-					data: order.toObject(),
-				});
+				const { emitOrderEvent } = require("../utils/socketEmitter");
+				const populatedOrder = await Order.findById(order._id)
+					.populate("tableId", "number")
+					.lean();
+				emitOrderEvent(
+					io,
+					order.restaurantId.toString(),
+					"updated",
+					populatedOrder
+				);
 			}
 
 			res.status(200).json(order);

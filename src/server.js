@@ -134,6 +134,41 @@ app.post("/payments/webhook/stripe", express.raw({ type: "*/*" }), async (req, r
 			success: result?.success,
 			orderId: result?.orderId,
 		});
+
+		// 🔔 Émettre événements socket après paiement réussi
+		if (event.type === "payment_intent.succeeded" && result?.success && result?.orderId) {
+			const Order = require("./models/Order");
+			const Payment = require("./models/Payment");
+			const order = await Order.findById(result.orderId)
+				.populate("tableId", "number")
+				.lean();
+			
+			if (order && order.restaurantId) {
+				const payment = await Payment.findById(result.paymentId).lean();
+				const { emitOrderEvent, emitPaymentCompleted } = require("./utils/socketEmitter");
+				const io = app.get("io");
+				
+				if (io) {
+					// Émettre order:updated pour synchroniser l'état de la commande
+					emitOrderEvent(
+						io,
+						order.restaurantId.toString(),
+						"updated",
+						order
+					);
+					
+					// Émettre payment-completed pour notification dashboard
+					emitPaymentCompleted(io, order.restaurantId.toString(), {
+						tableNumber: order.tableId?.number || "?",
+						guestName: order.clientName || "Client",
+						amount: payment?.amount / 100 || order.totalAmount,
+						orderId: order._id,
+						tableId: order.tableId?._id || order.tableId,
+					});
+				}
+			}
+		}
+
 		return res.json({ received: true, result });
 	} catch (err) {
 		console.error("❌ [WEBHOOK EARLY] Erreur webhook Stripe:", err);
