@@ -77,7 +77,13 @@ const productSchema = new mongoose.Schema(
 		quantifiable: {
 			type: Boolean,
 			default: false,
+		},		// Référence immuable définie dans Menu (jamais décrémentée automatiquement)
+		baseQuantity: {
+			type: Number,
+			default: null,
+			min: 0,
 		},
+		// Stock réel du jour (décrémenté à chaque commande, reset chaque matin)
 		quantity: {
 			type: Number,
 			default: null,

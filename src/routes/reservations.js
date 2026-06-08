@@ -124,7 +124,7 @@ async function resolveStableClientId({
  * puis crée/met à jour le Participant correspondant.
  * Fire-and-forget : les erreurs sont loguées mais n'interrompent pas la réponse.
  */
-async function dualWriteSession({ reservation, clientName, clientId, deviceId, isCreator = false }) {
+async function dualWriteSession({ reservation, clientName, clientId, deviceId, isCreator = false, lang = "fr" }) {
 	try {
 		// Trouver ou créer la TableSession liée à cette réservation
 		let session = await TableSession.findOne({ reservationId: reservation._id, status: "active" });
@@ -151,6 +151,7 @@ async function dualWriteSession({ reservation, clientName, clientId, deviceId, i
 				clientId: clientId || null,
 				deviceId: deviceId || null,
 				clientName,
+				lang: lang || "fr",
 				isCreator,
 				joinedAt: new Date(),
 			});
@@ -436,6 +437,7 @@ router.post(
 				clientName,
 				allergies,
 				restrictions,
+				lang,
 			} = req.body;
 
 			// Utiliser les valeurs du token; ignorer le body pour ces champs critiques
@@ -577,6 +579,7 @@ router.post(
 					clientId: effectiveClientId,
 					deviceId: joinDeviceId,
 					isCreator,
+					lang: lang || "fr",
 				}).then((joinedSession) => {
 					const io = getIO(req);
 					if (io && lastReservation.restaurantId && joinedSession) {
@@ -667,6 +670,7 @@ router.post(
 				clientId: req.user?.clientId || null,
 				deviceId,
 				isCreator: true,
+				lang: lang || "fr",
 			});
 
 			await reservation.populate("tableId");

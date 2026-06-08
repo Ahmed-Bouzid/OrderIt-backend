@@ -28,6 +28,7 @@ const Order = require("../models/Order");
 const { emitTableSessionEvent } = require("../utils/socketEmitter");
 const { applyDiscounts } = require("../utils/discountCalculator");
 const counterService = require("../services/counterService");
+const Participant = require("../models/Participant");
 
 /**
  * GET /counter/debug-version
@@ -442,6 +443,22 @@ router.get(
 				};
 			});
 
+			// ✅ Récupérer le créateur (isCreator=true) de chaque session en un seul batch
+			const participantsCreator = await Participant.find({
+				tableSessionId: { $in: sessionIds },
+				isCreator: true,
+				leftAt: null,
+			}).select("tableSessionId clientName lang").lean();
+
+			// Map participants par sessionId pour lookup O(1)
+			const participantsMap = {};
+			participantsCreator.forEach((p) => {
+				participantsMap[p.tableSessionId.toString()] = {
+					clientName: p.clientName,
+					lang: p.lang || "fr",
+				};
+			});
+
 			// ✅ Mapper état pour chaque table
 			const tablesWithState = tables.map((table) => {
 				const session = activeSessions.find((s) => s.tableId.toString() === table._id.toString());
@@ -459,6 +476,7 @@ router.get(
 
 				// Table occupée : récupérer orders depuis map
 				const orderData = ordersMap[session._id.toString()] || { totalAmount: 0, itemsCount: 0 };
+				const participantData = participantsMap[session._id.toString()] || null;
 
 				return {
 					...table.toObject(),
@@ -468,6 +486,8 @@ router.get(
 					itemsCount: orderData.itemsCount,
 					openedAt: session.openedAt,
 					serverId: session.serverId ?? null,
+					clientName: participantData?.clientName || null,
+					clientLang: participantData?.lang || "fr",
 				};
 			});
 

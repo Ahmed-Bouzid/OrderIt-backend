@@ -134,6 +134,7 @@ router.put(
 			"image",
 			"available",
 			"quantifiable",
+			"baseQuantity",
 			"quantity",
 			"lowStockThreshold",
 		];
