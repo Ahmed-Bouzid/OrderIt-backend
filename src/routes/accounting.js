@@ -48,7 +48,7 @@ function getPeriodDates(period, customStart = null, customEnd = null) {
 
 		case "year":
 			startDate = new Date(now.getFullYear(), 0, 1);
-			endDate = new Date(now.getFullYear() + 1, 0, 1);
+			endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1); // jusqu'à aujourd'hui inclus
 			break;
 
 		case "custom":
@@ -266,7 +266,8 @@ router.get(
 			let projectedRevenue = null;
 			if (period === "month") {
 				const now = new Date();
-				const dayElapsed = Math.max(1, Math.ceil((now - startDate) / (24 * 60 * 60 * 1000)));
+				// Jours complets écoulés (le jour courant est partiel)
+				const dayElapsed = Math.max(1, now.getDate() - 1 + (now.getHours() / 24));
 				const daysInMonth = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0).getDate();
 				projectedRevenue = Number(((totalRevenue / dayElapsed) * daysInMonth).toFixed(2));
 			}
@@ -292,7 +293,7 @@ router.get(
 				} else {
 					const best = dailyRevenues.reduce((a, b) => (a.revenue > b.revenue ? a : b));
 					const dt = new Date(best.date);
-					bestPeriod = { label: `${JOURS_LBL[dt.getDay()]} ${dt.getDate()}/${dt.getMonth() + 1}`, revenue: best.revenue };
+					bestPeriod = { label: `${JOURS_LBL[dt.getDay()]} ${dt.getDate()} ${MOIS_LBL[dt.getMonth()]}`, revenue: best.revenue };
 				}
 			}
 
