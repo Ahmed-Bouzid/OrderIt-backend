@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const mongoose = require("mongoose");
 const auth = require("../middlewares/auth");
 const checkRoles = require("../middlewares/checkRoles");
 const Order = require("../models/Order");
@@ -112,102 +113,26 @@ router.get(
 			} = req.query;
 
 			// Calcul des dates selon la période
-			const { startDate, endDate } = getPeriodDates(
-				period,
-				customStart,
-				customEnd,
-			);
+			const { startDate, endDate } = getPeriodDates(period, customStart, customEnd);
 
-			// Récupération des commandes de la période
-			const orders = await Order.find({
-				restaurantId: restaurantId,
-				createdAt: { $gte: startDate, $lt: endDate },
-				orderStatus: { $ne: "cancelled" },
-			});
-
-			// ═══ CALCULS DE BASE ═══
-			const totalRevenue = orders.reduce(
-				(sum, order) => sum + (order.totalAmount || 0),
-				0,
-			);
-			const totalOrders = orders.length;
-			const averageOrderValue =
-				totalOrders > 0 ? totalRevenue / totalOrders : 0;
-
-			// ═══ PRODUITS POPULAIRES ═══
-			const itemCounts = {};
-			const itemRevenues = {};
-
-			orders.forEach((order) => {
-				order.items?.forEach((item) => {
-					const productName =
-						item.productName || item.name || "Produit inconnu";
-					const quantity = item.quantity || 1;
-					const itemPrice = item.price || 0;
-
-					itemCounts[productName] = (itemCounts[productName] || 0) + quantity;
-					itemRevenues[productName] =
-						(itemRevenues[productName] || 0) + itemPrice * quantity;
-				});
-			});
-
-			const topProduct =
-				Object.keys(itemCounts).length > 0
-					? Object.keys(itemCounts).reduce((a, b) =>
-							itemCounts[a] > itemCounts[b] ? a : b,
-						)
-					: "Aucun produit";
-
-			const topProducts = Object.entries(itemCounts)
-				.sort(([, a], [, b]) => b - a)
-				.slice(0, 5)
-				.map(([name, count]) => ({
-					name,
-					quantity: count,
-					revenue: itemRevenues[name] || 0,
-				}));
-
-			// ═══ CALCULS COMPTABLES AVANCÉS ═══
-			// Supposons 83.33% HT (TVA 20%)
-			const revenueHT = totalRevenue / 1.2;
-			const tvaCalculations = calculateTVA(revenueHT, 0.2);
-			const marginCalculations = calculateMargins(revenueHT, 0.3); // 30% de coûts
-
-			// ═══ COMPARAISON PÉRIODE PRÉCÉDENTE ═══
+			// ═══ PÉRIODE PRÉCÉDENTE ═══
 			let previousPeriodStart, previousPeriodEnd;
 			const periodDuration = endDate - startDate;
-
 			switch (period) {
 				case "today":
-					previousPeriodStart = new Date(
-						startDate.getTime() - 24 * 60 * 60 * 1000,
-					);
+					previousPeriodStart = new Date(startDate.getTime() - 24 * 60 * 60 * 1000);
 					previousPeriodEnd = new Date(startDate);
 					break;
 				case "week":
-					previousPeriodStart = new Date(
-						startDate.getTime() - 7 * 24 * 60 * 60 * 1000,
-					);
+					previousPeriodStart = new Date(startDate.getTime() - 7 * 24 * 60 * 60 * 1000);
 					previousPeriodEnd = new Date(startDate);
 					break;
 				case "month":
-					previousPeriodStart = new Date(
-						startDate.getFullYear(),
-						startDate.getMonth() - 1,
-						1,
-					);
-					previousPeriodEnd = new Date(
-						startDate.getFullYear(),
-						startDate.getMonth(),
-						1,
-					);
+					previousPeriodStart = new Date(startDate.getFullYear(), startDate.getMonth() - 1, 1);
+					previousPeriodEnd = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
 					break;
 				case "quarter":
-					previousPeriodStart = new Date(
-						startDate.getFullYear(),
-						startDate.getMonth() - 3,
-						1,
-					);
+					previousPeriodStart = new Date(startDate.getFullYear(), startDate.getMonth() - 3, 1);
 					previousPeriodEnd = new Date(startDate);
 					break;
 				case "year":
@@ -219,67 +144,92 @@ router.get(
 					previousPeriodEnd = startDate;
 			}
 
-			const previousOrders = await Order.find({
-				restaurantId: restaurantId,
-				createdAt: { $gte: previousPeriodStart, $lt: previousPeriodEnd },
-				orderStatus: { $ne: "cancelled" },
-			});
+			const rid = new mongoose.Types.ObjectId(restaurantId);
+			const BASE_MATCH = { restaurantId: rid, orderStatus: { $ne: "cancelled" } };
 
-			const previousRevenue = previousOrders.reduce(
-				(sum, order) => sum + (order.totalAmount || 0),
-				0,
-			);
-			const growthRate =
-				previousRevenue > 0
-					? ((totalRevenue - previousRevenue) / previousRevenue) * 100
-					: 0;
+			// ═══ 3 AGRÉGATIONS EN PARALLÈLE (au lieu de N+1 requêtes) ═══
+			const [currentAgg, previousAgg, topProductsAgg, dailyRevenues] = await Promise.all([
+				// 1. Métriques période courante
+				Order.aggregate([
+					{ $match: { ...BASE_MATCH, createdAt: { $gte: startDate, $lt: endDate } } },
+					{
+						$facet: {
+							totals: [{ $group: { _id: null, totalRevenue: { $sum: "$totalAmount" }, totalOrders: { $sum: 1 } } }],
+							items: [
+								{ $unwind: "$items" },
+								{
+									$group: {
+										_id: { $ifNull: ["$items.productName", "$items.name"] },
+										quantity: { $sum: "$items.quantity" },
+										revenue: { $sum: { $multiply: [{ $ifNull: ["$items.price", 0] }, { $ifNull: ["$items.quantity", 1] }] } },
+									},
+								},
+								{ $sort: { quantity: -1 } },
+								{ $limit: 5 },
+							],
+						},
+					},
+				]),
+				// 2. Revenus période précédente
+				Order.aggregate([
+					{ $match: { ...BASE_MATCH, createdAt: { $gte: previousPeriodStart, $lt: previousPeriodEnd } } },
+					{ $group: { _id: null, totalRevenue: { $sum: "$totalAmount" } } },
+				]),
+				// 3. (placeholder — inclus dans le facet ci-dessus)
+				Promise.resolve([]),
+				// 4. Revenus journaliers — 1 seule agrégation
+				getDailyRevenues(rid, startDate, endDate),
+			]);
 
-			// ═══ DONNÉES POUR GRAPHIQUES ═══
-			const dailyRevenues = await getDailyRevenues(
-				restaurantId,
-				startDate,
-				endDate,
-			);
+			// ═══ CALCULS DE BASE ═══
+			const totals = currentAgg[0]?.totals[0] || { totalRevenue: 0, totalOrders: 0 };
+			const totalRevenue = totals.totalRevenue || 0;
+			const totalOrders = totals.totalOrders || 0;
+			const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-			// ═══ RÉSULTAT FINAL ═══
-			const result = {
+			// ═══ PRODUITS POPULAIRES ═══
+			const rawItems = currentAgg[0]?.items || [];
+			const topProducts = rawItems.map((item) => ({
+				name: item._id || "Produit inconnu",
+				quantity: item.quantity,
+				revenue: Number((item.revenue || 0).toFixed(2)),
+			}));
+			const topProduct = topProducts[0]?.name || "Aucun produit";
+
+			// ═══ CALCULS COMPTABLES ═══
+			const revenueHT = totalRevenue / 1.2;
+			const tvaCalculations = calculateTVA(revenueHT, 0.2);
+			const marginCalculations = calculateMargins(revenueHT, 0.3);
+
+			// ═══ CROISSANCE ═══
+			const previousRevenue = previousAgg[0]?.totalRevenue || 0;
+			const growthRate = previousRevenue > 0
+				? ((totalRevenue - previousRevenue) / previousRevenue) * 100
+				: 0;
+
+			res.json({
 				success: true,
 				data: {
-					// Infos générales
-					period: period,
+					period,
 					startDate: startDate.toISOString().split("T")[0],
 					endDate: endDate.toISOString().split("T")[0],
-
-					// Métriques de base
 					totalRevenue: Number(totalRevenue.toFixed(2)),
-					totalOrders: totalOrders,
+					totalOrders,
 					averageOrderValue: Number(averageOrderValue.toFixed(2)),
-
-					// Comptabilité avancée
 					revenueHT: tvaCalculations.amountHT,
 					revenueTTC: tvaCalculations.amountTTC,
 					tvaCollected: tvaCalculations.tva,
-
-					// Marges et coûts
 					costs: marginCalculations.costs,
 					grossMargin: marginCalculations.grossMargin,
 					marginPercent: marginCalculations.marginPercent,
-					netResult: marginCalculations.grossMargin, // Simplifié
-
-					// Évolution
+					netResult: marginCalculations.grossMargin,
 					previousPeriodRevenue: Number(previousRevenue.toFixed(2)),
 					growthRate: Number(growthRate.toFixed(1)),
-
-					// Produits
-					topProduct: topProduct,
-					topProducts: topProducts,
-
-					// Données graphiques
-					dailyRevenues: dailyRevenues,
+					topProduct,
+					topProducts,
+					dailyRevenues,
 				},
-			};
-
-			res.json(result);
+			});
 		} catch (error) {
 			console.error("❌ [ACCOUNTING] Erreur génération résumé:", error);
 			res.status(500).json({
@@ -292,34 +242,43 @@ router.get(
 );
 
 /**
- * Helper pour obtenir les revenus quotidiens (pour graphiques)
+ * Helper pour obtenir les revenus quotidiens — 1 seule agrégation (plus de N+1)
  */
 async function getDailyRevenues(restaurantId, startDate, endDate) {
+	// 1 seule requête MongoDB groupée par jour
+	const result = await Order.aggregate([
+		{
+			$match: {
+				restaurantId: restaurantId,
+				createdAt: { $gte: startDate, $lt: endDate },
+				orderStatus: { $ne: "cancelled" },
+			},
+		},
+		{
+			$group: {
+				_id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+				revenue: { $sum: "$totalAmount" },
+				orders: { $sum: 1 },
+			},
+		},
+		{ $sort: { _id: 1 } },
+	]);
+
+	// Construire la map date → valeurs
+	const map = {};
+	result.forEach((r) => { map[r._id] = r; });
+
+	// Remplir chaque jour de la période (y compris jours sans commandes)
 	const revenues = [];
-	const currentDate = new Date(startDate);
-
-	while (currentDate < endDate) {
-		const dayStart = new Date(currentDate);
-		const dayEnd = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000);
-
-		const dayOrders = await Order.find({
-			restaurantId: restaurantId,
-			createdAt: { $gte: dayStart, $lt: dayEnd },
-			orderStatus: { $ne: "cancelled" },
-		});
-
-		const dayRevenue = dayOrders.reduce(
-			(sum, order) => sum + (order.totalAmount || 0),
-			0,
-		);
-
+	const current = new Date(startDate);
+	while (current < endDate) {
+		const key = current.toISOString().split("T")[0];
 		revenues.push({
-			date: currentDate.toISOString().split("T")[0],
-			revenue: Number(dayRevenue.toFixed(2)),
-			orders: dayOrders.length,
+			date: key,
+			revenue: Number((map[key]?.revenue || 0).toFixed(2)),
+			orders: map[key]?.orders || 0,
 		});
-
-		currentDate.setDate(currentDate.getDate() + 1);
+		current.setDate(current.getDate() + 1);
 	}
 
 	return revenues;
