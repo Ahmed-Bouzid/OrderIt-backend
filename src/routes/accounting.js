@@ -123,14 +123,21 @@ router.get(
 					previousPeriodStart = new Date(startDate.getTime() - 24 * 60 * 60 * 1000);
 					previousPeriodEnd = new Date(startDate);
 					break;
-				case "week":
+				case "week": {
+					// Comparer les mêmes jours écoulés (ex: si on est lundi, comparer lundi S-1)
+					const now = new Date();
+					const elapsedMs = now - startDate;
 					previousPeriodStart = new Date(startDate.getTime() - 7 * 24 * 60 * 60 * 1000);
-					previousPeriodEnd = new Date(startDate);
+					previousPeriodEnd = new Date(previousPeriodStart.getTime() + elapsedMs);
 					break;
-				case "month":
+				}
+				case "month": {
+					// Comparer les mêmes jours écoulés dans le mois précédent
+					const nowM = new Date();
 					previousPeriodStart = new Date(startDate.getFullYear(), startDate.getMonth() - 1, 1);
-					previousPeriodEnd = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+					previousPeriodEnd = new Date(startDate.getFullYear(), startDate.getMonth() - 1, nowM.getDate() + 1);
 					break;
+				}
 				case "quarter":
 					previousPeriodStart = new Date(startDate.getFullYear(), startDate.getMonth() - 3, 1);
 					previousPeriodEnd = new Date(startDate);
