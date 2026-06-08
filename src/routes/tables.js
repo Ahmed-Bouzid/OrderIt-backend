@@ -59,11 +59,20 @@ router.post(
 			const table = new Table({
 				restaurantId,
 				number,
-				qrCodeUrl,
 				capacity: capacity || 4,
 				status: status || TABLE_STATUS.AVAILABLE,
 			});
 			await table.save();
+
+			// Auto-générer le QR code si non fourni (même logique que le mode batch)
+			const resolvedQrCode = qrCodeUrl || (() => {
+				const base = process.env.CLIENT_APP_URL || process.env.APP_BASE_URL || "";
+				return base ? `${base}/r/${restaurantId}/${table._id}` : "";
+			})();
+			if (resolvedQrCode) {
+				table.qrCodeUrl = resolvedQrCode;
+				await table.save();
+			}
 
 			// ⭐ Émettre l'événement WebSocket
 			const io = getIO(req);
