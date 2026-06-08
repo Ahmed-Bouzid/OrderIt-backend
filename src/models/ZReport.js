@@ -4,7 +4,8 @@ const mongoose = require("mongoose");
  * ZReport — Z de caisse (clôture journalière)
  *
  * Représente un Z de caisse scellé et immuable.
- * Généré depuis les TableSession fermées d'un restaurant sur une période.
+ * NOUVEAU : Généré depuis les Events d'un CashShift (Event Sourcing)
+ * LEGACY : Peut aussi être généré depuis TableSession (compatibilité)
  */
 
 const paymentBreakdownSchema = new mongoose.Schema(
@@ -23,6 +24,35 @@ const zReportSchema = new mongoose.Schema(
 			ref: "Restaurant",
 			required: true,
 			index: true,
+		},
+
+		// ═══ EVENT SOURCING ═══
+		
+		// Shift associé (null si Z legacy généré sans shift)
+		shiftId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "CashShift",
+			required: false,
+			index: true,
+		},
+
+		// Idempotence (évite doublons)
+		idempotencyKey: {
+			type: String,
+			required: true,
+			unique: true,
+			index: true,
+			// Format: z_{restaurantId}_{shiftId}_{timestamp}
+			// Ex: "z_6489ab123_6489cd456_1686312000000"
+		},
+
+		// Mode de génération
+		generationMode: {
+			type: String,
+			enum: ["event_sourced", "legacy"],
+			default: "event_sourced",
+			// event_sourced = généré depuis Events
+			// legacy = généré depuis TableSession/Order (ancien mode)
 		},
 
 		// Numéro séquentiel par restaurant (1, 2, 3…)
@@ -63,6 +93,21 @@ const zReportSchema = new mongoose.Schema(
 			required: false,
 		},
 		notes: { type: String, default: "" },
+
+		// ═══ AUDIT ═══
+		
+		// Nombre d'events verrouillés lors de la génération
+		eventsLocked: {
+			type: Number,
+			default: 0,
+		},
+
+		// Hash de vérification (pour intégrité)
+		checksumSHA256: {
+			type: String,
+			required: false,
+			// Hash des données du Z pour détecter altérations
+		},
 	},
 	{ timestamps: true },
 );

@@ -234,6 +234,7 @@ app.use("/servers", require("./routes/servers"));
 app.use("/reservations", require("./routes/reservations"));
 app.use("/counter", auth, require("./routes/counter")); // 🏪 Routes mode Comptoir (prise de commande directe)
 app.use("/z-reports", auth, require("./routes/zReports")); // 🧾 Z de caisse (clôture journalière)
+app.use("/cash-shifts", auth, require("./routes/cashShifts")); // 💰 Gestion shifts de caisse (Event Sourcing)
 app.use("/assistant", require("./routes/assistant")); // ⭐ Assistant intelligent réservations
 app.use("/ai", require("./routes/ai")); // 🤖 Fonctions IA — créneaux, heatmap, prédiction, liste attente
 app.use("/developer", require("./routes/developer")); // 🔧 Routes développeur
