@@ -5,6 +5,7 @@ const Table = require("../models/Table");
 const Order = require("../models/Order");
 const Payment = require("../models/Payment");
 const { RESERVATION_STATUS, ACTIVE_STATUSES } = require("../constants/reservationStatus");
+const EventEmitter = require("./EventEmitter");
 
 /**
  * COUNTER SERVICE — Gestion des sessions comptoir
@@ -147,7 +148,23 @@ async function createSession({
 
     await session.commitTransaction();
 
-    // 6. Populate et retourner (utiliser l'objet créé au lieu de refaire un findById)
+    // 6. Émettre event ticket_created (Event Sourcing)
+    try {
+      await EventEmitter.emitTicketCreated({
+        restaurantId,
+        ticketId: tableSession._id,
+        tableId,
+        tableNumber: table.number,
+        couverts: finalGuestCount,
+        actorId: serverId || "system",
+        actorType: serverId ? "server" : "system",
+      });
+    } catch (eventErr) {
+      // Non-bloquant : session déjà créée
+      console.error("[counterService] Erreur émission event ticket_created:", eventErr.message);
+    }
+
+    // 7. Populate et retourner (utiliser l'objet créé au lieu de refaire un findById)
     // ✅ Plus rapide : populate directement sur l'objet existant
     await tableSession.populate("tableId");
     if (reservationId) {

@@ -29,6 +29,7 @@ const { emitTableSessionEvent } = require("../utils/socketEmitter");
 const { applyDiscounts } = require("../utils/discountCalculator");
 const counterService = require("../services/counterService");
 const Participant = require("../models/Participant");
+const EventEmitter = require("../services/EventEmitter");
 
 /**
  * GET /counter/debug-version
@@ -341,6 +342,24 @@ router.patch(
 			session.pricing = pricing;
 
 			await session.save({ validateModifiedOnly: true });
+
+			// 🎯 Émettre event payment_captured (Event Sourcing)
+			try {
+				await EventEmitter.emitPaymentCaptured({
+					restaurantId: session.restaurantId,
+					ticketId: session._id,
+					paymentId: `offline_${session._id}_${Date.now()}`,
+					method: paymentMethod === "cash" ? "cash" : "card",
+					amountCents: Math.round(pricing.finalAmount * 100),
+					currency: "EUR",
+					reference: `counter_${session._id}`,
+					actorId: req.user?.id || "system",
+					actorType: "server",
+				});
+			} catch (eventErr) {
+				// Non-bloquant : paiement déjà enregistré
+				console.error("[COUNTER] Erreur émission event payment_captured:", eventErr.message);
+			}
 
 			// ⭐ Force-quit : écrire le log pré/post dans la session
 			if (force === true && snapshotPre) {

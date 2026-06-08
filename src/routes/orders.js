@@ -14,6 +14,7 @@ const Reservation = require("../models/Reservation");
 const {
 	cancelOpenStripePaymentsForOrder,
 } = require("../utils/cancelOpenStripePayments");
+const EventEmitter = require("../services/EventEmitter");
 const { validationResult } = require("express-validator");
 const { getAuditUser, addAudit } = require("../utils/auditHelper");
 
@@ -181,6 +182,28 @@ router.post(
 			});
 
 			await order.save();
+
+			// 🎯 Émettre events item_added (Event Sourcing)
+			try {
+				for (const item of enrichedItems) {
+					await EventEmitter.emitItemAdded({
+						restaurantId,
+						ticketId: tableSessionId,
+						orderId: order._id,
+						productId: item.productId,
+						productName: item.name,
+						quantity: item.quantity,
+						unitPriceCents: Math.round(item.price * 100),
+						category: item.category,
+						options: item.options,
+						actorId: serverId || clientId || "system",
+						actorType: role === "client" ? "customer" : "server",
+					});
+				}
+			} catch (eventErr) {
+				// Non-bloquant
+				console.error("[ORDERS] Erreur émission events item_added:", eventErr.message);
+			}
 
 			// 📦 Décrémenter le stock pour chaque item quantifiable
 			try {
