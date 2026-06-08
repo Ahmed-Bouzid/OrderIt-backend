@@ -146,10 +146,11 @@ router.get(
 
 			const rid = new mongoose.Types.ObjectId(restaurantId);
 			const BASE_MATCH = { restaurantId: rid, orderStatus: { $ne: "cancelled" } };
+			const TZ_MS = 2 * 60 * 60 * 1000; // UTC+2 France
 
-			// ═══ 3 AGRÉGATIONS EN PARALLÈLE (au lieu de N+1 requêtes) ═══
-			const [currentAgg, previousAgg, topProductsAgg, dailyRevenues] = await Promise.all([
-				// 1. Métriques période courante
+			// ═══ 6 AGRÉGATIONS EN PARALLÈLE ═══
+			const [currentAgg, previousAgg, , dailyRevenues, serviceAgg, hourlyAgg] = await Promise.all([
+				// 1. Métriques + top produits période courante
 				Order.aggregate([
 					{ $match: { ...BASE_MATCH, createdAt: { $gte: startDate, $lt: endDate } } },
 					{
@@ -175,10 +176,46 @@ router.get(
 					{ $match: { ...BASE_MATCH, createdAt: { $gte: previousPeriodStart, $lt: previousPeriodEnd } } },
 					{ $group: { _id: null, totalRevenue: { $sum: "$totalAmount" } } },
 				]),
-				// 3. (placeholder — inclus dans le facet ci-dessus)
+				// 3. Placeholder
 				Promise.resolve([]),
-				// 4. Revenus journaliers — 1 seule agrégation
+				// 4. Revenus journaliers
 				getDailyRevenues(rid, startDate, endDate),
+				// 5. Split Midi / Soir
+				Order.aggregate([
+					{ $match: { ...BASE_MATCH, createdAt: { $gte: startDate, $lt: endDate } } },
+					{
+						$group: {
+							_id: {
+								$let: {
+									vars: { h: { $hour: { $add: ["$createdAt", TZ_MS] } } },
+									in: {
+										$switch: {
+											branches: [
+												{ case: { $and: [{ $gte: ["$$h", 11] }, { $lt: ["$$h", 16] }] }, then: "midi" },
+												{ case: { $and: [{ $gte: ["$$h", 18] }, { $lte: ["$$h", 23] }] }, then: "soir" },
+											],
+											default: "autre",
+										},
+									},
+								},
+							},
+							revenue: { $sum: "$totalAmount" },
+							orders: { $sum: 1 },
+						},
+					},
+				]),
+				// 6. Distribution horaire
+				Order.aggregate([
+					{ $match: { ...BASE_MATCH, createdAt: { $gte: startDate, $lt: endDate } } },
+					{
+						$group: {
+							_id: { $hour: { $add: ["$createdAt", TZ_MS] } },
+							revenue: { $sum: "$totalAmount" },
+							orders: { $sum: 1 },
+						},
+					},
+					{ $sort: { _id: 1 } },
+				]),
 			]);
 
 			// ═══ CALCULS DE BASE ═══
@@ -199,13 +236,65 @@ router.get(
 			// ═══ CALCULS COMPTABLES ═══
 			const revenueHT = totalRevenue / 1.2;
 			const tvaCalculations = calculateTVA(revenueHT, 0.2);
-			const marginCalculations = calculateMargins(revenueHT, 0.3);
 
 			// ═══ CROISSANCE ═══
 			const previousRevenue = previousAgg[0]?.totalRevenue || 0;
 			const growthRate = previousRevenue > 0
 				? ((totalRevenue - previousRevenue) / previousRevenue) * 100
 				: 0;
+
+			// ═══ SPLIT SERVICES ═══
+			const serviceBreakdown = { midi: { revenue: 0, orders: 0 }, soir: { revenue: 0, orders: 0 } };
+			serviceAgg.forEach((s) => {
+				if (s._id === "midi" || s._id === "soir") {
+					serviceBreakdown[s._id] = { revenue: Number((s.revenue || 0).toFixed(2)), orders: s.orders || 0 };
+				}
+			});
+
+			// ═══ DISTRIBUTION HORAIRE ═══
+			const hourlyDistribution = hourlyAgg.map((h) => ({
+				hour: h._id,
+				revenue: Number((h.revenue || 0).toFixed(2)),
+				orders: h.orders || 0,
+			}));
+
+			// ═══ CA MOYEN PAR JOUR ═══
+			const nbDays = Math.max(1, Math.round((endDate - startDate) / (24 * 60 * 60 * 1000)));
+			const avgPerDay = Number((totalRevenue / nbDays).toFixed(2));
+
+			// ═══ PROJECTION FIN DE MOIS ═══
+			let projectedRevenue = null;
+			if (period === "month") {
+				const now = new Date();
+				const dayElapsed = Math.max(1, Math.ceil((now - startDate) / (24 * 60 * 60 * 1000)));
+				const daysInMonth = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0).getDate();
+				projectedRevenue = Number(((totalRevenue / dayElapsed) * daysInMonth).toFixed(2));
+			}
+
+			// ═══ MEILLEURE PÉRIODE ═══
+			const JOURS_LBL = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+			const MOIS_LBL = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
+			let bestPeriod = { label: "—", revenue: 0 };
+			if (dailyRevenues.length > 0) {
+				if (period === "year" || period === "quarter") {
+					const byMonth = {};
+					dailyRevenues.forEach((d) => {
+						const dt = new Date(d.date);
+						const key = `${dt.getFullYear()}-${dt.getMonth()}`;
+						if (!byMonth[key]) byMonth[key] = { label: `${MOIS_LBL[dt.getMonth()]} ${dt.getFullYear()}`, revenue: 0 };
+						byMonth[key].revenue += d.revenue;
+					});
+					const entries = Object.values(byMonth);
+					if (entries.length > 0) {
+						const best = entries.reduce((a, b) => (a.revenue > b.revenue ? a : b));
+						bestPeriod = { label: best.label, revenue: Number(best.revenue.toFixed(2)) };
+					}
+				} else {
+					const best = dailyRevenues.reduce((a, b) => (a.revenue > b.revenue ? a : b));
+					const dt = new Date(best.date);
+					bestPeriod = { label: `${JOURS_LBL[dt.getDay()]} ${dt.getDate()}/${dt.getMonth() + 1}`, revenue: best.revenue };
+				}
+			}
 
 			res.json({
 				success: true,
@@ -219,15 +308,16 @@ router.get(
 					revenueHT: tvaCalculations.amountHT,
 					revenueTTC: tvaCalculations.amountTTC,
 					tvaCollected: tvaCalculations.tva,
-					costs: marginCalculations.costs,
-					grossMargin: marginCalculations.grossMargin,
-					marginPercent: marginCalculations.marginPercent,
-					netResult: marginCalculations.grossMargin,
 					previousPeriodRevenue: Number(previousRevenue.toFixed(2)),
 					growthRate: Number(growthRate.toFixed(1)),
 					topProduct,
 					topProducts,
 					dailyRevenues,
+					serviceBreakdown,
+					hourlyDistribution,
+					avgPerDay,
+					projectedRevenue,
+					bestPeriod,
 				},
 			});
 		} catch (error) {
