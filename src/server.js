@@ -254,6 +254,7 @@ app.use("/client/products", clientProductsRoutes);
 app.use("/print", auth, require("./routes/print")); // 🖨️ Impression thermique ESC/POS (Chez Ahmed)
 app.use("/api/app", require("./routes/appVersion")); // 📱 Version APK + téléchargement
 app.use("/api/themes", require("./routes/themes")); // 🎨 Routes thèmes & personnalisation
+app.use("/rooms", auth, require("./routes/rooms")); // 🏠 Routes salles (rooms)
 
 // ✅ SÉCURITÉ: Middlewares de gestion d'erreurs (TOUJOURS EN DERNIER)
 // 🔍 Sentry error handler — doit être AVANT notFoundHandler et secureErrorHandler
