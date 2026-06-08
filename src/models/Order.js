@@ -409,7 +409,7 @@ orderSchema.post("save", async function (doc) {
 
 				// ⭐ Émettre événement WebSocket pour notifier les clients
 				const { emitReservationEvent } = require("../utils/socketEmitter");
-				const io = require("../start").io;
+				const io = require("../utils/ioStore").getIO();
 				if (io && reservation.restaurantId) {
 					emitReservationEvent(
 						io,

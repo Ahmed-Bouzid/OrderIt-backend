@@ -15,7 +15,7 @@ describe("Orders négatifs", () => {
 
 	beforeAll(async () => {
 		// Connexion à Mongo (si ce n’est pas déjà fait dans server.js)
-		if (mongoose.connection.readyState === 0) {
+		if (mongoose.connection.readyState !== 1) {
 			await mongoose.connect(process.env.MONGO_URI);
 		}
 		await Table.deleteMany({ number: /^test-/ });
@@ -79,6 +79,7 @@ describe("Orders négatifs", () => {
 					{
 						productId,
 						quantity: 1,
+						price: 12.9,
 					},
 				],
 				total: 12.9,
@@ -117,6 +118,7 @@ describe("Orders négatifs", () => {
 					{
 						productId,
 						quantity: 1,
+						price: 12.9,
 					},
 				],
 				total: 100, // devrait être 12.9

@@ -1753,7 +1753,7 @@ router.put("/client/:id/close", async (req, res) => {
 		if (reservation.orderIds && reservation.orderIds.length > 0) {
 			const Order = require("../models/Order");
 			const { emitOrderEvent } = require("../utils/socketEmitter");
-			const io = require("../start").io;
+			const io = require("../utils/ioStore").getIO();
 
 			const orders = await Order.find({ _id: { $in: reservation.orderIds } });
 			const now = new Date();
@@ -1802,7 +1802,7 @@ router.put("/client/:id/close", async (req, res) => {
 		// Émettre explicitement l'événement WebSocket pour garantir la synchro front
 		try {
 			const { emitReservationEvent, emitTableSessionEvent } = require("../utils/socketEmitter");
-			const io = require("../start").io;
+			const io = require("../utils/ioStore").getIO();
 			if (io && updatedReservation.restaurantId) {
 				emitReservationEvent(
 					io,

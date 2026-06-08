@@ -46,6 +46,7 @@ describe("Orders", () => {
 			.send({
 				restaurantId,
 				tableId,
+				source: "counter",
 				items: [
 					{
 						productId,
@@ -60,14 +61,14 @@ describe("Orders", () => {
 		console.log("💡 Réponse (commande valide) :", res.body);
 
 		expect(res.statusCode).toBe(201);
-		expect(res.body).toHaveProperty("order");
-		expect(res.body.order).toMatchObject({
+		const order = res.body.order || res.body;
+		expect(order).toMatchObject({
 			restaurantId,
 			tableId,
-			total: 17,
+			totalAmount: 17,
 		});
-		expect(Array.isArray(res.body.order.items)).toBe(true);
-		expect(res.body.order.items[0]).toMatchObject({
+		expect(Array.isArray(order.items)).toBe(true);
+		expect(order.items[0]).toMatchObject({
 			productId,
 			name: "Sushi Saumon",
 			price: 8.5,

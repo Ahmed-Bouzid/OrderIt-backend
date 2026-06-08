@@ -37,6 +37,12 @@ const participantSchema = new mongoose.Schema(
 			required: true,
 			trim: true,
 		},
+		// ⭐ Langue choisie par le client dans l'app CLIENT-end (code ISO ex: "fr", "en", "es"...)
+		lang: {
+			type: String,
+			default: "fr",
+			trim: true,
+		},
 		// ⭐ true si ce participant a créé la réservation/session
 		isCreator: {
 			type: Boolean,

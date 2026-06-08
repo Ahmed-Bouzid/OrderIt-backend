@@ -422,6 +422,9 @@ app.locals.onlineStaff = onlineStaff; // ⭐ Exposer pour les routes
 // ⭐ Exporter io pour l'utiliser dans les modèles
 module.exports.io = io;
 
+// ⭐ Enregistrer io dans ioStore (évite les require('../start') circulaires en test)
+require("./utils/ioStore").setIO(io);
+
 const os = require("os");
 
 function getLocalIp() {

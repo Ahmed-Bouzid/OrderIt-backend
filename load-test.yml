@@ -1,0 +1,129 @@
+config:
+  target: "https://orderit-backend-6y1m.onrender.com"
+  phases:
+    # Phase 1 : warm-up (réveille Render si endormi)
+    - name: "Warm-up"
+      duration: 30
+      arrivalRate: 1
+    # Phase 2 : charge normale (service midi)
+    - name: "Charge normale"
+      duration: 60
+      arrivalRate: 5
+    # Phase 3 : pic de charge (service chargé)
+    - name: "Pic de charge"
+      duration: 30
+      arrivalRate: 15
+    # Phase 4 : retour à la normale
+    - name: "Cool-down"
+      duration: 20
+      arrivalRate: 2
+
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+  # Variables globales Baghera
+  variables:
+    restaurantId: "6a0381c865b4fbf2f219e0f0"
+    tableId: "6a038d467070bbe3ff0430ef"
+    productId1: "6a03844565b4fbf2f219e111"
+    productId2: "6a03844565b4fbf2f219e113"
+
+scenarios:
+  # Scénario 1 : Client parcourt la carte et crée une commande (60% du trafic)
+  - name: "Client commande"
+    weight: 60
+    flow:
+      # Étape 1 : obtenir un token client
+      - post:
+          url: "/client/token"
+          json:
+            pseudo: "TestUser{{ $randomString() }}"
+            restaurantId: "{{ restaurantId }}"
+            tableId: "{{ tableId }}"
+            deviceId: "test-device-{{ $randomString() }}-stress-load"
+          capture:
+            - json: "$.token"
+              as: "clientToken"
+          expect:
+            - statusCode: 201
+
+      # Étape 2 : créer une commande
+      - post:
+          url: "/orders"
+          headers:
+            Authorization: "Bearer {{ clientToken }}"
+            x-device-id: "test-device-{{ $randomString() }}-stress-load"
+          json:
+            reservationId: "6a250abe84a5ab2ca4d64e48"
+            restaurantId: "{{ restaurantId }}"
+            tableId: "{{ tableId }}"
+            clientName: "TestUser Stress"
+            items:
+              - productId: "{{ productId1 }}"
+                name: "Shere Kan"
+                quantity: 1
+                price: 18
+              - productId: "{{ productId2 }}"
+                name: "Baloo"
+                quantity: 2
+                price: 16
+            total: 50
+          capture:
+            - json: "$._id"
+              as: "orderId"
+          expect:
+            - statusCode:
+                - 200
+                - 201
+
+      # Étape 3 : polling tracking (comme le client sur son téléphone)
+      - get:
+          url: "/client-orders/order/{{ orderId }}"
+          expect:
+            - statusCode:
+                - 200
+                - 404
+
+      # Pause 2s (comportement naturel)
+      - think: 2
+
+      # Étape 4 : re-polling
+      - get:
+          url: "/client-orders/order/{{ orderId }}"
+
+  # Scénario 2 : Client qui consulte uniquement (sans commander) (25% du trafic)
+  - name: "Client consulte seulement"
+    weight: 25
+    flow:
+      - post:
+          url: "/client/token"
+          json:
+            pseudo: "BrowseOnly{{ $randomString() }}"
+            restaurantId: "{{ restaurantId }}"
+            tableId: "{{ tableId }}"
+            deviceId: "browse-device-{{ $randomString() }}-stress"
+          capture:
+            - json: "$.token"
+              as: "clientToken"
+
+      - think: 3
+
+      # Lookup par code CMD (feature de tracking)
+      - get:
+          url: "/client-orders/lookup/FA99?restaurantId={{ restaurantId }}"
+          expect:
+            - statusCode:
+                - 200
+                - 404
+
+  # Scénario 3 : Health check (15% du trafic)
+  - name: "Health check"
+    weight: 15
+    flow:
+      - get:
+          url: "/health"
+          expect:
+            - statusCode:
+                - 200
+                - 404

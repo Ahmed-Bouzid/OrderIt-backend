@@ -85,6 +85,11 @@ router.post(
 				return res.status(400).json({ message: "reservationId requis" });
 			}
 
+			// Vérification tableId obligatoire pour serveur/admin
+			if (["server", "admin"].includes(role) && !tableId) {
+				return res.status(400).json({ message: "tableId est requis" });
+			}
+
 			// Vérification items
 			if (!items || !Array.isArray(items) || items.length === 0) {
 				return res.status(400).json({ message: "Aucun produit sélectionné" });
@@ -176,6 +181,38 @@ router.post(
 			});
 
 			await order.save();
+
+			// 📦 Décrémenter le stock pour chaque item quantifiable
+			try {
+				const { emitProductEvent } = require("../utils/socketEmitter");
+				const ioForStock = req.app.locals.io;
+				await Promise.all(
+					enrichedItems.map(async (item) => {
+						if (!item.productId) return;
+						const product = await Product.findById(item.productId).select(
+							"quantifiable quantity lowStockThreshold restaurantId name category",
+						);
+						if (!product || !product.quantifiable) return;
+						product.quantity = Math.max(0, product.quantity - item.quantity);
+						await product.save();
+						if (ioForStock && product.restaurantId) {
+							emitProductEvent(ioForStock, product.restaurantId.toString(), "stock:updated", {
+								productId: product._id,
+								name: product.name,
+								category: product.category,
+								quantity: product.quantity,
+								quantifiable: product.quantifiable,
+								lowStockThreshold: product.lowStockThreshold,
+								isLowStock: product.quantity <= product.lowStockThreshold,
+								isOutOfStock: product.quantity === 0,
+							});
+						}
+					}),
+				);
+			} catch (stockErr) {
+				// Non-bloquant : la commande est déjà enregistrée
+				console.error("⚠️ [STOCK] Erreur décrémentation après commande:", stockErr);
+			}
 
 			const cancelResult = await cancelOpenStripePaymentsForOrder(
 				order._id,

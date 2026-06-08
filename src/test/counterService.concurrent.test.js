@@ -25,7 +25,7 @@ const RESTAURANT_ID = "6a0381c865b4fbf2f219e0f0"; // Baghera
 let availableTables = [];
 
 beforeAll(async () => {
-  if (mongoose.connection.readyState === 0) {
+  if (mongoose.connection.readyState !== 1) {
     await mongoose.connect(process.env.MONGO_URI);
   }
   // Récupérer plusieurs tables disponibles pour les tests

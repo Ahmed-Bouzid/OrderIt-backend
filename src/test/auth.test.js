@@ -17,7 +17,7 @@ describe("Auth", () => {
 	it("should login successfully with valid credentials", async () => {
 		const res = await request(app)
 			.post("/auth/login")
-			.send({ email: "ahmed@chezahmed.fr", password: "azerty123" }); // ⚠️ password en clair supposé
+			.send({ email: "bob@chezahmed.fr", password: "azerty123" });
 
 		expect(res.statusCode).toBe(200);
 		expect(res.body).toHaveProperty("accessToken");
@@ -26,7 +26,7 @@ describe("Auth", () => {
 	it("should fail login with wrong password", async () => {
 		const res = await request(app)
 			.post("/auth/login")
-			.send({ email: "contact@chezahmed.fr", password: "wrongpassword" });
+			.send({ email: "bob@chezahmed.fr", password: "wrongpassword" });
 
 		expect(res.statusCode).toBe(401); // ou 400 si c’est ton code
 	});

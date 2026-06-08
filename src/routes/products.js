@@ -192,6 +192,43 @@ router.delete(
 // 📦 ROUTES GESTION DES STOCKS
 // ───────────────────────────────────────────────────────────────
 
+// GET /all-stock/:restaurantId - TOUS les produits quantifiables, séparés ok/low
+router.get(
+	"/all-stock/:restaurantId",
+	auth,
+	validateObjectIds(["restaurantId"]),
+	checkRoles(["admin", "server"]),
+	checkUserRestaurant("restaurantId"),
+	async (req, res) => {
+		try {
+			const products = await Product.find({
+				restaurantId: req.params.restaurantId,
+				quantifiable: true,
+			})
+				.select("name category quantity lowStockThreshold quantifiable")
+				.sort({ quantity: 1 })
+				.maxTimeMS(10000);
+
+			const ok = [];
+			const low = [];
+
+			products.forEach((p) => {
+				const threshold = p.lowStockThreshold ?? 5;
+				if (p.quantity <= threshold) {
+					low.push(p);
+				} else {
+					ok.push(p);
+				}
+			});
+
+			res.json({ ok, low, total: products.length });
+		} catch (err) {
+			console.error("❌ Erreur récupération all-stock:", err);
+			res.status(500).json({ message: "Erreur serveur" });
+		}
+	}
+);
+
 // GET /low-stock/:restaurantId - produits à stock bas
 router.get(
 	"/low-stock/:restaurantId",

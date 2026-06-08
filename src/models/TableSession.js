@@ -26,7 +26,6 @@ const tableSessionSchema = new mongoose.Schema(
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Reservation",
 			required: false,
-			index: true,
 		},
 		status: {
 			type: String,
@@ -212,6 +211,14 @@ const tableSessionSchema = new mongoose.Schema(
 			type: Number,
 			default: null,
 		},
+
+		// ⭐ Audit force-quit : snapshot pré/post fermeture forcée
+		forceQuitLog: [{
+			forcedAt: { type: Date, default: Date.now },
+			forcedBy: { type: String, default: "staff" }, // nom ou id du staff
+			snapshotPre: { type: mongoose.Schema.Types.Mixed }, // état session + orders avant close
+			snapshotPost: { type: mongoose.Schema.Types.Mixed }, // état session après close
+		}],
 	},
 	{
 		timestamps: true,

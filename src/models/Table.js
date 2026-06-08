@@ -5,6 +5,7 @@ const TABLE_STATUS = {
 	AVAILABLE: "available",
 	OCCUPIED: "occupied",
 	UNAVAILABLE: "unavailable",
+	BILL_REQUESTED: "bill_requested",
 };
 
 const tableSchema = new mongoose.Schema(
@@ -95,6 +96,13 @@ const tableSchema = new mongoose.Schema(
 		tableReservationId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Reservation",
+		},
+
+		// Session courante associée à la table (null si disponible)
+		currentSessionId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "TableSession",
+			default: null,
 		},
 	},
 	{

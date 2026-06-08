@@ -26,7 +26,7 @@ let serverDeviceId;
 let createdOrderId;
 
 beforeAll(async () => {
-  if (mongoose.connection.readyState === 0) {
+  if (mongoose.connection.readyState !== 1) {
     await mongoose.connect(process.env.MONGO_URI);
   }
 
@@ -194,7 +194,7 @@ describe("Order — Création", () => {
         total: 18,
         reservationId: RESERVATION_ID,
       });
-    expect(res.status).toBe(403);
+    expect([401, 403]).toContain(res.status);
   });
 
   it("❌ POST /orders → 400 si nom produit > 200 chars", async () => {

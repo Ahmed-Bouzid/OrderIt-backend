@@ -27,7 +27,7 @@ const BOLD_OFF = Buffer.from([0x1b, 0x45, 0x00]); // Gras désactivé
 const FEED = Buffer.from([0x0a]); // Saut de ligne
 const CUT = Buffer.from([0x1d, 0x56, 0x01]); // Coupe partielle
 
-const WIDTH = 32; // Largeur maximale en caractères (58mm ≈ 32 chars)
+const WIDTH = 42; // Largeur maximale en caractères (80mm ≈ 42 chars — NEPI IRT-280)
 const DIVIDER = "-".repeat(WIDTH);
 const DOUBLE_DIVIDER = "=".repeat(WIDTH);
 

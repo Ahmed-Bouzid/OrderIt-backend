@@ -245,7 +245,7 @@ router.patch(
 		const startTime = Date.now();
 		try {
 			const { id } = req.params;
-			const { paymentMethod, discounts } = req.body;
+			const { paymentMethod, discounts, force } = req.body;
 
 			// ✅ Validation input
 			if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -299,6 +299,38 @@ router.patch(
 			}
 
 			// ✅ Fermer la session
+			// ⭐ Force-quit : capturer snapshot PRÉ-close si demandé
+			let snapshotPre = null;
+			if (force === true) {
+				snapshotPre = {
+					capturedAt: new Date().toISOString(),
+					session: {
+						_id: session._id,
+						tableId: session.tableId,
+						restaurantId: session.restaurantId,
+						billStatus: session.billStatus,
+						status: session.status,
+						openedAt: session.openedAt,
+						totalAmount: session.totalAmount,
+						paymentMethod: session.paymentMethod,
+						source: session.source,
+					},
+					orders: orders.map((o) => ({
+						_id: o._id,
+						orderStatus: o.orderStatus,
+						totalAmount: o.totalAmount,
+						items: o.items?.map((i) => ({
+							name: i.name,
+							quantity: i.quantity,
+							price: i.price,
+							itemStatus: i.itemStatus,
+						})),
+					})),
+					pricing,
+				};
+				console.log(`[COUNTER][FORCE-QUIT] PRÉ-CLOSE sessionId=${session._id} tableId=${session.tableId} billStatus=${session.billStatus} totalAmount=${session.totalAmount} orders=${orders.length}`);
+			}
+
 			session.billStatus = "closed";
 			session.status = "closed";
 			session.closedAt = new Date();
@@ -308,6 +340,24 @@ router.patch(
 			session.pricing = pricing;
 
 			await session.save({ validateModifiedOnly: true });
+
+			// ⭐ Force-quit : écrire le log pré/post dans la session
+			if (force === true && snapshotPre) {
+				const snapshotPost = {
+					capturedAt: new Date().toISOString(),
+					billStatus: session.billStatus,
+					status: session.status,
+					closedAt: session.closedAt,
+					totalAmount: session.totalAmount,
+					paymentMethod: session.paymentMethod,
+					pricing: session.pricing,
+				};
+				const forcedBy = req.user?.name || req.user?.id || "staff";
+				if (!session.forceQuitLog) session.forceQuitLog = [];
+				session.forceQuitLog.push({ forcedAt: new Date(), forcedBy, snapshotPre, snapshotPost });
+				await session.save({ validateModifiedOnly: true });
+				console.log(`[COUNTER][FORCE-QUIT] POST-CLOSE sessionId=${session._id} forcedBy=${forcedBy} finalAmount=${pricing.finalAmount.toFixed(2)}€`);
+			}
 
 			const elapsed = Date.now() - startTime;
 			console.log(`[COUNTER] Session fermée (${elapsed}ms): sessionId=${session._id} | subtotal=${pricing.subtotal.toFixed(2)}€ réductions=-${pricing.totalDiscounts.toFixed(2)}€ FINAL=${pricing.finalAmount.toFixed(2)}€`);

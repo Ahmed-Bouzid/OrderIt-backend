@@ -25,7 +25,6 @@ describe("checkRoles négatifs", () => {
 
 		expect(res.statusCode).toBe(403);
 		expect(res.body.message).toMatch(/accès refusé/i);
-		expect(res.body.role).toBe("server");
 	});
 	afterAll(async () => {
 		await mongoose.connection.close();

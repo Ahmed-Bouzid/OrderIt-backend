@@ -40,6 +40,9 @@ jest.mock("../models/Order", () => ({
 jest.mock("../utils/socketEmitter", () => ({
 	emitOrderEvent: jest.fn(),
 }));
+jest.mock("../utils/cancelOpenStripePayments", () => ({
+	cancelOpenStripePaymentsForOrder: jest.fn().mockResolvedValue({ errors: [] }),
+}));
 
 const Order = require("../models/Order");
 const app = require("../server");

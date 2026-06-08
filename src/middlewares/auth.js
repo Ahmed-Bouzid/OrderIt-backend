@@ -39,7 +39,7 @@ module.exports = async function auth(req, res, next) {
 		next();
 	} catch (err) {
 		console.error("JWT invalide :", err);
-		return res.status(403).json({ message: "Token invalide ou expiré." });
+		return res.status(401).json({ message: "Token invalide ou expiré." });
 	}
 };
 

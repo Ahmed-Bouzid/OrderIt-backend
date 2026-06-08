@@ -1,0 +1,43 @@
+config:
+  target: "https://orderit-backend-6y1m.onrender.com"
+  phases:
+    - name: "Smoke test"
+      duration: 15
+      arrivalRate: 1
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+scenarios:
+  - name: "Token + commande"
+    flow:
+      - post:
+          url: "/client/token"
+          json:
+            pseudo: "SmokeTest"
+            restaurantId: "6a0381c865b4fbf2f219e0f0"
+            tableId: "6a038d467070bbe3ff0430ef"
+            deviceId: "smoke-test-device-load-artillery-01"
+          capture:
+            - json: "$.token"
+              as: "clientToken"
+
+      - post:
+          url: "/orders"
+          headers:
+            Authorization: "Bearer {{ clientToken }}"
+            x-device-id: "smoke-test-device-load-artillery-01"
+          json:
+            reservationId: "6a250abe84a5ab2ca4d64e48"
+            items:
+              - productId: "6a03844565b4fbf2f219e111"
+                name: "Shere Kan"
+                quantity: 1
+                price: 18
+            total: 18
+          capture:
+            - json: "$._id"
+              as: "orderId"
+
+      - get:
+          url: "/client-orders/order/{{ orderId }}"
