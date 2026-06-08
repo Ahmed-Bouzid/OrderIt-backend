@@ -137,7 +137,7 @@ router.get(
 					break;
 				case "year":
 					previousPeriodStart = new Date(startDate.getFullYear() - 1, 0, 1);
-					previousPeriodEnd = new Date(startDate.getFullYear(), 0, 1);
+					previousPeriodEnd = new Date(endDate.getFullYear() - 1, endDate.getMonth(), endDate.getDate());
 					break;
 				default:
 					previousPeriodStart = new Date(startDate.getTime() - periodDuration);
