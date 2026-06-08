@@ -15,7 +15,7 @@ const tableValidationRules = [
 			"Le numéro de table est obligatoire et doit être une chaîne non vide."
 		),
 	body("qrCodeUrl")
-		.optional()
+		.optional({ values: "falsy" })
 		.isURL()
 		.withMessage("Le QR Code doit être une URL valide."),
 ];
