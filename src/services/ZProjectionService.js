@@ -266,14 +266,17 @@ class ZProjectionService {
 			}
 		}
 
-		const topProducts = Object.entries(productStats)
+		// Tous les produits triés par revenu
+		const allProducts = Object.entries(productStats)
 			.sort(([, a], [, b]) => b.revenueCents - a.revenueCents)
-			.slice(0, 10)
 			.map(([name, stats]) => ({
 				name,
 				quantity: stats.quantity,
 				revenueCents: stats.revenueCents,
 			}));
+
+		// Top 3 pour affichage rapide
+		const topProducts = allProducts.slice(0, 3);
 
 		// ── RETOUR ──
 		return {
@@ -300,6 +303,7 @@ class ZProjectionService {
 
 			// Produits
 			topProducts,
+			allProducts,
 
 			// Détails (pour audit)
 			discounts: state.discounts,

@@ -102,12 +102,22 @@ router.get(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /z-reports/generate
+// DEPRECATED (Phase 4) — Utiliser /cash-shifts/:id/close à la place
 // ─────────────────────────────────────────────────────────────────────────────
 router.post(
 	"/generate",
 	auth,
 	checkRoles(["admin"]),
 	async (req, res) => {
+		// Phase 4 : Endpoint déprécié (retourne 410 Gone)
+		// Pour réactiver temporairement le legacy, commentez le return ci-dessous
+		return res.status(410).json({
+			message: "Endpoint déprécié (Phase 4 migration).",
+			deprecationNote: "Utilisez /cash-shifts/:id/close pour générer un Z via event-sourcing.",
+			migrationGuide: "Voir docs/z-caisse/MIGRATION_PLAN.md",
+		});
+
+		/* CODE LEGACY (désactivé Phase 4, réactivable si besoin)
 		try {
 			const {
 				restaurantId,
@@ -167,6 +177,7 @@ router.post(
 			console.error("[Z-REPORT] generate error:", err);
 			return res.status(500).json({ message: "Erreur serveur." });
 		}
+		*/
 	},
 );
 

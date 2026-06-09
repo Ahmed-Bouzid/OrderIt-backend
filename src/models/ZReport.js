@@ -86,30 +86,42 @@ const zReportSchema = new mongoose.Schema(
 		closingCountCents: { type: Number, default: 0 },
 		cashVarianceCents: { type: Number, default: 0 },
 
-		// Métadonnées
-		generatedBy: {
-			type: mongoose.Schema.Types.ObjectId,
-			ref: "Server",
-			required: false,
-		},
-		notes: { type: String, default: "" },
+	// Produits
+	topProducts: [{
+		name: String,
+		quantity: Number,
+		revenueCents: Number,
+	}],
+	allProducts: [{
+		name: String,
+		quantity: Number,
+		revenueCents: Number,
+	}],
 
-		// ═══ AUDIT ═══
-		
-		// Nombre d'events verrouillés lors de la génération
-		eventsLocked: {
-			type: Number,
-			default: 0,
-		},
-
-		// Hash de vérification (pour intégrité)
-		checksumSHA256: {
-			type: String,
-			required: false,
-			// Hash des données du Z pour détecter altérations
-		},
+	// Métadonnées
+	generatedBy: {
+		type: mongoose.Schema.Types.ObjectId,
+		ref: "Server",
+		required: false,
 	},
-	{ timestamps: true },
+	notes: { type: String, default: "" },
+
+	// ═══ AUDIT ═══
+	
+	// Nombre d'events verrouillés lors de la génération
+	eventsLocked: {
+		type: Number,
+		default: 0,
+	},
+
+	// Hash de vérification (pour intégrité)
+	checksumSHA256: {
+		type: String,
+		required: false,
+		// Hash des données du Z pour détecter altérations
+	},
+},
+{ timestamps: true },
 );
 
 // Index pour récupérer rapidement les Z d'un restaurant dans l'ordre
