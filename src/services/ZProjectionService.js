@@ -112,7 +112,7 @@ class ZProjectionService {
 			const item = {
 				itemId: event._id,
 				productId: payload.productId,
-				name: payload.name,
+				name: payload.productName || payload.name || "Produit inconnu",  // FIX: utiliser productName depuis EventEmitter
 				quantity: payload.quantity,
 				unitPriceCents: payload.unitPriceCents,
 				totalCents: payload.unitPriceCents * payload.quantity,
