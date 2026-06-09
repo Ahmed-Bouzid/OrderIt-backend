@@ -137,6 +137,11 @@ router.put(
 			"baseQuantity",
 			"quantity",
 			"lowStockThreshold",
+			"addOns",
+			"hasAddOns",
+			"allowedAddOns",
+			"isFormule",
+			"formuleSteps",
 		];
 		const updates = Object.fromEntries(
 			Object.entries(req.body).filter(([key]) => allowedFields.includes(key))

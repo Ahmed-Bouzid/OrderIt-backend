@@ -94,6 +94,20 @@ const productSchema = new mongoose.Schema(
 			default: 5,
 			min: 0,
 		},
+		// 🍽️ Formule (menu à étapes, prix fixe)
+		isFormule: {
+			type: Boolean,
+			default: false,
+			index: true,
+		},
+		// Étapes de la formule : ex. [{ label: "Un salé", categoryTag: "sale" }]
+		formuleSteps: [
+			{
+				label: { type: String, required: true }, // "Un salé"
+				categoryTag: { type: String, required: true }, // doit matcher product.category
+			},
+		],
+
 		// 🗄️ Champ pour archivage lors de l'import menu
 		archived: {
 			type: Boolean,
