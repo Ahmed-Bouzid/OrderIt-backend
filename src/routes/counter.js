@@ -87,7 +87,62 @@ router.post(
 				return res.status(200).json(existingSession);
 			}
 
-				// ✅ Créer nouvelle session via service (transaction atomique)
+				// 🧹 Purge silencieuse des commandes orphelines pour ce restaurant
+			// Cas 1 : aucune attache (serverId + tableId + tableSessionId tous null)
+			// Cas 2 : tableId présent mais tableSessionId null + reservationId null + session liée fermée/inexistante
+			try {
+				const restaurantObjId = new mongoose.Types.ObjectId(restaurantId);
+
+				// Cas 1 : 100% détachées
+				const cas1 = await Order.deleteMany({
+					restaurantId: restaurantObjId,
+					serverId: null,
+					tableId: null,
+					tableSessionId: null,
+					orderStatus: { $ne: "completed" },
+				});
+
+				// Cas 2 : tableId présent mais tableSessionId null + reservationId null
+				// → vérifier que la session liée à cette table est bien fermée ou inexistante
+				const orphanCandidates = await Order.find({
+					restaurantId: restaurantObjId,
+					tableId: { $ne: null },
+					tableSessionId: null,
+					reservationId: null,
+					orderStatus: { $ne: "completed" },
+				}).select("_id tableId").lean();
+
+				let cas2Count = 0;
+				if (orphanCandidates.length > 0) {
+					// Récupérer les sessions actives (non fermées) pour ces tables
+					const tableIds = [...new Set(orphanCandidates.map(o => o.tableId.toString()))];
+					const activeSessions = await TableSession.find({
+						tableId: { $in: tableIds.map(id => new mongoose.Types.ObjectId(id)) },
+						billStatus: { $ne: "closed" },
+					}).select("tableId").lean();
+					const activeTableIds = new Set(activeSessions.map(s => s.tableId.toString()));
+
+					// Supprimer uniquement celles dont la table n'a plus de session active
+					const toDelete = orphanCandidates
+						.filter(o => !activeTableIds.has(o.tableId.toString()))
+						.map(o => o._id);
+
+					if (toDelete.length > 0) {
+						const res2 = await Order.deleteMany({ _id: { $in: toDelete } });
+						cas2Count = res2.deletedCount;
+					}
+				}
+
+				const total = (cas1.deletedCount || 0) + cas2Count;
+				if (total > 0) {
+					console.log(`[COUNTER] 🧹 Purge orphelins: ${total} supprimées (cas1=${cas1.deletedCount}, cas2=${cas2Count}) pour restaurant=${restaurantId}`);
+				}
+			} catch (purgeErr) {
+				// Non-bloquant : ne pas empêcher l'ouverture de caisse
+				console.error("[COUNTER] Erreur purge orphelins (non-bloquant):", purgeErr.message);
+			}
+
+			// ✅ Créer nouvelle session via service (transaction atomique)
 			const session = await counterService.createSession({
 			restaurantId,
 			tableId,
