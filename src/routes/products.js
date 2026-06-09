@@ -146,6 +146,7 @@ router.put(
 		const updates = Object.fromEntries(
 			Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
 		);
+		console.log(`[PRODUCT PUT] isFormule=${updates.isFormule} formuleSteps=${JSON.stringify(updates.formuleSteps)}`);
 
 		try {
 			const updated = await Product.findByIdAndUpdate(req.params.id, updates, {
