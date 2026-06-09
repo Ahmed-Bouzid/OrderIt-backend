@@ -921,4 +921,49 @@ router.post(
 	}
 );
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /counter/participant/lang — Mettre à jour la langue du participant actif
+// Appelé depuis CLIENT-end quand le client change de langue
+// Body : { clientId, tableSessionId, lang }
+// ─────────────────────────────────────────────────────────────────────────────
+router.patch(
+	"/participant/lang",
+	async (req, res) => {
+		try {
+			const { clientId, tableSessionId, lang } = req.body;
+			if (!clientId || !lang) {
+				return res.status(400).json({ message: "clientId et lang requis" });
+			}
+
+			const query = { clientId };
+			if (tableSessionId) query.tableSessionId = tableSessionId;
+
+			const participant = await Participant.findOneAndUpdate(
+				{ ...query, leftAt: null },
+				{ $set: { lang } },
+				{ new: true, sort: { joinedAt: -1 } }
+			);
+
+			if (!participant) {
+				return res.status(404).json({ message: "Participant actif non trouvé" });
+			}
+
+			// Émettre un event table-session pour refresh le front
+			const io = req.app.locals.io;
+			if (io && participant.tableSessionId) {
+				const TableSession = require("../models/TableSession");
+				const session = await TableSession.findById(participant.tableSessionId).lean();
+				if (session?.restaurantId) {
+					emitTableSessionEvent(io, session.restaurantId.toString(), "updated", { tableSessionId: participant.tableSessionId.toString(), clientLang: lang });
+				}
+			}
+
+			res.json({ ok: true, lang: participant.lang });
+		} catch (err) {
+			console.error("[COUNTER] PATCH /participant/lang:", err.message);
+			res.status(500).json({ message: err.message });
+		}
+	}
+);
+
 module.exports = router;
