@@ -1736,6 +1736,32 @@ router.put("/client/:id/close", async (req, res) => {
 
 		// 2. Vérifier que la réservation peut être terminée
 		if (reservation.status === "completed") {
+			// ⭐ Idempotent : fermer quand même la TableSession active si elle existe encore
+			if (reservation.tableId && reservation.restaurantId) {
+				try {
+					const TableSession = require("../models/TableSession");
+					const { emitTableSessionEvent } = require("../utils/socketEmitter");
+					const io = require("../utils/ioStore").getIO();
+					const activeSession = await TableSession.findOne({
+						tableId: reservation.tableId,
+						restaurantId: reservation.restaurantId,
+						billStatus: { $ne: "closed" },
+					});
+					if (activeSession) {
+						activeSession.billStatus = "closed";
+						activeSession.status = "closed";
+						activeSession.closedAt = new Date();
+						await activeSession.save();
+						if (io) {
+							emitTableSessionEvent(io, reservation.restaurantId.toString(), "closed", activeSession.toObject());
+						}
+						await Table.findByIdAndUpdate(reservation.tableId, { isAvailable: true, guests: [] });
+						console.log(`[CLOSE_IDEMPOTENT] Session fermée pour table=${reservation.tableId}`);
+					}
+				} catch (sessionCloseErr) {
+					console.error("[CLOSE_IDEMPOTENT] Erreur fermeture session:", sessionCloseErr.message);
+				}
+			}
 			return res.status(400).json({ message: "Réservation déjà terminée" });
 		}
 
