@@ -11,6 +11,7 @@ const Table = require("../models/Table");
 const Product = require("../models/Product");
 const Order = require("../models/Order");
 const Reservation = require("../models/Reservation");
+const TableSession = require("../models/TableSession");
 const {
 	cancelOpenStripePaymentsForOrder,
 } = require("../utils/cancelOpenStripePayments");
@@ -70,6 +71,24 @@ router.post(
 				}
 			} else if (!["server", "admin"].includes(role)) {
 				return res.status(403).json({ message: "Rôle non autorisé" });
+			}
+
+			// 🔍 Auto-link tableSessionId pour commandes client (manquant car le client n'a pas accès au counter)
+			if (role === "client" && !tableSessionId && tableId) {
+				try {
+					const activeSession = await TableSession.findOne({
+						tableId: new mongoose.Types.ObjectId(tableId),
+						billStatus: { $ne: "closed" },
+					}).select("_id").lean();
+					if (activeSession) {
+						tableSessionId = activeSession._id;
+						console.log(`[ORDERS] Auto-link tableSessionId=${tableSessionId} pour commande client table=${tableId}`);
+					} else {
+						console.warn(`[ORDERS] Pas de session active pour table=${tableId} (commande client sans session)`);
+					}
+				} catch (sessionErr) {
+					console.error("[ORDERS] Erreur lookup TableSession:", sessionErr.message);
+				}
 			}
 
 			// 🔍 Si reservationId fourni et pas de serverId, récupérer depuis la réservation
