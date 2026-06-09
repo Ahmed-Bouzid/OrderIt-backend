@@ -125,6 +125,7 @@ async function resolveStableClientId({
  * Fire-and-forget : les erreurs sont loguées mais n'interrompent pas la réponse.
  */
 async function dualWriteSession({ reservation, clientName, clientId, deviceId, isCreator = false, lang = "fr" }) {
+	console.log(`[DUAL-WRITE] lang=${lang} isCreator=${isCreator} clientName=${clientName}`);
 	try {
 		// Trouver ou créer la TableSession liée à cette réservation
 		let session = await TableSession.findOne({ reservationId: reservation._id, status: "active" });
