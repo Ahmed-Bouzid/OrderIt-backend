@@ -293,6 +293,7 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 			// pas de tableSessionId (elles matchent par tableId uniquement)
 			// ⚠️ Filtrer uniquement les orders non-payées et non-terminées pour ne pas
 			// remonter les commandes des sessions précédentes
+			// ✅ EXCLURE les orders avec reservationId (orphelines d'anciennes réservations)
 			if (tableId && isValidObjectId(tableId)) {
 				const activeStatuses = ["pending", "confirmed", "in_progress", "ready", "sent"];
 				query.$or = [
@@ -300,12 +301,14 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 					{
 						tableId,
 						tableSessionId: { $exists: false },
+						reservationId: { $exists: false }, // ✅ Exclure orphelins réservation
 						paid: { $ne: true },
 						orderStatus: { $nin: ["cancelled", "completed"] },
 					},
 					{
 						tableId,
 						tableSessionId: null,
+						reservationId: null, // ✅ Exclure orphelins réservation
 						paid: { $ne: true },
 						orderStatus: { $nin: ["cancelled", "completed"] },
 					},
@@ -413,6 +416,44 @@ router.get("/", auth, checkRoles(["server", "admin"]), async (req, res) => {
 		res
 			.status(500)
 			.json({ message: "Erreur lors du chargement des commandes." });
+	}
+});
+
+// 🗑️ DELETE /api/orders/cleanup-orphans - Supprimer les commandes orphelines d'anciennes réservations
+// Cas d'usage : Table avec orders de réservation non-payées mais sans tableSessionId actif
+router.delete("/cleanup-orphans", auth, checkRoles(["server", "admin"]), async (req, res) => {
+	try {
+		const { tableId, restaurantId } = req.query;
+		
+		if (!tableId || !mongoose.Types.ObjectId.isValid(tableId)) {
+			return res.status(400).json({ message: "tableId requis et valide" });
+		}
+		
+		// Supprimer les orders avec :
+		// - tableId matchant
+		// - reservationId existant (= liée à une réservation)
+		// - tableSessionId null/inexistant (= orpheline)
+		// - non-payée et active
+		const result = await Order.deleteMany({
+			tableId,
+			reservationId: { $exists: true, $ne: null },
+			$or: [
+				{ tableSessionId: { $exists: false } },
+				{ tableSessionId: null }
+			],
+			paid: { $ne: true },
+			orderStatus: { $in: ["pending", "confirmed", "in_progress", "ready"] }
+		});
+		
+		console.log(`🗑️ [CLEANUP] ${result.deletedCount} orders orphelines supprimées pour table ${tableId}`);
+		
+		res.json({ 
+			success: true, 
+			deletedCount: result.deletedCount 
+		});
+	} catch (err) {
+		console.error("❌ [DELETE /orders/cleanup-orphans] Erreur:", err);
+		res.status(500).json({ message: "Erreur lors du nettoyage des orphelins." });
 	}
 });
 
