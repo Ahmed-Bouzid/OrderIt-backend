@@ -77,7 +77,7 @@ const reservationSchema = new mongoose.Schema(
 		arrivalTime: { type: Date },
 		reservationSource: {
 			type: String,
-			enum: ["on_site", "online", "walk_in"],
+			enum: ["on_site", "online", "walk_in", "Sur place"],
 			default: "on_site",
 		},
 
